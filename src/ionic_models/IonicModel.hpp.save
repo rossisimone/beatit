@@ -1,0 +1,33 @@
+#include<vector>
+
+
+namespace BeatIt
+{
+
+// Only nodal solve
+class IonicModel
+{
+public:
+
+    IonicModel();
+    virtual ~IonicModel() {}
+
+    virtual  solve();
+
+private:
+
+    // Transmembrane potential
+    double M_transmembranePotential;
+    // Applied current
+    double M_appliedCurrent;
+    // variables
+    std::vector<double> M_variables;
+    // num variables
+    int    M_numVariables;
+    
+
+}
+
+
+
+}
