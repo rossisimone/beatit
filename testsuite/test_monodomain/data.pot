@@ -8,9 +8,9 @@
 
 [mesh]
     # number of elements per side
-    elX = 40
-    elY = 16
-    elZ = 32
+    elX = 10
+    elY = 4
+    elZ = 2
     
     # For Adaptive Mesh Refinement (AMR)
     # if max_num_mesh_ref = 0 then we use no AMR
