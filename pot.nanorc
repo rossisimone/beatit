@@ -1,0 +1,21 @@
+## Here is an example for AthenaVMS datafile.
+##
+syntax "pot" "\.(pot)$"
+
+color brightmagenta start="\[" end="\]"
+color brightyellow "\["
+color brightyellow "\]"
+
+# Partially completed
+color green ".*="
+
+# Partially completed
+color brightwhite "=.*"
+
+# equal sign
+color brightyellow "="
+color brightyellow ","
+
+
+## Comment highlighting
+color blue "#.*"
