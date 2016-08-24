@@ -25,7 +25,7 @@
 [monodomain]
 
     # Output Folder
-    output_folder = Outpot
+    output_folder = Output
 
 	# If we want to impose an initial conditions on the potential
 	# we can use the parameter ic. For example
