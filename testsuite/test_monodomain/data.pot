@@ -7,41 +7,66 @@
 #####################################################################
 
 [mesh]
-    elX = 4
-    elY = 4
-    elZ = 4
+    # number of elements per side
+    elX = 40
+    elY = 16
+    elZ = 32
+    
+    # For Adaptive Mesh Refinement (AMR)
+    # if max_num_mesh_ref = 0 then we use no AMR
+    max_num_mesh_ref = 0
+    step = 25
+    refine_fraction = 0.7
+    coarsen_fraction = 0.3
+    error_estimator = kelly  # kelly, laplacian
 [../]
 
 
 [monodomain]
 
     # Output Folder
-    output_folder = Output
-    
+    output_folder = Outpot
+
+	# If we want to impose an initial conditions on the potential
+	# we can use the parameter ic. For example
     # ic = 'x + y * t'
+    
     # Monodomain Parameters
-    Dff =  1.3342
+    # This can be made a function
+    Dff = 1.3342
     Dss = 0.17606
     Dnn = 0.17606
     Chi = 1400.0
-    
+
     # Ionic Model
+    # For now: NashPanfilov or ORd
     ionic_model = NashPanfilov
 
     # fiber field
     fibers  = '1.0, 0.0, 0.0'
-    sheets  = '1.0, 0.0, 0.0'
-    xfibers = '1.0, 0.0, 0.0'
+    sheets  = '0.0, 1.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
 
+	# Applied Stimulus
     [./pacing]
-        function = '40.0 * ( x<0.15 ) * ( y<0.15 ) * ( z<0.15 ) * ( t<2 )'
+        function = '10.0 * ( x<0.15 ) * ( y<0.15 ) * ( z<0.15 ) * ( t<2 )'
     [../]
+
+	# Time Data
     [./time]
         dt = 0.02
         init_time = 0.0
-        final_time = 1.0
-        max_iter = 10000
-        save_iter = 100
+        final_time = 80
+        max_iter = 100000
+        save_iter = 50
+    [../]
+
+	# Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
     [../]
 
 [../]
+
+
