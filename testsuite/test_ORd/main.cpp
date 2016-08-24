@@ -50,6 +50,8 @@
 
 #include <math.h>
 #include <iostream>
+#include "Util/IO/io.hpp"
+
 using namespace std;
 #include <fstream>
 using std::ifstream;
@@ -187,6 +189,7 @@ double nai0,nass0,ki0,kss0,cai0,cass0,cansr0,cajsr0,m0,hf0,hs0,jO,hsp0,jp0,mL0,h
 
 int main()
 {
+	BeatIt::printBanner(std::cout);
 //establish the output file "output.txt"
 FILE*output;
 output = fopen("output.txt","w");

@@ -1,0 +1,11 @@
+PROJECT_NAME = 'Beat It'
+
+INPUT = ./src  ./testsuite
+
+OUTPUT_DIRECTORY = ./doc
+
+GENERATE_HTML = YES
+
+HTML_OUTPUT = ./doc/html
+
+HTML_FILE_EXTENSION = .html

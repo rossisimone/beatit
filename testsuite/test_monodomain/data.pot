@@ -1,0 +1,47 @@
+# FILE:    "data.pot"
+# PURPOSE: Test for GetPot
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    elX = 4
+    elY = 4
+    elZ = 4
+[../]
+
+
+[monodomain]
+
+    # Output Folder
+    output_folder = Output
+    
+    # ic = 'x + y * t'
+    # Monodomain Parameters
+    Dff =  1.3342
+    Dss = 0.17606
+    Dnn = 0.17606
+    Chi = 1400.0
+    
+    # Ionic Model
+    ionic_model = NashPanfilov
+
+    # fiber field
+    fibers  = '1.0, 0.0, 0.0'
+    sheets  = '1.0, 0.0, 0.0'
+    xfibers = '1.0, 0.0, 0.0'
+
+    [./pacing]
+        function = '40.0 * ( x<0.15 ) * ( y<0.15 ) * ( z<0.15 ) * ( t<2 )'
+    [../]
+    [./time]
+        dt = 0.02
+        init_time = 0.0
+        final_time = 1.0
+        max_iter = 10000
+        save_iter = 100
+    [../]
+
+[../]

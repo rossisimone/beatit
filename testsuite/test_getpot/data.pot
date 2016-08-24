@@ -1,0 +1,19 @@
+# FILE:    "data.pot"
+# PURPOSE: Test for GetPot
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[test]
+
+length = 2.0
+
+    [./mesh]
+        
+        file = heart.mesh
+        
+    [../]
+    
+[../]

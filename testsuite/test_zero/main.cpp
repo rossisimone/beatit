@@ -1,8 +1,9 @@
 #include <iostream>
-#include "io/io.hpp"
+
+#include "Util/IO/io.hpp"
 
 int main()
 {
-    printBanner(std::cout);
+    BeatIt::printBanner(std::cout);
     return 0;
 }

@@ -1,0 +1,14 @@
+# FILE:    "data.pot"
+# PURPOSE: Test for GetPot
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+DIM = 2
+
+input_mesh_name = mesh1.e
+
+output_systems = systems.txt
+# output_mesh = cm_m1.e

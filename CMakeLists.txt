@@ -9,25 +9,42 @@ set (BeatIt_VERSION_MINOR 0)
 
 
 
-# Include source directories
-add_subdirectory(src)
-add_subdirectory(testsuite)
-
-#include_directories(src)
-include_directories ("${PROJECT_SOURCE_DIR}/src")
-
-# set flags
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
 # 
 
 # Packages 
 find_package(MPI REQUIRED)
+find_package(VTK REQUIRED)
+find_package(Boost REQUIRED)
+message("-- VTK_INCLUDE_DIRS: ${VTK_INCLUDE_DIRS}")
+#message("VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
+
 
 #
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-message(" Module path: ${CMAKE_MODULE_PATH}")
+message("-- Module path: ${CMAKE_MODULE_PATH}")
 find_package(LIBMESH REQUIRED)
+
+set(LIBMESH_LIB ${LIBMESH_LIBRARIES})
+
+
+
+
+#include_directories(src)
+include_directories ("${PROJECT_SOURCE_DIR}/src")
+include_directories ("${LIBMESH_DIR}/include")
+include_directories ("${VTK_INCLUDE_DIRS}")
+include_directories ("${Boost_INCLUDE_DIR}")
+
+
+
+# Include source directories
+add_subdirectory(src)
+add_subdirectory(testsuite)
+
+# set flags
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+
 
 
 # Summary 
