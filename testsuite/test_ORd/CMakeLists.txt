@@ -4,9 +4,11 @@ set_target_properties(test_ORd PROPERTIES  OUTPUT "test_ORd.x")
 
 
 target_link_libraries(test_ORd beatit)
+target_link_libraries(test_ORd ${LIBMESH_LIB})
+
 include_directories ("${PROJECT_SOURCE_DIR}/src")
-#CMAKE_SOURCE_DIR
-#target_include_directories(test_zero ${CMAKE_SOURCE_DIR})
+include_directories ("${LIBMESH_DIR}/include")
+include_directories ("${VTK_INCLUDE_DIRS}")
 
 SET_TARGET_PROPERTIES(test_ORd PROPERTIES LINKER_LANGUAGE CXX)
 
@@ -26,6 +28,7 @@ add_executable(${TESTNAME} main_ORd.cpp)
 set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "test_beatit_ORd.x")
 
 target_link_libraries(${TESTNAME} beatit)
+target_link_libraries(${TESTNAME} ${LIBMESH_LIB})
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 
 SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
