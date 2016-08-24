@@ -708,7 +708,7 @@ Monodomain::advance()
 }
 
 void
-Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoint )
+Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoint, const std::string& mass)
 {
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
@@ -763,7 +763,7 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 //
     monodomain_system.get_vector("ionic_currents").close();
 ////    double val = 1.0;
-	 monodomain_system.get_matrix("mass").vector_mult_add( *monodomain_system.rhs,
+	 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
 			 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 monodomain_system.get_vector("ionic_currents") );
     i = first_local_index;
     double v_old, Iion, ml, v_new;
@@ -816,7 +816,7 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 		monodomain_system.get_vector("ionic_currents").close();
 		monodomain_system.rhs->zero();
 		monodomain_system.rhs->close();
-		 monodomain_system.get_matrix("mass").vector_mult_add( *monodomain_system.rhs,
+		 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
 				 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 monodomain_system.get_vector("ionic_currents") );
 		i = first_local_index;
 
