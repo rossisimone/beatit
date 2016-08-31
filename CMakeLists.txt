@@ -33,7 +33,14 @@ set(LIBMESH_LIB ${LIBMESH_LIBRARIES})
 
 #include_directories(src)
 include_directories ("${Boost_INCLUDE_DIR}")
+
+if("${VTK_INCLUDE_DIRS}" STREQUAL "")
+message("-- Not including VTK")
+else("${VTK_INCLUDE_DIRS}" STREQUAL "")
+message("-- Including VTK")
 include_directories ("${VTK_INCLUDE_DIRS}")
+endif("${VTK_INCLUDE_DIRS}" STREQUAL  "")
+
 include_directories ("${LIBMESH_DIR}/include")
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 
