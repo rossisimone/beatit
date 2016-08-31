@@ -108,7 +108,8 @@ int main (int argc, char ** argv)
       if(max_num_mesh_ref > 0) usingAMR = true;
       //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
 
-      std::string mass_type = data("monodomain/mass_type", "mass");
+      std::string reaction_mass = data("monodomain/reaction_mass", "mass");
+      std::string diffusion_mass = data("monodomain/diffusion_mass", "lumped_mass");
       bool useMidpointMethod = data("monodomain/time/use_midpoint", true);
       int step0 = 0;
       int step1 = 1;
@@ -137,7 +138,6 @@ int main (int argc, char ** argv)
 
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
-
 		  datatime.advance();
 		  monodomain.advance();
 //
@@ -151,7 +151,7 @@ int main (int argc, char ** argv)
 //			  perf_log.pop("update pacing");
 //			  perf_log.push("solving reactions");
 //			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time);
-			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, mass_type);
+			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, reaction_mass);
 //			  perf_log.pop("solving reactions");
 //			  perf_log.push("solving diffusion");
 			  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time);
@@ -160,7 +160,7 @@ int main (int argc, char ** argv)
 			  monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
 //			  perf_log.pop("update pacing");
 //			  perf_log.push("solving reactions");
-			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod, mass_type);
+			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod, reaction_mass);
 //			  perf_log.pop("solving reactions");
 //			  perf_log.push("update activation times");
 			  monodomain.update_activation_time(datatime.M_time);
@@ -179,24 +179,42 @@ int main (int argc, char ** argv)
 		  }
 		  else
 		  {
-			  perf_log.push("update pacing");
-			  monodomain.update_pacing(datatime.M_time-0.75*datatime.M_dt);
-			  perf_log.pop("update pacing");
-			  perf_log.push("solving reactions");
-			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, mass_type);
-			  perf_log.pop("solving reactions");
-			  perf_log.push("solving diffusion");
-			  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time);
-			  perf_log.pop("solving diffusion");
-			  perf_log.push("update pacing");
-			  monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
-			  perf_log.pop("update pacing");
-			  perf_log.push("solving reactions");
-			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod,  mass_type);
-			  perf_log.pop("solving reactions");
-			  perf_log.push("update activation times");
-			  monodomain.update_activation_time(datatime.M_time);
-			  perf_log.pop("update activation times");
+			  if(useMidpointMethod)
+			  {
+				  perf_log.push("update pacing");
+				  monodomain.update_pacing(datatime.M_time-0.75*datatime.M_dt);
+				  perf_log.pop("update pacing");
+				  perf_log.push("solving reactions");
+				  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+				  perf_log.pop("solving reactions");
+				  perf_log.push("solving diffusion");
+				  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+				  perf_log.pop("solving diffusion");
+				  perf_log.push("update pacing");
+				  monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
+				  perf_log.pop("update pacing");
+				  perf_log.push("solving reactions");
+				  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod,  reaction_mass);
+				  perf_log.pop("solving reactions");
+				  perf_log.push("update activation times");
+				  monodomain.update_activation_time(datatime.M_time);
+				  perf_log.pop("update activation times");
+			  }
+			  else
+			  {
+				  perf_log.push("update pacing");
+				  monodomain.update_pacing(datatime.M_time);
+				  perf_log.pop("update pacing");
+				  perf_log.push("solving reactions");
+				  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+				  perf_log.pop("solving reactions");
+				  perf_log.push("solving diffusion");
+				  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+				  perf_log.pop("solving diffusion");
+				  perf_log.push("update activation times");
+				  monodomain.update_activation_time(datatime.M_time);
+				  perf_log.pop("update activation times");
+			  }
 		  }
 
 

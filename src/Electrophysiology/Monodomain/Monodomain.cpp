@@ -79,8 +79,6 @@
 
 #include "libmesh/exodusII_io.h"
 #include "libmesh/gmv_io.h"
-#include "libmesh/vtk_io.h"
-
 
 #include "libmesh/perf_log.h"
 
@@ -772,9 +770,10 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
     {
         v_old = (*monodomain_system.old_local_solution)(i);
         Iion  =  (*monodomain_system.rhs)(i);
-        double Iion2  = monodomain_system. get_vector("ionic_currents")(i);
+//        double Iion2  = monodomain_system. get_vector("ionic_currents")(i);
         ml = ionic_model_system.get_vector("lumped_mass")(i);
         v_new = v_old + dt * Iion / ml;
+//        v_new = v_old + dt * Iion2;
         monodomain_system.solution->set(i, v_new);
     }
     monodomain_system.solution->close();
@@ -836,14 +835,15 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 
 
 void
-Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint )
+Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , const std::string& mass)
 {
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real> ("Chi");
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     monodomain_system.matrix->zero();
     monodomain_system.rhs->zero();
     monodomain_system.matrix->close();
-    monodomain_system.matrix->add(1.0, monodomain_system.get_matrix("mass" ) );
+    monodomain_system.matrix->add(1.0, monodomain_system.get_matrix(mass) );
+
     if(useMidpoint)
     {
     	monodomain_system.matrix->add(dt/(2.0*Chi), monodomain_system.get_matrix("stiffness" ) );
@@ -853,11 +853,11 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint )
     }
     else
     {
-    	monodomain_system.matrix->add(dt, monodomain_system.get_matrix("stiffness" ) );
+    	monodomain_system.matrix->add(dt/Chi, monodomain_system.get_matrix("stiffness" ) );
     }
 
-	 monodomain_system.get_matrix("mass").vector_mult_add( *monodomain_system.rhs,
-   																													   *monodomain_system.solution);
+	 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
+   																				             									   *monodomain_system.solution);
 
     double tol = 1e-12;
     double max_iter = 2000;

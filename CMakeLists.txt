@@ -9,7 +9,9 @@ set (BeatIt_VERSION_MINOR 0)
 
 
 
-# 
+# REQUIRES C++11
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Packages 
 find_package(MPI REQUIRED)
@@ -30,10 +32,10 @@ set(LIBMESH_LIB ${LIBMESH_LIBRARIES})
 
 
 #include_directories(src)
-include_directories ("${PROJECT_SOURCE_DIR}/src")
-include_directories ("${LIBMESH_DIR}/include")
-include_directories ("${VTK_INCLUDE_DIRS}")
 include_directories ("${Boost_INCLUDE_DIR}")
+include_directories ("${VTK_INCLUDE_DIRS}")
+include_directories ("${LIBMESH_DIR}/include")
+include_directories ("${PROJECT_SOURCE_DIR}/src")
 
 
 

@@ -5,7 +5,6 @@ set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_AMRbistable.x")
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
-include_directories ("${VTK_INCLUDE_DIRS}")
 
 
 target_link_libraries(${TESTNAMEV} beatit)

@@ -114,7 +114,7 @@ public:
     void advance();
     void solve_reaction_step( double dt, double time, int step = 0,  bool useMidpoint = true, const std::string& mass = "mass");
 
-    void solve_diffusion_step(double dt, double time,  bool useMidpoint = true);
+    void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass");
 //protected:
 
     /// input file

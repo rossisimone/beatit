@@ -8,7 +8,6 @@ target_link_libraries(test_ORd ${LIBMESH_LIB})
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
-include_directories ("${VTK_INCLUDE_DIRS}")
 
 SET_TARGET_PROPERTIES(test_ORd PROPERTIES LINKER_LANGUAGE CXX)
 

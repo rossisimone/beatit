@@ -5,7 +5,6 @@ set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_NumericVector.x")
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
-include_directories ("${LIBMESH_DIR}/../../vtk/7.0.0/include/vtk-7.0")
 
 
 target_link_libraries(${TESTNAMEV} beatit)
