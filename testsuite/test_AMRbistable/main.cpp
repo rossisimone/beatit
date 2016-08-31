@@ -224,7 +224,7 @@ int main(int argc, char ** argv)
     // TIME LOOP
     std::string exodus_filename = "transient_ex1.e";
     libMesh::ExodusII_IO(mesh).write_equation_systems (exodus_filename, systems);
-    libMesh::VTKIO(mesh).write_equation_systems ("out.vtu.000", systems);
+//    libMesh::VTKIO(mesh).write_equation_systems ("out.vtu.000", systems);
 
 
     libMesh::TransientLinearImplicitSystem & system = systems.get_system<
@@ -245,7 +245,7 @@ int main(int argc, char ** argv)
                   << std::setfill('0')
                   << std::right
                   << t_step+1;
-        libMesh::VTKIO(mesh).write_equation_systems (file_name.str(), systems);
+//        libMesh::VTKIO(mesh).write_equation_systems (file_name.str(), systems);
 
         // Incremenet the time counter, set the time and the
         // time step size as parameters in the EquationSystem.

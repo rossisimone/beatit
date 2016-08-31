@@ -293,11 +293,16 @@ Monodomain::init(double time)
 
 
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
+    std::cout << "* MONODOMAIN: Initializing activation times to -1  ... " << std::flush;
     ParameterSystem& activation_times_system  = M_equationSystems.get_system<ParameterSystem>("activation_times");
+    first_local_index = activation_times_system.solution->first_local_index();
+    last_local_index = activation_times_system.solution->last_local_index();
+
     for(auto i = first_local_index; i < last_local_index; ++i)
     {
     	activation_times_system.solution->set(i,-1.0);
     }
+    std::cout << " done" << std::endl;
 
     std::string fibers_data  = M_datafile("monodomain/fibers" , "1.0, 0.0, 0.0");
     std::string sheets_data  = M_datafile("monodomain/sheets" , "0.0, 1.0, 0.0");
@@ -315,9 +320,15 @@ Monodomain::init(double time)
     ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
     ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
 
+    std::cout << "* MONODOMAIN: Creating fibers from function: " <<  fibers_data << std::flush;
     fiber_system .project_solution(&fibers_func );
+    std::cout << " done" << std::endl;
+    std::cout << "* MONODOMAIN: Creating sheets from function: " <<  xfibers_data << std::flush;
     sheets_system.project_solution(&sheets_func );
+    std::cout << " done" << std::endl;
+    std::cout << "* MONODOMAIN: Creating xfibers from function: " <<  xfibers_data << std::flush;
     xfiber_system.project_solution(&xfibers_func);
+    std::cout << " done" << std::endl;
 
 
     ParameterSystem& conductivity_system = M_equationSystems.get_system<ParameterSystem>("conductivity");
