@@ -15,7 +15,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Packages 
 find_package(MPI REQUIRED)
-find_package(VTK REQUIRED)
+find_package(VTK QUIET)
 find_package(Boost REQUIRED)
 message("-- VTK_INCLUDE_DIRS: ${VTK_INCLUDE_DIRS}")
 #message("VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
