@@ -1,0 +1,76 @@
+# FILE:    "nash_panfilov.pot"
+# PURPOSE: Test for Monodomain with Nash-Panfilov Ionic Model
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    # number of elements per side
+    elX = 160
+    elY = 1
+    elZ = 1
+    maxX = 5.0
+    maxY = 0.15
+    maxZ = 0.15
+    # For Adaptive Mesh Refinement (AMR)
+    # if max_num_mesh_ref = 0 then we use no AMR
+    max_num_mesh_ref = 0
+    step = 25
+    refine_fraction = 0.7
+    coarsen_fraction = 0.3
+    error_estimator = kelly  # kelly, laplacian
+[../]
+
+
+[monodomain]
+
+    # Output Folder
+    output_folder = ctest_ORd_1D_output
+
+    # If we want to impose an initial conditions on the potential
+    # we can use the parameter ic. For example
+    # ic = 'x + y * t'
+
+    # This can be made a function
+    Dff = 1.3342
+    Dss = 0.17606
+    Dnn = 0.17606
+    Chi = 1400.0
+
+    # Ionic Model
+    # For now: NashPanfilov or ORd
+    ionic_model = ORd
+
+    # In reaction step: use mass or  lumped_mass
+    reaction_mass = mass
+    diffusion_mass = lumped_mass
+
+    # fiber fields
+    fibers  = '1.0, 0.0, 0.0'
+    sheets  = '0.0, 1.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
+
+    # Applied Stimulus
+    [./pacing]
+        function = '40. * ( x<0.65 ) * ( y<1 ) * ( z<1 ) * ( t<2 )'
+    [../]
+
+    # Time Data
+    [./time]
+        use_midpoint = false
+        dt = 0.01
+        init_time = 0.0
+        final_time= 5
+        max_iter  = 2000000
+        save_iter = 2000000
+    [../]
+
+    # Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
+    [../]
+
+[../]
