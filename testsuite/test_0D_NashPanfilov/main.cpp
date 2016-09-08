@@ -48,6 +48,7 @@
 #include <memory>
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
 #include "Util/IO/io.hpp"
+#include "Util/CTestUtil.hpp"
 
 int main()
 {
@@ -69,6 +70,10 @@ int main()
 	BeatIt::saveData(0.0, variables, output);
 
 	int iter = 0;
+
+	// for ctest purposes
+	double solution_norm = 0.0;
+
 	while( time <= TF )
 	{
 		if(time >= 0. && time <= 0.5)
@@ -82,8 +87,18 @@ int main()
 		++iter;
 		if( 0 == iter%save_iter ) BeatIt::saveData(time, variables, output);
 
+		// for ctest purposes
+		solution_norm += variables[0];
+
 	}
 
 	output.close();
+	//for ctest purposes
+	solution_norm /= iter;
+	//up to the 16th digit
+	const double reference_solution_norm =    0.6704271748046145;
+
+	return BeatIt::CTest::check_test(solution_norm, reference_solution_norm, 1e-12);
+
 }
 

@@ -59,7 +59,7 @@ IonicModel* createNashPanfilov()
 }
 
 NashPanfilov::NashPanfilov()
- : super(2, 0)
+ : super(2, 0, "NashPanfilov")
  , M_mu1(0.12)
  , M_mu2(0.3)
  , M_k(8.0)
@@ -75,12 +75,12 @@ NashPanfilov::NashPanfilov()
 void
 NashPanfilov::solve(std::vector<double>& variables, double appliedCurrent, double dt)
 {
-    updateVariables(variables, dt);
+    updateVariables(variables, appliedCurrent, dt);
     variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
 }
 
 void
-NashPanfilov::updateVariables(std::vector<double>& variables, double dt)
+NashPanfilov::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
     double V = variables[0];
     double r = variables[1];
@@ -89,7 +89,7 @@ NashPanfilov::updateVariables(std::vector<double>& variables, double dt)
 }
 
 void
-NashPanfilov::updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double dt)
+NashPanfilov::updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
 {
     double V = v_n[0];
     double r = v_n[1];

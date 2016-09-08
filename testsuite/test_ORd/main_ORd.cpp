@@ -50,6 +50,8 @@
 #include <memory>
 #include "Electrophysiology/IonicModels/ORd.hpp"
 #include "Util/IO/io.hpp"
+#include "Util/CTestUtil.hpp"
+#include <iomanip>
 
 int main()
 {
@@ -71,11 +73,14 @@ int main()
 	BeatIt::saveData(0.0, variables, output);
 
 	int iter = 0;
+
+	// for ctest purposes
+	double solution_norm = 0.0;
 	while( time <= TF )
 	{
 		if(time >= 0. && time <= 0.5)
 		{
-			Ist = -80.0;
+			Ist = 80.0;
 		}
 		else Ist = 0.0;
 
@@ -84,8 +89,18 @@ int main()
 		++iter;
 		if( 0 == iter%save_iter ) BeatIt::saveData(time, variables, output);
 
-	}
+		// for ctest purposes
+		solution_norm += variables[0];
 
+	}
 	output.close();
+	//for ctest purposes
+	solution_norm /= iter;
+	std::cout << std::setprecision(18) << "Solution norm = " << solution_norm << std::endl;
+	//up to the 16th digit
+	const double reference_solution_norm = -4.04702501464674036;
+	//We check only up to 12th
+    //We check only up to 12th
+	return BeatIt::CTest::check_test(solution_norm, reference_solution_norm, 1e-12);
 }
 

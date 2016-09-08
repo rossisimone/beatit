@@ -91,7 +91,7 @@ int main (int argc, char ** argv)
       // elements instead of the default QUAD4's we used in example 2
       // allow us to use higher-order approximation.
       MeshTools::Generation::build_cube (mesh,
-                                         1, 1, 1,
+                                         2, 2, 2,
                                          0., 1.,
                                          0., 1.,
                                          0., 1.,
@@ -126,25 +126,33 @@ int main (int argc, char ** argv)
       equation_systems.get_system("Poisson").get_vector(0).set(first_local_index+1, 3.0);
       equation_systems.get_system("Poisson").get_vector(0).print(std::cout);
 
-      auto size = (last_local_index - first_local_index)/2;
+      auto rank = equation_systems.comm().rank();
       for(int i = first_local_index; i < last_local_index; ++i)
       {
-          if(i%2 == 0 )
-          {
-              equation_systems.get_system("Poisson").solution->set(i, 1.0);
-          }
-          else
-          {
-              equation_systems.get_system("Poisson").solution->set(i, 2.0);
-          }
+             if(rank == 0 )  equation_systems.get_system("Poisson").solution->add(i, 1.0);
+             if(rank == 1 )  equation_systems.get_system("Poisson").solution->add(i, -1.0);
       }
-
+      if(rank == 1 )  equation_systems.get_system("Poisson").solution->add(first_local_index-1, -1.0);
+      equation_systems.get_system("Poisson").solution->close();
       equation_systems.get_system("Poisson").solution->print(std::cout);
+
+      if(rank == 1 )  equation_systems.get_system("Poisson").solution->set(last_local_index-1, 0.0);
+      equation_systems.comm().barrier();
+      equation_systems.get_system("Poisson").solution->close();
+      equation_systems.get_system("Poisson").solution->print(std::cout);
+      if(rank == 0 )  equation_systems.get_system("Poisson").solution->add(last_local_index, 2.0);
+      equation_systems.get_system("Poisson").solution->close();
+      equation_systems.get_system("Poisson").solution->print(std::cout);
+
       libMesh::ExodusII_IO exo(mesh);
       exo.write_equation_systems ("meshfile.e", equation_systems);
 
-      return 0;
+	  auto init_val = equation_systems.get_system("Poisson").solution->operator()(first_local_index);
+	  auto last_val = equation_systems.get_system("Poisson").solution->operator()(last_local_index-1);
 
+	  std::cout << "init_val: " << init_val << ", last_val " << last_val << std::endl;
+	  if(init_val == 1.0 && last_val == 0.0) return EXIT_SUCCESS;
+	  else return EXIT_FAILURE;
 }
 
 

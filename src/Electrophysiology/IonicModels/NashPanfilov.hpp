@@ -53,7 +53,7 @@
 #ifndef SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_
 #define SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_
 
-#include "IonicModel.hpp"
+#include "Electrophysiology/IonicModels/IonicModel.hpp"
 
 namespace BeatIt
 {
@@ -85,8 +85,8 @@ public:
      *  \param [in] variables Vector containing the local value of all variables (Variables  includes potential)
      *  \param [in] dt        Timestep
      */
-    void updateVariables(std::vector<double>& variables, double dt);
-    void updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double dt) ;
+    void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt);
+    void updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt) ;
 
     //! Update all the variables in the ionic model
     /*!

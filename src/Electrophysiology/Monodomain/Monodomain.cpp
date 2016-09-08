@@ -86,11 +86,13 @@
 #include "libmesh/kelly_error_estimator.h"
 #include "libmesh/mesh_refinement.h"
 #include "libmesh/fourth_error_estimators.h"
-
+#include "libmesh/discontinuity_measure.h"
 #include <sys/stat.h>
 
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
+#include "Electrophysiology/IonicModels/Grandi11.hpp"
 #include "Electrophysiology/IonicModels/ORd.hpp"
+#include "Electrophysiology/IonicModels/TP06.hpp"
 #include "Electrophysiology/Monodomain/Monodomain.hpp"
 #include "Util/SpiritFunction.hpp"
 
@@ -148,6 +150,8 @@ void Monodomain::setup(GetPot& data, std::string section)
     monodomain_system.add_variable( "V", libMesh::FIRST);
     // Add 3 matrices
     monodomain_system.add_matrix("lumped_mass");
+    // Add lumped mass matrix
+    monodomain_system.add_vector("lumped_mass_vector");
     monodomain_system.add_matrix("mass");
     monodomain_system.add_matrix("stiffness");
     monodomain_system.add_vector("ionic_currents");
@@ -171,8 +175,6 @@ void Monodomain::setup(GetPot& data, std::string section)
         // For the time being we use P1 for the variables
         ionic_model_system.add_variable( &var_name[0], libMesh::FIRST );
     }
-    // Add lumped mass matrix
-    ionic_model_system.add_vector("lumped_mass");
 
     // Add the applied current to this system
     IonicModelSystem& istim_system = M_equationSystems.add_system<IonicModelSystem>("istim");
@@ -203,11 +205,14 @@ void Monodomain::setup(GetPot& data, std::string section)
     conductivity_system.add_variable( "Dff", libMesh::CONSTANT, libMesh::MONOMIAL);
     conductivity_system.add_variable( "Dss", libMesh::CONSTANT, libMesh::MONOMIAL);
     conductivity_system.add_variable( "Dnn", libMesh::CONSTANT, libMesh::MONOMIAL);
-    M_parametersExporterNames.insert("activation_times");
+    ParameterSystem& procID_system = M_equationSystems.add_system<ParameterSystem>("ProcID");
+    procID_system.add_variable( "ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
+     M_parametersExporterNames.insert("activation_times");
     M_parametersExporterNames.insert("fibers");
     M_parametersExporterNames.insert("sheets");
     M_parametersExporterNames.insert("xfibers");
     M_parametersExporterNames.insert("conductivity");
+    M_parametersExporterNames.insert("ProcID");
 
     M_equationSystems.init();
     M_equationSystems.print_info();
@@ -279,7 +284,7 @@ Monodomain::init(double time)
     std::cout << "done " << std::endl;
 
     std::string v_ic = M_datafile("monodomain/ic", "");
-    if("v_ic" != "")
+    if(v_ic != "")
     {
         std::cout << "* MONODOMAIN: Found monodomain initial condition: " << v_ic << std::endl;
         SpiritFunction monodomain_ic;
@@ -290,7 +295,17 @@ Monodomain::init(double time)
         monodomain_system.project_solution(&monodomain_ic);
         std::cout << " done" << std::endl;
     }
+    std::cout << "* MONODOMAIN: Copying initial conditions to vectors at n nd at n-1... " << std::flush;
 
+    // Close vectors and update the values in old_local_solution and older_local_solution
+    monodomain_system.solution->close();
+	monodomain_system.old_local_solution->close();
+	monodomain_system.older_local_solution->close();
+	ionic_model_system.solution->close();
+	ionic_model_system.old_local_solution->close();
+	ionic_model_system.older_local_solution->close();
+    advance();
+    std::cout << " done" << std::endl;
 
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
     std::cout << "* MONODOMAIN: Initializing activation times to -1  ... " << std::flush;
@@ -323,7 +338,7 @@ Monodomain::init(double time)
     std::cout << "* MONODOMAIN: Creating fibers from function: " <<  fibers_data << std::flush;
     fiber_system .project_solution(&fibers_func );
     std::cout << " done" << std::endl;
-    std::cout << "* MONODOMAIN: Creating sheets from function: " <<  xfibers_data << std::flush;
+    std::cout << "* MONODOMAIN: Creating sheets from function: " <<  sheets_data << std::flush;
     sheets_system.project_solution(&sheets_func );
     std::cout << " done" << std::endl;
     std::cout << "* MONODOMAIN: Creating xfibers from function: " <<  xfibers_data << std::flush;
@@ -363,6 +378,17 @@ Monodomain::init(double time)
     M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
     M_linearSolver->init();
 
+    ParameterSystem& procID_system = M_equationSystems.get_system<ParameterSystem>("ProcID");
+    first_local_index = procID_system.solution->first_local_index();
+    last_local_index = procID_system.solution->last_local_index();
+
+    double myrank = static_cast<double>(M_equationSystems.comm().rank());
+    for(int el = first_local_index; el < last_local_index; ++el)
+    {
+    	procID_system.solution->set(el, myrank);
+    }
+    procID_system.solution->close();
+
 }
 
 void
@@ -396,12 +422,19 @@ Monodomain::update_activation_time( double  time, double threshold )
 
 }
 
+double
+Monodomain::last_activation_time()
+{
+    ParameterSystem& activation_times_system  = M_equationSystems.add_system<ParameterSystem>("activation_times");
+    return static_cast<double>(activation_times_system.solution->max());
+}
 
 
 void
 Monodomain::save(int step)
 {
     std::cout << "* MONODOMAIN: GMVIO::Exporting " << step << " in: "  << M_outputFolder << " ... " << std::flush;
+//    M_equationSystems->
     M_monodomainExporter->write_equation_systems ( M_outputFolder+"monodomain.gmv."+std::to_string(step),
                                                    M_equationSystems,
                                                    &M_monodomainExporterNames);
@@ -445,6 +478,7 @@ Monodomain::amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& t
 	libMesh::ErrorVector error;
 	libMesh::ErrorEstimator * p_error_estimator;
 	if("kelly" == type) p_error_estimator = new  libMesh::KellyErrorEstimator ;
+	else if ("disc" == type) p_error_estimator = new libMesh::DiscontinuityMeasure;
 	else p_error_estimator = new  libMesh::LaplacianErrorEstimator ;
 //	 libMesh::KellyErrorEstimator error_estimator;
 //	 libMesh::LaplacianErrorEstimator error_estimator;
@@ -460,7 +494,7 @@ Monodomain::amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& t
 //	std::cout << " reinit ...  " << std::flush;
     M_equationSystems.reinit();
 //	std::cout << " done  " << std::endl;
-
+    delete p_error_estimator;
 }
 
 
@@ -490,7 +524,7 @@ Monodomain::assemble_matrices()
      monodomain_system.get_matrix("mass").zero();
      monodomain_system.get_matrix("lumped_mass").zero();
      monodomain_system.get_matrix("stiffness").zero();
-     ionic_model_system.get_vector("lumped_mass").zero();
+     monodomain_system.get_vector("lumped_mass_vector").zero();
 
 
      ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
@@ -675,6 +709,7 @@ Monodomain::assemble_matrices()
          }
          monodomain_system.get_matrix("mass").add_matrix(Me, dof_indices);
          monodomain_system.get_matrix("lumped_mass").add_matrix(Mel, dof_indices);
+         monodomain_system.get_vector("lumped_mass_vector").add_vector(Fe, dof_indices);
          for (unsigned int qp = 0; qp < qrule_stiffness.n_points(); qp++)
          {
              for (unsigned int i = 0; i < phi_qp1.size(); i++)
@@ -695,13 +730,12 @@ Monodomain::assemble_matrices()
              }
          }
          monodomain_system.get_matrix("stiffness").add_matrix(Ke, dof_indices);
-         ionic_model_system.get_vector("lumped_mass").add_vector(Fe, dof_indices);
      }
-//     std::cout << " done" << std::endl;
+     // closing matrices and vectors
      monodomain_system.get_matrix("mass").close();
      monodomain_system.get_matrix("lumped_mass").close();
      monodomain_system.get_matrix("stiffness").close();
-     ionic_model_system.get_vector("lumped_mass").close();
+     monodomain_system.get_vector("lumped_mass_vector").close();
 }
 
 void
@@ -723,6 +757,7 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
     IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
     monodomain_system.rhs->zero();
+    double Cm = M_ionicModelPtr->membraneCapacitance();
 
     if(step > 0)
     {
@@ -748,6 +783,7 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
     // Solve the first time
     for( ; i < last_local_index; )
     {
+
         values[0] = (*monodomain_system.old_local_solution)(i);
         istim = (*istim_system.solution)(i);
 
@@ -757,11 +793,9 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
             values[nv+1] = (*ionic_model_system.old_local_solution)(var_index);
         }
 
-    	M_ionicModelPtr->updateVariables(values, dt);
+    	M_ionicModelPtr->updateVariables(values, istim, dt);
         double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
         monodomain_system.get_vector("ionic_currents").set(i,Iion);
-//        double new_v = values[0]+dt*Iion;
-//        monodomain_system.solution->set(i, new_v);
         for(int nv = 0; nv < num_vars; ++nv)
         {
         	var_index =  i  * num_vars + nv;
@@ -769,27 +803,24 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
         }
         ++i;
     }
-//
+
     monodomain_system.get_vector("ionic_currents").close();
-////    double val = 1.0;
-	 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
+   monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
 			 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 monodomain_system.get_vector("ionic_currents") );
-    i = first_local_index;
+
+
     double v_old, Iion, ml, v_new;
-//
-    for( ; i < last_local_index; ++i)
+    for(    i = first_local_index;  i < last_local_index; ++i)
     {
         v_old = (*monodomain_system.old_local_solution)(i);
         Iion  =  (*monodomain_system.rhs)(i);
-//        double Iion2  = monodomain_system. get_vector("ionic_currents")(i);
-        ml = ionic_model_system.get_vector("lumped_mass")(i);
+        ml = monodomain_system.get_vector("lumped_mass_vector")(i);
+        //v_new = v_old + dt / Cm * Iion / ml;
         v_new = v_old + dt * Iion / ml;
-//        v_new = v_old + dt * Iion2;
         monodomain_system.solution->set(i, v_new);
     }
     monodomain_system.solution->close();
     ionic_model_system.solution->close();
-//
 
     // Solve the second time
     if(useMidpoint)
@@ -811,7 +842,7 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 				val_n[nv+1] = (*ionic_model_system.old_local_solution)(var_index);
 			}
 
-			M_ionicModelPtr->updateVariables(val_n, val_np1, dt);
+			M_ionicModelPtr->updateVariables(val_n, val_np1, istim, dt);
 			double Iion = M_ionicModelPtr->evaluateIonicCurrent(val_n, val_np1, istim, dt);
 			monodomain_system.get_vector("ionic_currents").set(i,Iion);
 			for(int nv = 0; nv < num_vars; ++nv)
@@ -834,10 +865,12 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 		{
 			v_old = (*monodomain_system.old_local_solution)(i);
 			Iion  =  (*monodomain_system.rhs)(i);
-			ml = ionic_model_system.get_vector("lumped_mass")(i);
-			v_new = v_old + dt * Iion / ml;
+			ml = monodomain_system.get_vector("lumped_mass_vector")(i);
+			v_new = v_old + dt / Cm * Iion / ml;
 			monodomain_system.solution->set(i, v_new);
 		}
+
+
 		monodomain_system.solution->close();
 		ionic_model_system.solution->close();
     }
@@ -849,6 +882,7 @@ void
 Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , const std::string& mass)
 {
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real> ("Chi");
+    double Cm = M_ionicModelPtr->membraneCapacitance();
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     monodomain_system.matrix->zero();
     monodomain_system.rhs->zero();
@@ -857,6 +891,10 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , con
 
     if(useMidpoint)
     {
+//    	monodomain_system.matrix->add(dt/(2.0*Chi*Cm), monodomain_system.get_matrix("stiffness" ) );
+//    	monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs,
+//      																													   *monodomain_system.solution);
+//    	monodomain_system.rhs->scale( -dt/(2.0*Chi*Cm) );
     	monodomain_system.matrix->add(dt/(2.0*Chi), monodomain_system.get_matrix("stiffness" ) );
     	monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs,
       																													   *monodomain_system.solution);
@@ -864,8 +902,9 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , con
     }
     else
     {
-    	monodomain_system.matrix->add(dt/Chi, monodomain_system.get_matrix("stiffness" ) );
-    }
+//    	monodomain_system.matrix->add(dt/Chi/Cm, monodomain_system.get_matrix("stiffness" ) );
+      	monodomain_system.matrix->add(dt/Chi, monodomain_system.get_matrix("stiffness" ) );
+        }
 
 	 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
    																				             									   *monodomain_system.solution);
@@ -881,12 +920,27 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , con
 }
 
 
-void Monodomain::reinit_linear_solver()
+void
+Monodomain::reinit_linear_solver()
 {
 	M_linearSolver->clear();
     M_linearSolver->set_solver_type(libMesh::CG);
     M_linearSolver->set_preconditioner_type(libMesh::AMG_PRECOND);
     M_linearSolver->init();
 }
+
+std::string
+Monodomain::get_ionic_model_name() const
+{
+	return M_ionicModelPtr->ionicModelName();
+}
+
+double
+Monodomain::potential_norm()
+{
+    MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+    return monodomain_system.solution->l1_norm();
+}
+
 
 } /* namespace BeatIt */

@@ -61,7 +61,7 @@ IonicModel* createORd()
 }
 
 ORd::ORd()
-  : super(41,0)
+  : super(41,0, "ORd", CellType::MCell)
 {
     // Without potential
 
@@ -245,9 +245,8 @@ ORd::initialize(std::vector<double>& variables)
 void
 ORd::solve(std::vector<double>& variables, double appliedCurrent, double dt)
 {
-	Ist = appliedCurrent;
-	updateVariables(variables, dt);
-    variables[0] += dt * evaluateIonicCurrent(variables, Ist, dt);
+	updateVariables(variables, appliedCurrent, dt);
+    variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
 }
 
 //! Update all the variables in the ionic model
@@ -256,8 +255,10 @@ ORd::solve(std::vector<double>& variables, double appliedCurrent, double dt)
  *  \param [in] dt        Timestep
  */
 void
-ORd::updateVariables(std::vector<double>& variables, double dt)
+ORd::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
+	// For compatibility  with the original code where the applied stimulus in opposite
+	Ist = -appliedCurrent;
     revpots(variables);
     RGC(variables, dt);
     FBC(variables, dt);
@@ -272,8 +273,9 @@ ORd::updateVariables(std::vector<double>& variables, double dt)
 double
 ORd::evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt)
 {
-	Ist = appliedCurrent;
-    return -(INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa+INaK+INab+IKb+IpCa+ICab+Ist);
+	// For compatibility  with the original code where the applied stimulus in opposite
+	Ist =-appliedCurrent;
+	return -(INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa+INaK+INab+IKb+IpCa+ICab+Ist);
 
 }
 

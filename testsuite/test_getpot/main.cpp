@@ -54,7 +54,8 @@ int main()
 	std::string mesh = data("test/mesh/file", "cippa.mesh");
 
 	std::cout << "\nThe mesh " << mesh << " has size " << length << std::endl;
-	return 0;
+	if(length == 2.0) return EXIT_SUCCESS;
+	else return EXIT_FAILURE;
 }
 
 

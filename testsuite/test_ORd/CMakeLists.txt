@@ -1,6 +1,6 @@
 add_executable(test_ORd main.cpp)
 
-set_target_properties(test_ORd PROPERTIES  OUTPUT "test_ORd.x")
+set_target_properties(test_ORd PROPERTIES  OUTPUT "test_ORd")
 
 
 target_link_libraries(test_ORd beatit)
@@ -24,10 +24,12 @@ ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/plot_variables.m  IS_NEWER_THAN ${OctaveFile}
 SET(TESTNAME test_beatit_ORd)
 add_executable(${TESTNAME} main_ORd.cpp)
 
-set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "test_beatit_ORd.x")
+set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "test_beatit_ORd")
 
 target_link_libraries(${TESTNAME} beatit)
 target_link_libraries(${TESTNAME} ${LIBMESH_LIB})
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 
 SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
+
+add_test(${TESTNAME} ${CMAKE_CURRENT_BINARY_DIR}/test_beatit_ORd)

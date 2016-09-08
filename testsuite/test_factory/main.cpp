@@ -193,7 +193,19 @@ int main(int argc, char *argv[])
     obj2->doSomething();
 
     /// Here we actually create an object that we did not registered. It should bomb!
-    Base * obj3 = Base::factory_Type::Create("Derived3");
 
-    return 0;
+
+    try
+    {
+        Base * obj3 = Base::factory_Type::Create("Derived3");
+    }
+    catch (const std::runtime_error& error)
+    {
+    	std::cout << "Caught runtime error: " << std::flush;
+    	std::cout << error.what() << std::endl;
+        return EXIT_SUCCESS;
+
+    }
+
+    return EXIT_FAILURE;
 }

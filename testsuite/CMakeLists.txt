@@ -16,7 +16,3 @@ FOREACH(subdir ${SUBDIRS})
   ADD_SUBDIRECTORY(${subdir})
 ENDFOREACH()
 
-#add_subdirectory(test_zero)
-#add_subdirectory(test_zero)
-#add_subdirectory(test_ORd)
-#add_subdirectory(test_factory)

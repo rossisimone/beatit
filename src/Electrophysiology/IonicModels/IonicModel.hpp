@@ -24,7 +24,7 @@ public:
 	 *  \param [in] numVar Total number of variables, including the potential
 	 *  \param [in] numGatingVar  Number of gating variables (it may be useful for RushLarsen schemes)
 	 */
-    IonicModel(int numVar, int numGatingVar);
+    IonicModel(int numVar, int numGatingVar, const std::string& name = "empty", CellType cell_type = CellType::MCell);
     //! Virtual destructor
     virtual ~IonicModel() {}
     //! Solve method
@@ -40,8 +40,8 @@ public:
 	 *  \param [in] variables Vector containing the local value of all variables  (Variables  includes potential)
 	 *  \param [in] dt        Timestep
 	 */
-    virtual void updateVariables(std::vector<double>& variables, double dt) = 0;
-    virtual void updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double dt) {}
+    virtual void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt) = 0;
+    virtual void updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1,  double appliedCurrent, double dt) {}
 	//! Update all the variables in the ionic model
 	/*!
      *  \param [in] V transmember potential
@@ -57,7 +57,11 @@ public:
 	 *  \param [in] dt        Timestep
 	 */
     virtual double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0) = 0;
-    virtual double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0) {}
+    virtual double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0)
+    {
+        throw std::runtime_error("Calling Base Class IonicModel::evaluateIonicCurrent");
+        return 0.0;
+    }
 	//! Evaluate total ionic current for the computation of the potential
 	/*!
      *  \param [in] V transmember potential
@@ -93,6 +97,21 @@ public:
     {
         return M_variablesNames;
     }
+
+    const std::string& ionicModelName() const
+    {
+    	return M_ionicModelName;
+    }
+
+    virtual void setCellType(CellType type)
+    {
+        M_cellType = type;
+    }
+
+    virtual double membraneCapacitance()
+    {
+        return 1.0;
+    }
 protected:
 
 //    /// Transmembrane potential
@@ -109,14 +128,17 @@ protected:
     std::vector<std::string> M_variablesNames;
     /// typoe of cell
     CellType M_cellType;
+    /// Name of the ionic model
+    std::string M_ionicModelName;
 
     /// physical constants:gas constant
-    constexpr const static double R = 8314.0;
+    constexpr static double R = 8314.472;
     /// physical constants: Temperature
-    constexpr const static double T = 310.0;
+    constexpr static double T = 310.0;
     /// physical constants: Faraday's constatnt
-    constexpr const static double F = 96485.0;
-
+    constexpr static double F = 96485.3415;
+    /// physical constants: R*T/F
+    constexpr static double RTONF=(R*T)/F;
 
 };
 

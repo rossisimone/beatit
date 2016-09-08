@@ -31,9 +31,7 @@
  *
  * \class ORd
  *
- * \brief This class provides a simple factory implementation
- *
- * For details on how to use it check the test_factory in the testsuite folder
+ * \brief This class provides the implementationa of the OHara-Rudy model
  *
  *
  * \author srossi
@@ -50,7 +48,7 @@
 #ifndef SRC_IONICMODELS_ORD_HPP_
 #define SRC_IONICMODELS_ORD_HPP_
 
-#include "IonicModel.hpp"
+#include "Electrophysiology/IonicModels/IonicModel.hpp"
 
 namespace BeatIt
 {
@@ -78,7 +76,7 @@ public:
 	 *  \param [in] variables Vector containing the local value of all variables
 	 *  \param [in] dt        Timestep
 	 */
-    void updateVariables(std::vector<double>& variables, double dt);
+    void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt);
     //! Update all the variables in the ionic model
     /*!
      *  \param [in] V transmember potential (Variables  does not include potential)

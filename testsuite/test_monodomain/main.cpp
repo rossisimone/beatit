@@ -68,6 +68,17 @@
 #include "libmesh/mesh_refinement.h"
 #include "libmesh/fourth_error_estimators.h"
 
+#include "Util/CTestUtil.hpp"
+#include <iomanip>
+
+enum class TestCase
+{
+	NP,                      // Nash Panfilov model
+	NP_AMR,           // Nash Panfilov model using AMR
+	ORd,                   // ORd model no AMR
+};
+
+double get_reference_value(const BeatIt::Monodomain& monodomain, bool usingAMR);
 
 int main (int argc, char ** argv)
 {
@@ -85,18 +96,23 @@ int main (int argc, char ** argv)
       // 3D grid
       // We build a linear tetrahedral mesh (TET4) on  [0,2]x[0,0.7]x[0,0.3]
       // the number of elements on each side is read from the input file
-      GetPot data("data.pot");
+      GetPot commandLine ( argc, argv );
+      std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
+      GetPot data(datafile_name);
       // allow us to use higher-order approximation.
       int numElementsX = data("mesh/elX", 15);
       int numElementsY = data("mesh/elY",   5);
       int numElementsZ = data("mesh/elZ",   4);
+      double maxX= data("mesh/maxX", 2.0);
+      double maxY = data("mesh/maxY", 0.7);
+      double maxZ = data("mesh/maxZ", 0.3);
+
       MeshTools::Generation::build_cube (mesh,
     		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
-                                         0., 2.,
-                                         0., 0.7,
-                                         0., 0.3,
-                                         TET4);
-      libMesh:: MeshRefinement mesh_refinement(mesh);
+                                         0., maxX,
+                                         0., maxY,
+                                         0., maxZ,
+                                         TET4);      libMesh:: MeshRefinement mesh_refinement(mesh);
       mesh_refinement.refine_fraction()  =  data("mesh/refine_fraction", 0.7);
       mesh_refinement.coarsen_fraction() =data("mesh/coarsen_fraction", 0.3);
       int max_num_mesh_ref = data("mesh/max_num_mesh_ref", 0);
@@ -131,13 +147,13 @@ int main (int argc, char ** argv)
       int save_iter = 0;
       monodomain.init_exo_output();
       save_iter++;
-//      monodomain.save(save_iter++);
       monodomain.assemble_matrices();
 
       libMesh::PerfLog perf_log ("Solving");
 
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
+
 		  datatime.advance();
 		  monodomain.advance();
 //
@@ -236,8 +252,30 @@ int main (int argc, char ** argv)
 
       monodomain.save_parameters();
 
-      return 0;
+      double last_activation_time = monodomain.last_activation_time();
+      double potential_norm = monodomain.potential_norm();
+      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
+      // For ctest
+      const double reference_value = get_reference_value(monodomain, usingAMR);
+
+  	//We check only up to 12th
+      //We check only up to 12th
+  	return BeatIt::CTest::check_test(potential_norm, reference_value, 1e-12);
 
 }
+
+double get_reference_value(const BeatIt::Monodomain& monodomain, bool usingAMR)
+{
+	if(usingAMR) return 104.1266875838878434024082;
+	else
+	{
+		std::string im = monodomain.get_ionic_model_name();
+		if("ORd" == im) return 129127.463204705185489729;
+		else if("TP06" == im) return 120756.656022836803458631;
+		else if("Grandi11" == im) return 107227.470842540860758163;
+		else return  56.92915449886483258978842;
+	}
+}
+
 
 

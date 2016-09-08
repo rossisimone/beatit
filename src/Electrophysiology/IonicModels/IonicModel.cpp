@@ -12,11 +12,14 @@ namespace BeatIt
 
 
 IonicModel::IonicModel( int numVar,
-		                int numGatingVar)
+                        int numGatingVar,
+                        const std::string& name,
+                        CellType cell_type)
   : M_numVariables(numVar)
   , M_numGatingVariables(numGatingVar)
-  , M_cellType(CellType::Endocardial)
+  , M_cellType(cell_type)
   , M_variablesNames(numVar-1)
+  , M_ionicModelName(name)
 {
 }
 

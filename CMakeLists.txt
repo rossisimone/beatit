@@ -44,10 +44,11 @@ endif("${VTK_INCLUDE_DIRS}" STREQUAL  "")
 include_directories ("${LIBMESH_DIR}/include")
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 
-
+enable_testing()
 
 # Include source directories
 add_subdirectory(src)
+add_subdirectory(examples)
 add_subdirectory(testsuite)
 
 # set flags

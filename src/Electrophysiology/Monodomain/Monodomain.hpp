@@ -115,7 +115,13 @@ public:
     void solve_reaction_step( double dt, double time, int step = 0,  bool useMidpoint = true, const std::string& mass = "mass");
 
     void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass");
-//protected:
+
+
+   double last_activation_time();
+   double potential_norm();
+
+   std::string  get_ionic_model_name() const;
+    //protected:
 
     /// input file
     GetPot                     M_datafile;
