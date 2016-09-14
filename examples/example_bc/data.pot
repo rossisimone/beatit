@@ -1,0 +1,41 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+
+
+[physic1]
+        [./BC]
+                list = 'left, right'        
+                [./left]
+                        flag = 1
+                        type = Neumann
+                        mode = Full
+                        component  = All
+                        function = '1.0, 3*x + y + z, exp(3)'
+                
+                [../right]
+                        flag = 2
+                        type = Dirichlet
+                        mode = Component
+                        component  = 2
+                        function = sin(2*pi*x)                        
+                [../]
+        [../]
+[../]
+
+[physic2]
+        [./BC]
+                list = up
+                [./up]
+                        flag = 3
+                        type = Dirichlet
+                        mode = Normal
+                        component  = All
+                        function = cos(2*pi*x)                        
+                [../]
+        [../]
+[../]

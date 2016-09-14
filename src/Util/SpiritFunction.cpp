@@ -49,6 +49,7 @@
 
 #include "Util/SpiritFunction.hpp"
 #include "libmesh/point.h"
+#include "Util/IO/io.hpp"
 
 namespace BeatIt
 {
@@ -72,16 +73,24 @@ SpiritFunction::read(std::string& str)
 {
     M_expression.clear();
 
-    auto f( str.begin() );
-    auto l( str.end()   );
-    namespace qi = boost::spirit::qi;
-    namespace ascii = boost::spirit::ascii;
-    bool ok = qi::phrase_parse( f, l,  ( *~boost::spirit::qi::char_(",") ) % ',', ascii::blank, M_expression);
+//    auto f( str.begin() );
+//    auto l( str.end()   );
+//    namespace qi = boost::spirit::qi;
+//    namespace ascii = boost::spirit::ascii;
+//    bool ok = qi::phrase_parse( f, l,  ( *~boost::spirit::qi::char_(",") ) % ',', ascii::blank, M_expression);
+    bool ok = BeatIt::readList(str, M_expression);
     _initialized = ok;
-    if (!ok || (f!=l))
-        throw "parser error: '" + std::string(f,l) + "'"; // FIXME
+    if (!ok )
+        throw std::runtime_error("parser error: '" + str ); // FIXME
     return ok;
 }
+
+void
+SpiritFunction::showMe(std::ostream& ofstream)
+{
+	for(auto&& str : M_expression)	ofstream << " \t\t\t\t " << str << std::endl;
+}
+
 
 void
 SpiritFunction::add_function(std::string str)

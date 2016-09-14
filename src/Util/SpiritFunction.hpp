@@ -137,7 +137,7 @@ public:
     double component(unsigned int i,
                      const Point & p,
                      double time);
-
+	void showMe(std::ostream& ofstream = std::cout );
     static grammar_Type  M_grammar;
     std::vector<std::string>    M_expression;
 };
