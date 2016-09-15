@@ -182,13 +182,14 @@ double vdot=0;
 double vdot_max;
 int p=1;
 int n=0;
-int count=1;
 
 //value holders for state varaibles in the case that the increase in dt was too aggressive, so a smaller one can be taken 
 double nai0,nass0,ki0,kss0,cai0,cass0,cansr0,cajsr0,m0,hf0,hs0,jO,hsp0,jp0,mL0,hL0,hLp0,a0,iF0,iS0,ap0,iFp0,iSp0,d0,ff0,fs0,fcaf0,fcas0,jca0,nca0,ffp0,fcafp0,xrf0,xrs0,xs10,xs20,xk10,Jrelnp0,Jrelp0,CaMKt0;
 
 int main()
 {
+    int count=1;
+
 	BeatIt::printBanner(std::cout);
 //establish the output file "output.txt"
 FILE*output;
