@@ -1,7 +1,7 @@
-SET(TESTNAME test_poisson)
+SET(TESTNAME example_poisson)
 add_executable(${TESTNAME} main.cpp)
 
-set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "test_poisson")
+set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "example_poisson")
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
