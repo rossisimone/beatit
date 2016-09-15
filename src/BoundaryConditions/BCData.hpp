@@ -46,7 +46,7 @@ namespace BeatIt {
 
 enum class BCMode { Full, Component, Normal };
 enum class BCComponent{ X, Y,  Z, All };
-enum class BCType   { Dirichlet, Neumann };
+enum class BCType   { Dirichlet, Neumann, NitscheSymmetric, NitscheUnsymmetric };
 
 class BCData {
 public:
@@ -54,6 +54,29 @@ public:
 	virtual ~BCData();
 	void setup(GetPot& data, const std::string& section = "" );
 	void showMe(std::ostream& ofstream = std::cout );
+
+	unsigned int get_flag() const
+	{
+		return M_flag;
+	}
+	BCType get_type() const
+	{
+		return M_type;
+	}
+	BCMode get_mode() const
+	{
+		return M_mode;
+	}
+	 BCComponent get_component() const
+	{
+		return M_component;
+	}
+
+	const SpiritFunction&  get_function() const
+	{
+		return M_function;
+	}
+
 	unsigned int         M_flag;
 	SpiritFunction          M_function;
 	BCComponent        M_component;

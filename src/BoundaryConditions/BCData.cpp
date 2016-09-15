@@ -57,7 +57,9 @@ BCData::ComponentMap  BCData::S_componentMap =
 BCData::TypeMap  BCData::S_typeMap =
 {
 		{"Dirichlet", BCType::Dirichlet},
-		{"Neumann", BCType::Neumann}
+		{"Neumann", BCType::Neumann},
+        {"NitscheSymmetric", BCType::NitscheSymmetric},
+        {"NitscheUnsymmetric", BCType::NitscheUnsymmetric}
 };
 
 
@@ -75,6 +77,7 @@ void
 BCData::setup(GetPot& data, const std::string& section )
 {
 	int flag = data(section+"/flag", -1);
+	std::cout << "Section: " << section << std::endl;
 	if(flag >= 0 ) M_flag = static_cast<unsigned int>(flag);
 	else
 	{
@@ -141,6 +144,16 @@ BCData::showMe( std::ostream& ofstream  )
 			ofstream << " Neumann" << std::endl;
 			break;
 		}
+        case BCType::NitscheSymmetric:
+        {
+            ofstream << " NitscheSymmetric" << std::endl;
+            break;
+        }
+        case BCType::NitscheUnsymmetric:
+        {
+            ofstream << " NitscheUnsymmetric" << std::endl;
+            break;
+        }
 		default:
 		{
 			throw std::runtime_error("BCData: Showme - Wrong Type");

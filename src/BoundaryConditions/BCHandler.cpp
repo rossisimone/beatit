@@ -65,8 +65,10 @@ BCHandler::readBC(GetPot& data,  const std::string& section)
 			bc_ptr->setup(data, path);
 			M_bcNames.push_back(path);
 			M_bcs.push_back(bc_ptr);
+			M_bcMap[bc_ptr->get_flag()] = bc_ptr;
 		}
 	}
+
 }
 
 void
@@ -81,5 +83,19 @@ BCHandler::showMe(std::ostream& ofstream )
 	}
 	std::cout << std::endl;
 }
+
+std::shared_ptr<BCData>
+BCHandler::get_bc(unsigned int ID)
+{
+	auto it = M_bcMap.find(ID);
+	if( it != M_bcMap.end() ) return it->second;
+	else
+	{
+		std::shared_ptr<BCData> ptr;
+		return ptr;
+	}
+}
+
+
 
 } // BeatIt

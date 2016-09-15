@@ -1,0 +1,66 @@
+# FILE:    "poisson.pot"
+# PURPOSE: Test for Example Poisson
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    # number of elements per side
+    elX = 5
+    elY = 5
+    elZ = 5
+
+    maxX = 1.0
+    maxY = 1.0
+    maxZ = 1.0    
+[../]
+
+
+[poisson]
+
+    # Output Folder
+    output_folder = Output
+
+    rhs = 1.0
+    
+    
+    [./BC]
+        list = left,right,top,bottom
+        #list = left,right
+        [./left]
+        flag = 1
+        type = NitscheUnsymmetric
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./right]
+        flag = 3
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./top]
+        flag = 2
+        type = NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./bottom]
+        flag = 4
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]    
+
+
+    [../]
+
+[../]
+
+

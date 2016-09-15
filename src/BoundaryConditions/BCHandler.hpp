@@ -41,8 +41,13 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-
+#include <map>
 class GetPot;
+
+namespace libMesh
+{
+class EquationSystems;
+}
 
 namespace BeatIt
 {
@@ -60,6 +65,10 @@ public:
 
 	std::vector<std::shared_ptr<BCData> > M_bcs;
 	std::vector<std::string> M_bcNames;
+	std::map<unsigned int, std::shared_ptr<BCData> > M_bcMap;
+
+	std::shared_ptr<BCData> get_bc(unsigned int ID);
+
 };
 
 
