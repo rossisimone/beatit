@@ -92,7 +92,7 @@ Poisson::~Poisson() {
 
 
 void
-Poisson::setup(GetPot& data, std::string section )
+Poisson::setup(const GetPot& data, std::string section )
 {
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -113,6 +113,9 @@ Poisson::setup(GetPot& data, std::string section )
     grad_system.add_variable( "dphix", libMesh::CONSTANT, libMesh::MONOMIAL);
     grad_system.add_variable( "dphiy", libMesh::CONSTANT, libMesh::MONOMIAL);
     grad_system.add_variable( "dphiz", libMesh::CONSTANT, libMesh::MONOMIAL);
+
+    libMesh::ExplicitSystem& sol_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>("P0sol");
+    sol_system.add_variable( "phi_p0", libMesh::CONSTANT, libMesh::MONOMIAL);
 
 	M_equationSystems.init();
     M_equationSystems.print_info();
@@ -184,19 +187,56 @@ Poisson::solve_system()
 
 
 void
-Poisson::save_exo()
+Poisson::save_exo(const std::string& output_filename)
 {
     std::cout << "* POISSON: EXODUSII::Exporting in: "  << M_outputFolder << " ... " << std::flush;
-    M_exporter->write_equation_systems (M_outputFolder+"poisson.exo", M_equationSystems);
+    M_exporter->write_equation_systems (M_outputFolder+output_filename, M_equationSystems);
     M_exporter->write_element_data(M_equationSystems);
     std::cout << "done " << std::endl;
 }
 
+void
+Poisson::write_equation_system(const std::string& es)
+{
+    M_equationSystems.write(es, libMesh::WRITE);
+}
+
+void
+Poisson::read_equation_system(const std::string& es)
+{
+    M_equationSystems.clear ();
+    M_equationSystems.read(es, libMesh::READ);
+}
+
+
+const
+libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+Poisson::get_solution()
+{
+    libMesh::ExplicitSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
+    return p_system.solution;
+}
+
+const
+libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+Poisson::get_P0_solution()
+{
+    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<PoissonSystem>("P0sol");
+    return s_system.solution;
+}
+
+const
+libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+Poisson::get_gradient()
+{
+    libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient");
+    return g_system.solution;
+}
 
 void
 Poisson::assemble_system()
 {
-         using libMesh::UniquePtr;
+     using libMesh::UniquePtr;
 
      const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
      const unsigned int dim = mesh.mesh_dimension();
@@ -461,8 +501,9 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
 void
 Poisson::compute_elemental_solution_gradient()
 {
-    std::cout << "* POISSON: Creating new System for to evaluate the gradient" << std::endl;
+    std::cout << "* POISSON: Evaluating the gradient ... " << std::flush;
     libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient");
+    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>("P0sol");
     PoissonSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
     p_system.update();
     using libMesh::UniquePtr;
@@ -472,20 +513,23 @@ Poisson::compute_elemental_solution_gradient()
 
     const libMesh::DofMap & g_dof_map = g_system.get_dof_map();
     const libMesh::DofMap & p_dof_map = p_system.get_dof_map();
+    const libMesh::DofMap & s_dof_map = s_system.get_dof_map();
     libMesh::FEType g_fe_type = g_dof_map.variable_type(0);
     libMesh::FEType p_fe_type = p_dof_map.variable_type(0);
     UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, p_fe_type));
     libMesh::QGauss qrule(dim, libMesh::FIRST);
     if( qrule.n_points() > 1 )
     {
-        std::cout << "- Error - computing gradients assumes single elemental value, a single quad point" << std::endl;;
+        std::cout << "\n- Error - computing gradients assumes single elemental value, a single quad point" << std::endl;;
         throw std::runtime_error("- Error - Poisson: wrong number of quadrature points!");
     }
     fe->attach_quadrature_rule(&qrule);
+    const std::vector<std::vector<libMesh::Real > > & phi = fe->get_phi();
     const std::vector<std::vector<libMesh::RealGradient> > & dphi = fe->get_dphi();
 
     std::vector<libMesh::dof_id_type> p_dof_indices;
     std::vector<libMesh::dof_id_type> g_dof_indices;
+    std::vector<libMesh::dof_id_type> s_dof_indices;
 
 
     libMesh::MeshBase::const_element_iterator el =
@@ -495,23 +539,29 @@ Poisson::compute_elemental_solution_gradient()
 
     libMesh::RealGradient grad;
 
-    std::vector<double> grad_vector(3);
-
+    std::vector<double> sol(1,0.0);
+    std::vector<double> grad_vector(3,0.0);
+    double elSol = 0.0;
+    double nodeSol = 0.0;
     for (; el != end_el; ++el)
     {
         const libMesh::Elem * elem = *el;
         p_dof_map.dof_indices(elem, p_dof_indices);
         g_dof_map.dof_indices(elem, g_dof_indices);
+        s_dof_map.dof_indices(elem, s_dof_indices);
 
         fe->reinit(elem);
 
         grad *= 0.0;
+        sol[0] = 0.0;
         for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
         {
             // Compute the old solution & its gradient.
             for (unsigned int l=0; l<dphi.size(); l++)
             {
-                grad.add_scaled ( dphi[l][qp], (*p_system.current_local_solution)(p_dof_indices[l]) );
+                nodeSol =  (*p_system.current_local_solution)(p_dof_indices[l]);
+                sol[0] +=nodeSol * phi[l][qp];
+                grad.add_scaled ( dphi[l][qp], nodeSol );
             }
         }
 
@@ -523,7 +573,12 @@ Poisson::compute_elemental_solution_gradient()
             ++cnt;
         }
         g_system.solution->add_vector(grad_vector, g_dof_indices);
+        s_system.solution->add_vector(sol, s_dof_indices);
     }
+    g_system.solution->close();
+    s_system.solution->close();
+    std::cout << " done" << std::endl;
+
 }
 
 } /* namespace BeatIt */

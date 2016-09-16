@@ -51,7 +51,7 @@ BCHandler::~BCHandler()
 }
 
 void
-BCHandler::readBC(GetPot& data,  const std::string& section)
+BCHandler::readBC(const GetPot& data,  const std::string& section)
 {
 	std::string BCList = data(section+"/BC/list", "");
 	std::vector<std::string> BCListVector;

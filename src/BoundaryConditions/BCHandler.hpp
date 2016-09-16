@@ -59,7 +59,7 @@ public:
 	BCHandler();
 	virtual ~BCHandler();
 
-	void readBC(GetPot& data,  const std::string& section = "");
+	void readBC(const GetPot& data,  const std::string& section = "");
 
 	void showMe(std::ostream& ofstream = std::cout );
 

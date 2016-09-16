@@ -51,6 +51,7 @@
 // Basic include files needed for the mesh functionality.
 #include "libmesh/mesh.h"
 #include "libmesh/type_tensor.h"
+#include "PoissonSolver/Poisson.hpp"
 
 // Include files that define a simple steady system
 #include "libmesh/linear_implicit_system.h"
@@ -391,6 +392,8 @@ Monodomain::init(double time)
 
 }
 
+
+
 void
 Monodomain::update_pacing(double time)
 {
@@ -419,6 +422,198 @@ Monodomain::update_activation_time( double  time, double threshold )
     	}
     }
 	activation_times_system.solution->close();
+
+}
+
+
+void
+Monodomain::generate_fibers(   const GetPot& data,
+                               const std::string& section)
+{
+    std::cout << "* MONODOMAIN: Creating fiber fields" << std::endl;
+
+    std::cout << "* MONODOMAIN: Solving Poisson porblem" << std::endl;
+
+    libMesh::Mesh new_mesh( dynamic_cast< libMesh::Mesh&>(M_equationSystems.get_mesh() ) );
+    Poisson p(new_mesh);
+    p.setup(data, section);
+    p.assemble_system();
+    p.solve_system();
+    p.compute_elemental_solution_gradient();
+    const auto& sol_ptr = p.get_P0_solution();
+
+
+    ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
+    ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
+    ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
+
+    *sheets_system.solution = *p.get_gradient();
+
+    auto first_local_index = fiber_system.solution->first_local_index();
+    auto last_local_index = fiber_system.solution->last_local_index();
+    double norm = 0.0;
+    double fx = 0.0;
+    double fy = 0.0;
+    double fz = 0.0;
+    double cx = data (section+"/centerline_x", 0.0);
+    double cy = data (section+"/centerline_y", 0.0);
+    double cz = data (section+"/centerline_z", 1.0);
+    double cdot = 0.0;
+    double sx = 0.0;
+    double sy = 0.0;
+    double sz = 0.0;
+    double xfx = 0.0;
+    double xfy = 0.0;
+    double xfz = 0.0;
+    double epi_angle = data (section+"/epi_angle", -60.0);
+    double endo_angle = data (section+"/endo_angle", 60.0);
+    double potential = 0.0;
+    double W11 = 0.0;
+    double W12 = 0.0;
+    double W13 = 0.0;
+    double W21 = 0.0;
+    double W22 = 0.0;
+    double W23 = 0.0;
+    double W31 = 0.0;
+    double W32 = 0.0;
+    double W33 = 0.0;
+    //
+    double R11 = 0.0;
+    double R12 = 0.0;
+    double R13 = 0.0;
+    double R21 = 0.0;
+    double R22 = 0.0;
+    double R23 = 0.0;
+    double R31 = 0.0;
+    double R32 = 0.0;
+    double R33 = 0.0;
+    double sa  = 0.0;
+    double sa2 = 0.0;
+    double teta1 = 0.0;
+    double teta2 = 0.0;
+    double teta  = 0.0;
+    double m = 0.0;
+    double q = 0.0;
+    double f0x = 0.0;
+    double f0y = 0.0;
+    double f0z = 0.0;
+
+    auto normalize = [](double& x, double& y, double& z,
+                        double X, double Y, double Z)
+    {
+        double norm = std::sqrt( x * x + y * y + z * z);
+        if(norm >= 1e-12 )
+        {
+            x /= norm;
+            y /= norm;
+            z /= norm;
+        }
+        else
+        {
+            x = X;
+            y = Y;
+            z = Z;
+        }
+    };
+
+    std::cout << "* MONODOMAIN: Computing rule-based fiber fields" << std::endl;
+
+//    sol_ptr->print();
+    auto j = first_local_index;
+    for(auto i = first_local_index; i < last_local_index; )
+    {
+
+//        std::cout << "* MONODOMAIN: getting sol ... " << std::flush;
+        potential = (*sol_ptr)(j);
+        j++;
+//        std::cout << " done" << std::endl;
+
+        sx = (*sheets_system.solution)(i);
+        sy = (*sheets_system.solution)(i+1);
+        sz = (*sheets_system.solution)(i+2);
+        normalize(sx, sy, sz, 0.0, 1.0, 0.0);
+
+//        norm = std::sqrt( sx * sx + sy * sy + sz * sz);
+//        if(norm >= 1e-12 )
+//        {
+//            sx /= norm;
+//            sy /= norm;
+//            sz /= norm;
+//        }
+//        else
+//        {
+//            sx = 1.0;
+//            sy = 0.0;
+//            sz = 0.0;
+//        }
+
+        cdot = cx * sx + cy * sy + cz * sz;
+
+        xfx = cx - cdot * sx;
+        xfy = cy - cdot * sy;
+        xfz = cz - cdot * sz;
+        normalize(xfx, xfy, xfz, 0.0, 0.0, 1.0);
+
+        fx = sy * xfz - sz * xfy;
+        fy = sz * xfx - sx * xfz;
+        fz = sx * xfy - sy * xfx;
+        normalize(fx, fy, fz, 1.0, 0.0, 0.0);
+
+        teta1 = M_PI * epi_angle / 180.0;
+        teta2 = M_PI * endo_angle / 180.0;
+        m = (teta1 - teta2 );
+        q = teta2;
+        teta =  m * potential + q;
+
+
+        //*************************************************************//
+        // The fiber field F is a rotation of the flat fiber field f
+        // F = R f
+        // where R is the rotation matrix.
+        // To compute R we need the sin(teta) and
+        // the sin(teta)^2 and the cross-product matrix W (check
+        // rodrigues formula on wikipedia :) )
+        //*************************************************************//
+        sa = std::sin (teta);
+        sa2 = 2.0 * std::sin (0.5 * teta) * std::sin (0.5 * teta);
+
+        W11 = 0.0; W12 = -sz; W13 =  sy;
+        W21 =  sz; W22 = 0.0; W23 = -sx;
+        W31 = -sy; W32 =  sx; W33 = 0.0;
+        //
+        R11 = 1.0 + sa * W11 + sa2 * ( sx * sx - 1.0 );
+        R12 = 0.0 + sa * W12 + sa2 * ( sx * sy );
+        R13 = 0.0 + sa * W13 + sa2 * ( sx * sz );
+        R21 = 0.0 + sa * W21 + sa2 * ( sy * sx );
+        R22 = 1.0 + sa * W22 + sa2 * ( sy * sy - 1.0 );
+        R23 = 0.0 + sa * W23 + sa2 * ( sy * sz );
+        R31 = 0.0 + sa * W31 + sa2 * ( sz * sx );
+        R32 = 0.0 + sa * W32 + sa2 * ( sz * sy );
+        R33 = 1.0 + sa * W33 + sa2 * ( sz * sz - 1.0 );
+
+        f0x =   R11 * fx + R12 * fy + R13 * fz;
+        f0y =   R21 * fx + R22 * fy + R23 * fz;
+        f0z =   R31 * fx + R32 * fy + R33 * fz;
+        normalize(f0x, f0y, f0z, 1.0, 0.0, 0.0);
+
+
+        xfx = f0y * sz - f0z * sy;
+        xfy = f0z * sx - f0x * sz;
+        xfz = f0x * sy - f0y * sx;
+        normalize(xfx, xfy, xfz, 0.0, 0.0, 1.0);
+
+        sheets_system.solution->set(i,   sx);
+        sheets_system.solution->set(i+1, sy);
+        sheets_system.solution->set(i+2, sz);
+        xfiber_system.solution->set(i,   xfx);
+        xfiber_system.solution->set(i+1, xfy);
+        xfiber_system.solution->set(i+2, xfz);
+        fiber_system. solution->set(i,   f0x);
+        fiber_system. solution->set(i+1, f0y);
+        fiber_system. solution->set(i+2, f0z);
+
+        i += 3;
+    }
 
 }
 
@@ -940,6 +1135,31 @@ Monodomain::potential_norm()
 {
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     return monodomain_system.solution->l1_norm();
+}
+
+
+const
+libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+Monodomain::get_fibers()
+{
+    ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
+    return fiber_system.solution;
+}
+
+const
+libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+Monodomain::get_sheets()
+{
+    ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
+    return sheets_system.solution;
+}
+
+const
+libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+Monodomain::get_xfibers()
+{
+    ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
+    return xfiber_system.solution;
 }
 
 

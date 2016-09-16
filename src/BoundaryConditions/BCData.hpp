@@ -52,7 +52,7 @@ class BCData {
 public:
 	BCData();
 	virtual ~BCData();
-	void setup(GetPot& data, const std::string& section = "" );
+	void setup(const GetPot& data, const std::string& section = "" );
 	void showMe(std::ostream& ofstream = std::cout );
 
 	unsigned int get_flag() const

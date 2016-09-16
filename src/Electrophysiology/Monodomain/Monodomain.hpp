@@ -116,11 +116,20 @@ public:
 
     void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass");
 
-
+    void generate_fibers(   const GetPot& data,
+                            const std::string& section = "rule_based_fibers" );
    double last_activation_time();
    double potential_norm();
 
    std::string  get_ionic_model_name() const;
+
+
+   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   get_fibers();
+   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   get_sheets();
+   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   get_xfibers();
     //protected:
 
     /// input file

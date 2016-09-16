@@ -77,10 +77,23 @@ class Poisson {
 public:
 	Poisson( libMesh::MeshBase & mesh );
 	virtual ~Poisson();
-    void setup(GetPot& data, std::string section = "poisson" );
+    void setup(const GetPot& data, std::string section = "poisson" );
     void assemble_system();
     void solve_system();
-    void save_exo();
+    void save_exo(const std::string& output_filename = "poisson.exo");
+
+
+    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    get_gradient();
+
+    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    get_solution();
+
+    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    get_P0_solution();
+
+    void write_equation_system(const std::string& es = "poisson.dat");
+    void read_equation_system(const std::string& es = "poisson.dat");
 
     double get_solution_norm();
 

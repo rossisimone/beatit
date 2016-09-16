@@ -74,7 +74,7 @@ BCData::~BCData() {
 }
 
 void
-BCData::setup(GetPot& data, const std::string& section )
+BCData::setup(const GetPot& data, const std::string& section )
 {
 	int flag = data(section+"/flag", -1);
 	std::cout << "Section: " << section << std::endl;
