@@ -100,22 +100,10 @@ int main (int argc, char ** argv)
 
       BeatIt::Poisson poisson(mesh);
 
-      std::cout << "Calling setup: ..." << std::flush;
       poisson.setup(data, "poisson");
-      std::cout << " Done!" << std::endl;
-      std::cout << "Calling assemble system: ..." << std::flush;
-      poisson.assemble_system();
-      std::cout << " Done!" << std::endl;
-      std::cout << "Calling solve system: ..." << std::flush;
-      poisson.solve_system();
-      std::cout << " Done!" << std::endl;
-      std::cout << "Calling gradient: ..." << std::flush;
-      poisson.compute_elemental_solution_gradient();
-      std::cout << " Done!" << std::endl;
-      std::cout << "Calling exporter: ..." << std::flush;
-      poisson.save_exo();
-      std::cout << " Done!" << std::endl;
-      poisson.write_equation_system();
+      poisson.read_equation_system();
+      std::string output_filename = "poisson_restarted.exo";
+      poisson.save_exo( "poisson_restarted.exo");
 
       return 0;
 
