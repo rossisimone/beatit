@@ -1163,4 +1163,33 @@ Monodomain::get_xfibers()
 }
 
 
+void
+Monodomain::set_potential_on_boundary(unsigned int boundID, double value )
+{
+    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+    libMesh::MeshBase::const_element_iterator el =
+            mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el =
+            mesh.active_local_elements_end();
+
+    MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+    std::vector<libMesh::dof_id_type > node_id_list;
+    std::vector<libMesh::boundary_id_type > bc_id_list;
+    mesh.boundary_info->build_node_list_from_side_list();
+    mesh.boundary_info->build_node_list (node_id_list, bc_id_list);
+    auto first_local_index = monodomain_system.solution->first_local_index();
+    auto last_local_index = monodomain_system.solution->last_local_index();
+
+    for ( int i = 0; i < bc_id_list.size(); ++i )
+    {
+    	if( bc_id_list[i] == boundID )
+    	{
+            monodomain_system.solution->set(node_id_list[i], value);
+        }
+    }
+
+}
+
+
+
 } /* namespace BeatIt */

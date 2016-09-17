@@ -121,6 +121,8 @@ public:
    double last_activation_time();
    double potential_norm();
 
+   void set_potential_on_boundary(unsigned int boundID, double value = 1.0);
+
    std::string  get_ionic_model_name() const;
 
 
