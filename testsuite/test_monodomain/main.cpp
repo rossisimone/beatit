@@ -151,87 +151,64 @@ int main (int argc, char ** argv)
 
       libMesh::PerfLog perf_log ("Solving");
 
+      int current_max_r_steps = max_r_steps;
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
 
 		  datatime.advance();
 		  monodomain.advance();
-//
-		  if( 0 == (datatime.M_iter-1)%AMRstep && true == usingAMR)
-		  {
-//
-			  for (unsigned int r_step=0; r_step <= max_r_steps; r_step++)
-			  {
-//			  perf_log.push("update pacing");
-			  monodomain.update_pacing(datatime.M_time-0.75*datatime.M_dt);
-//			  perf_log.pop("update pacing");
-//			  perf_log.push("solving reactions");
-//			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time);
-			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, reaction_mass);
-//			  perf_log.pop("solving reactions");
-//			  perf_log.push("solving diffusion");
-			  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time);
-//			  perf_log.pop("solving diffusion");
-//			  perf_log.push("update pacing");
-			  monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
-//			  perf_log.pop("update pacing");
-//			  perf_log.push("solving reactions");
-			  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod, reaction_mass);
-//			  perf_log.pop("solving reactions");
-//			  perf_log.push("update activation times");
-			  monodomain.update_activation_time(datatime.M_time);
-//			  perf_log.pop("update activation times");
 
-			  				  if (r_step != max_r_steps )
-			  				  {
-			  					  monodomain.amr(mesh_refinement, error_estimator);
-			  					  monodomain.assemble_matrices();
-			  					  monodomain.reinit_linear_solver();
-			  				  }
+          if( 0 == (datatime.M_iter-1)%AMRstep && true == usingAMR) current_max_r_steps = max_r_steps;
+          else current_max_r_steps = 1;
 
+          for (unsigned int r_step=0; r_step <= current_max_r_steps; r_step++)
+          {
 
-			  }
+              if(useMidpointMethod)
+              {
+                    perf_log.push("update pacing");
+                    monodomain.update_pacing(datatime.M_time-0.75*datatime.M_dt);
+                    perf_log.pop("update pacing");
+                    perf_log.push("solving reactions");
+                    monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+                    perf_log.pop("solving reactions");
+                    perf_log.push("solving diffusion");
+                    monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+                    perf_log.pop("solving diffusion");
+                    perf_log.push("update pacing");
+                    monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
+                    perf_log.pop("update pacing");
+                    perf_log.push("solving reactions");
+                    monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod,  reaction_mass);
+                    perf_log.pop("solving reactions");
+                    perf_log.push("update activation times");
+                    monodomain.update_activation_time(datatime.M_time);
+                    perf_log.pop("update activation times");
+              }
+              else
+              {
+                    perf_log.push("update pacing");
+                    monodomain.update_pacing(datatime.M_time);
+                    perf_log.pop("update pacing");
+                    perf_log.push("solving reactions");
+                    monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+                    perf_log.pop("solving reactions");
+                    perf_log.push("solving diffusion");
+                    monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+                    perf_log.pop("solving diffusion");
+                    perf_log.push("update activation times");
+                    monodomain.update_activation_time(datatime.M_time);
+                    perf_log.pop("update activation times");
+              }
 
-		  }
-		  else
-		  {
-			  if(useMidpointMethod)
-			  {
-				  perf_log.push("update pacing");
-				  monodomain.update_pacing(datatime.M_time-0.75*datatime.M_dt);
-				  perf_log.pop("update pacing");
-				  perf_log.push("solving reactions");
-				  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, reaction_mass);
-				  perf_log.pop("solving reactions");
-				  perf_log.push("solving diffusion");
-				  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
-				  perf_log.pop("solving diffusion");
-				  perf_log.push("update pacing");
-				  monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
-				  perf_log.pop("update pacing");
-				  perf_log.push("solving reactions");
-				  monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time, step1, useMidpointMethod,  reaction_mass);
-				  perf_log.pop("solving reactions");
-				  perf_log.push("update activation times");
-				  monodomain.update_activation_time(datatime.M_time);
-				  perf_log.pop("update activation times");
-			  }
-			  else
-			  {
-				  perf_log.push("update pacing");
-				  monodomain.update_pacing(datatime.M_time);
-				  perf_log.pop("update pacing");
-				  perf_log.push("solving reactions");
-				  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
-				  perf_log.pop("solving reactions");
-				  perf_log.push("solving diffusion");
-				  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
-				  perf_log.pop("solving diffusion");
-				  perf_log.push("update activation times");
-				  monodomain.update_activation_time(datatime.M_time);
-				  perf_log.pop("update activation times");
-			  }
-		  }
+              if (r_step != max_r_steps && true == usingAMR)
+              {
+                    monodomain.amr(mesh_refinement, error_estimator);
+                    monodomain.assemble_matrices();
+                    monodomain.reinit_linear_solver();
+              }
+          }
+
 
 
           if( 0 == datatime.M_iter%datatime.M_saveIter )
@@ -266,7 +243,7 @@ int main (int argc, char ** argv)
 
 double get_reference_value(const BeatIt::Monodomain& monodomain, bool usingAMR)
 {
-	if(usingAMR) return 104.1266875838878434024082;
+	if(usingAMR) return 66.22529394962421633863414;
 	else
 	{
 		std::string im = monodomain.get_ionic_model_name();

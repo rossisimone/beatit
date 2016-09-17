@@ -57,7 +57,7 @@
 
     # Time Data
     [./time]
-        use_midpoint = false
+        use_midpoint = true
         dt = 0.01
         init_time = 0.0
         final_time= 4
