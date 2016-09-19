@@ -20,13 +20,14 @@ class Timer
 {
     typedef std::chrono::high_resolution_clock::time_point timePoint_Type;
     typedef std::chrono::high_resolution_clock clock_Type;
-    typedef std::chrono::milliseconds milliseconds;
-    typedef std::chrono::duration<double> duration_Type;
+    typedef std::chrono::seconds seconds;
+    typedef std::chrono::duration<double > duration_Type;
 public:
 
     Timer ();
 
     void reset();
+    void restart();
     void start();
     void stop();
     duration_Type elapsed();
@@ -48,6 +49,13 @@ void Timer::reset()
 {
     M_run = false;
     M_elapsed = duration_Type::zero();
+}
+
+void Timer::restart()
+{
+    M_elapsed = duration_Type::zero();
+    M_run = true;
+    M_start = clock_Type::now();
 }
 
 void Timer::start()
@@ -82,7 +90,7 @@ Timer::elapsed()
 
 void Timer::print( std::ostream& out)
 {
-    out << "Timer: elapsed time = " << elapsed().count() << " ms." << std::endl;
+    out << "Timer: elapsed time = " << elapsed().count() << "  s." << std::endl;
 }
 
 } /* namespace AthenaVMS */

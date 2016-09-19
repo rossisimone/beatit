@@ -100,6 +100,7 @@
 
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
 
+#include "Util/Timer.hpp"
 
 namespace BeatIt
 {
@@ -670,24 +671,48 @@ void
 Monodomain::amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& type)
 {
 //	std::cout << "* MONODOMAIN: starting AMR ... " << std::flush;
+	BeatIt:Timer timer;
+	std::cout << "Creating Error Vector " << std::endl;
+	timer.start();
 	libMesh::ErrorVector error;
+	timer.stop();
+	timer.print(std::cout);
+	std::cout << "Creating Error Estimator " << std::endl;
+	timer.restart();
 	libMesh::ErrorEstimator * p_error_estimator;
 	if("kelly" == type) p_error_estimator = new  libMesh::KellyErrorEstimator ;
 	else if ("disc" == type) p_error_estimator = new libMesh::DiscontinuityMeasure;
 	else p_error_estimator = new  libMesh::LaplacianErrorEstimator ;
+	timer.stop();
+	timer.print(std::cout);
 //	 libMesh::KellyErrorEstimator error_estimator;
 //	 libMesh::LaplacianErrorEstimator error_estimator;
 	MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+	std::cout << "Estimating Monodomain Error  " << std::endl;
+	timer.restart();
 	p_error_estimator->estimate_error(monodomain_system, error);
+	timer.stop();
+	timer.print(std::cout);
     // Flag elements to be refined and coarsened
+	std::cout << "Flagging Elements  " << std::endl;
+	timer.restart();
     mesh_refinement.flag_elements_by_error_fraction (error);
+	timer.stop();
+	timer.print(std::cout);
 
-    // Perform refinement and coarsening
-    mesh_refinement.flag_elements_by_error_fraction (error);
+	std::cout << "Refine and Coarsen  " << std::endl;
 //	std::cout << " coarsen and refine ...  " << std::flush;
+	timer.restart();
     mesh_refinement.refine_and_coarsen_elements();
+	timer.stop();
+	timer.print(std::cout);
 //	std::cout << " reinit ...  " << std::flush;
+	std::cout << "Reinit system  " << std::endl;
+	timer.restart();
     M_equationSystems.reinit();
+	timer.stop();
+	timer.print(std::cout);
+	timer.restart();
 //	std::cout << " done  " << std::endl;
     delete p_error_estimator;
 }
@@ -1072,37 +1097,48 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 
 }
 
+void
+Monodomain::form_system_matrix(double dt, bool useMidpoint , const std::string& mass)
+{
+    MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+    const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real> ("Chi");
+    double Cm = M_ionicModelPtr->membraneCapacitance();
+
+    monodomain_system.matrix->zero();
+    monodomain_system.matrix->close();
+    monodomain_system.matrix->add(1.0, monodomain_system.get_matrix(mass) );
+    if(useMidpoint)
+    {
+        //      monodomain_system.matrix->add(dt/(2.0*Chi*Cm), monodomain_system.get_matrix("stiffness" ) );
+        //      monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs,
+        monodomain_system.matrix->add(dt/(2.0*Chi), monodomain_system.get_matrix("stiffness" ) );
+    }
+    else
+    {
+//      monodomain_system.matrix->add(dt/Chi/Cm, monodomain_system.get_matrix("stiffness" ) );
+        monodomain_system.matrix->add(dt/Chi, monodomain_system.get_matrix("stiffness" ) );
+    }
+
+}
 
 void
-Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , const std::string& mass)
+Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , const std::string& mass, bool reassemble)
 {
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real> ("Chi");
     double Cm = M_ionicModelPtr->membraneCapacitance();
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
-    monodomain_system.matrix->zero();
+    if(reassemble) form_system_matrix(dt, useMidpoint, mass);
     monodomain_system.rhs->zero();
-    monodomain_system.matrix->close();
-    monodomain_system.matrix->add(1.0, monodomain_system.get_matrix(mass) );
 
     if(useMidpoint)
     {
-//    	monodomain_system.matrix->add(dt/(2.0*Chi*Cm), monodomain_system.get_matrix("stiffness" ) );
-//    	monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs,
-//      																													   *monodomain_system.solution);
-//    	monodomain_system.rhs->scale( -dt/(2.0*Chi*Cm) );
-    	monodomain_system.matrix->add(dt/(2.0*Chi), monodomain_system.get_matrix("stiffness" ) );
-    	monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs,
-      																													   *monodomain_system.solution);
+        monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs, *monodomain_system.solution);
+        //      monodomain_system.rhs->scale( -dt/(2.0*Chi*Cm) );
     	monodomain_system.rhs->scale( -dt/(2.0*Chi) );
     }
-    else
-    {
-//    	monodomain_system.matrix->add(dt/Chi/Cm, monodomain_system.get_matrix("stiffness" ) );
-      	monodomain_system.matrix->add(dt/Chi, monodomain_system.get_matrix("stiffness" ) );
-        }
 
-	 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
-   																				             									   *monodomain_system.solution);
+
+	 monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs, *monodomain_system.solution);
 
     double tol = 1e-12;
     double max_iter = 2000;
@@ -1112,6 +1148,7 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , con
     rval = M_linearSolver->solve (*monodomain_system.matrix, nullptr,
 														*monodomain_system.solution,
 														*monodomain_system.rhs, tol, max_iter);
+
 }
 
 

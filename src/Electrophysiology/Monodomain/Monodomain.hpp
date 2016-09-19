@@ -111,10 +111,11 @@ public:
 
 
     void assemble_matrices();
+    void form_system_matrix(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");
     void advance();
     void solve_reaction_step( double dt, double time, int step = 0,  bool useMidpoint = true, const std::string& mass = "mass");
 
-    void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass");
+    void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass", bool reassemble = true);
 
     void generate_fibers(   const GetPot& data,
                             const std::string& section = "rule_based_fibers" );

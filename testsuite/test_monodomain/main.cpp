@@ -86,10 +86,14 @@ int main (int argc, char ** argv)
 
     using namespace libMesh;
       // Initialize libraries, like in example 2.
+      libMesh::PerfLog perf_log ("Monodomain Solver");
+
       LibMeshInit init (argc, argv, MPI_COMM_WORLD);
 
       // Create a mesh, with dimension to be overridden later, distributed
       // across the default MPI communicator.
+	  perf_log.push("Creating Mesh");
+
       Mesh mesh(init.comm());
 
       // Use the MeshTools::Generation mesh generator to create a uniform
@@ -112,7 +116,12 @@ int main (int argc, char ** argv)
                                          0., maxX,
                                          0., maxY,
                                          0., maxZ,
-                                         TET4);      libMesh:: MeshRefinement mesh_refinement(mesh);
+                                         TET4);
+
+   	  perf_log.pop("Creating Mesh");
+
+   	  perf_log.push("Creating Mesh Refinement");
+      libMesh:: MeshRefinement mesh_refinement(mesh);
       mesh_refinement.refine_fraction()  =  data("mesh/refine_fraction", 0.7);
       mesh_refinement.coarsen_fraction() =data("mesh/coarsen_fraction", 0.3);
       int max_num_mesh_ref = data("mesh/max_num_mesh_ref", 0);
@@ -122,6 +131,7 @@ int main (int argc, char ** argv)
       const unsigned int max_r_steps = max_num_mesh_ref;
       bool usingAMR = false;
       if(max_num_mesh_ref > 0) usingAMR = true;
+   	  perf_log.pop("Creating Mesh Refinement");
       //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
 
       std::string reaction_mass = data("monodomain/reaction_mass", "mass");
@@ -135,6 +145,9 @@ int main (int argc, char ** argv)
 //      equation_systems.get_system("Test").add_variable("Pippo",libMesh::FIRST);
 
       // Constructor
+
+   	  perf_log.push("Monodomain setup");
+
       BeatIt::Monodomain monodomain(mesh);
       // Setup the equation systems
       monodomain.setup(data, "monodomain");
@@ -148,8 +161,11 @@ int main (int argc, char ** argv)
       monodomain.init_exo_output();
       save_iter++;
       monodomain.assemble_matrices();
+      monodomain.form_system_matrix(datatime.M_dt, useMidpointMethod, diffusion_mass);
+   	  perf_log.pop("Monodomain setup");
+   	  bool reassemble = usingAMR;
 
-      libMesh::PerfLog perf_log ("Solving");
+//      libMesh::PerfLog perf_log ("Solving");
 
       int current_max_r_steps = max_r_steps;
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
@@ -173,7 +189,7 @@ int main (int argc, char ** argv)
                     monodomain.solve_reaction_step(datatime.M_dt/2, datatime.M_time,step0, useMidpointMethod, reaction_mass);
                     perf_log.pop("solving reactions");
                     perf_log.push("solving diffusion");
-                    monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+                    monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass, reassemble);
                     perf_log.pop("solving diffusion");
                     perf_log.push("update pacing");
                     monodomain.update_pacing(datatime.M_time-0.25*datatime.M_dt);
@@ -194,18 +210,20 @@ int main (int argc, char ** argv)
                     monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
                     perf_log.pop("solving reactions");
                     perf_log.push("solving diffusion");
-                    monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+                    monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass, reassemble);
                     perf_log.pop("solving diffusion");
                     perf_log.push("update activation times");
                     monodomain.update_activation_time(datatime.M_time);
                     perf_log.pop("update activation times");
               }
 
-              if (r_step != max_r_steps && true == usingAMR)
+              if (r_step != max_r_steps && true == usingAMR && 0 == (datatime.M_iter-1)%AMRstep)
               {
+        			perf_log.push("amr");
                     monodomain.amr(mesh_refinement, error_estimator);
                     monodomain.assemble_matrices();
                     monodomain.reinit_linear_solver();
+        			perf_log.pop("amr");
               }
           }
 
