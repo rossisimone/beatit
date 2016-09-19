@@ -261,7 +261,7 @@ int main (int argc, char ** argv)
 
 double get_reference_value(const BeatIt::Monodomain& monodomain, bool usingAMR)
 {
-	if(usingAMR) return 115.4541232865310576016782;
+	if(usingAMR) return 116.1200918988604939841025;
 	else
 	{
 		std::string im = monodomain.get_ionic_model_name();
