@@ -69,6 +69,7 @@
 #include "libmesh/fourth_error_estimators.h"
 
 #include "Util/CTestUtil.hpp"
+#include "Util/IO/io.hpp"
 #include <iomanip>
 
 enum class TestCase
@@ -122,9 +123,21 @@ int main (int argc, char ** argv)
 
    	  perf_log.push("Creating Mesh Refinement");
       libMesh:: MeshRefinement mesh_refinement(mesh);
-      mesh_refinement.refine_fraction()  =  data("mesh/refine_fraction", 0.7);
-      mesh_refinement.coarsen_fraction() =data("mesh/coarsen_fraction", 0.3);
+
+      std::string refine_fractions = data("mesh/refine_fraction", "0.97");
+      std::string coarsen_fractions= data("mesh/coarsen_fraction", "0.03");
+      std::vector<double> refine_fraction;
+      std::vector<double> coarsen_fraction;
+
+      BeatIt::readList(refine_fractions, refine_fraction);
+      BeatIt::readList(coarsen_fractions, coarsen_fraction);
+
       int max_num_mesh_ref = data("mesh/max_num_mesh_ref", 0);
+      if(max_num_mesh_ref >0)
+      {
+          if( refine_fraction.size() != max_num_mesh_ref) max_num_mesh_ref = refine_fraction.size();
+      }
+
       int AMRstep = data("mesh/step", 10);
      std::string error_estimator  =  data("mesh/error_estimator","kelly");
       mesh_refinement.max_h_level()      = max_num_mesh_ref;
@@ -179,7 +192,6 @@ int main (int argc, char ** argv)
 
           for (unsigned int r_step=0; r_step <= current_max_r_steps; r_step++)
           {
-
               if(useMidpointMethod)
               {
                     perf_log.push("update pacing");
@@ -217,9 +229,13 @@ int main (int argc, char ** argv)
                     perf_log.pop("update activation times");
               }
 
-              if (r_step != max_r_steps && true == usingAMR && 0 == (datatime.M_iter-1)%AMRstep)
+              if (r_step != current_max_r_steps && true == usingAMR && 0 == (datatime.M_iter-1)%AMRstep)
               {
+                    std::cout << "\n Refinement step: " << r_step << std::endl;
         			perf_log.push("amr");
+                    mesh_refinement.refine_fraction()  =  refine_fraction[r_step];
+                    mesh_refinement.coarsen_fraction() = coarsen_fraction[r_step];
+
                     monodomain.amr(mesh_refinement, error_estimator);
                     monodomain.assemble_matrices();
                     monodomain.reinit_linear_solver();

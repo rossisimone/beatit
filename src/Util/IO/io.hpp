@@ -24,7 +24,7 @@ template <class Container,  class ElementParser =  boost::spirit::qi::auto_type 
 bool  readList(std::string& list, Container& container, const ElementParser& elementParser = ElementParser() )
 {
 	auto beg = list.begin();
-	auto end = list.begin();
+	auto end = list.end();
 	namespace qi = boost::spirit::qi;
 	bool ok = qi::phrase_parse(beg, end,  elementParser  % ',',  qi::blank, container);
 	return ok;

@@ -671,48 +671,48 @@ void
 Monodomain::amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& type)
 {
 //	std::cout << "* MONODOMAIN: starting AMR ... " << std::flush;
-	BeatIt:Timer timer;
-	std::cout << "Creating Error Vector " << std::endl;
-	timer.start();
+//	BeatIt:Timer timer;
+//	std::cout << "Creating Error Vector " << std::endl;
+//	timer.start();
 	libMesh::ErrorVector error;
-	timer.stop();
-	timer.print(std::cout);
-	std::cout << "Creating Error Estimator " << std::endl;
-	timer.restart();
+//	timer.stop();
+//	timer.print(std::cout);
+//	std::cout << "Creating Error Estimator " << std::endl;
+//	timer.restart();
 	libMesh::ErrorEstimator * p_error_estimator;
 	if("kelly" == type) p_error_estimator = new  libMesh::KellyErrorEstimator ;
 	else if ("disc" == type) p_error_estimator = new libMesh::DiscontinuityMeasure;
 	else p_error_estimator = new  libMesh::LaplacianErrorEstimator ;
-	timer.stop();
-	timer.print(std::cout);
+//	timer.stop();
+//	timer.print(std::cout);
 //	 libMesh::KellyErrorEstimator error_estimator;
 //	 libMesh::LaplacianErrorEstimator error_estimator;
 	MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
-	std::cout << "Estimating Monodomain Error  " << std::endl;
-	timer.restart();
+//	std::cout << "Estimating Monodomain Error  " << std::endl;
+//	timer.restart();
 	p_error_estimator->estimate_error(monodomain_system, error);
-	timer.stop();
-	timer.print(std::cout);
+//	timer.stop();
+//	timer.print(std::cout);
     // Flag elements to be refined and coarsened
-	std::cout << "Flagging Elements  " << std::endl;
-	timer.restart();
+//	std::cout << "Flagging Elements  " << std::endl;
+//	timer.restart();
     mesh_refinement.flag_elements_by_error_fraction (error);
-	timer.stop();
-	timer.print(std::cout);
-
-	std::cout << "Refine and Coarsen  " << std::endl;
+//	timer.stop();
+//	timer.print(std::cout);
+//
+//	std::cout << "Refine and Coarsen  " << std::endl;
 //	std::cout << " coarsen and refine ...  " << std::flush;
-	timer.restart();
+//	timer.restart();
     mesh_refinement.refine_and_coarsen_elements();
-	timer.stop();
-	timer.print(std::cout);
+//	timer.stop();
+//	timer.print(std::cout);
 //	std::cout << " reinit ...  " << std::flush;
-	std::cout << "Reinit system  " << std::endl;
-	timer.restart();
+//	std::cout << "Reinit system  " << std::endl;
+//	timer.restart();
     M_equationSystems.reinit();
-	timer.stop();
-	timer.print(std::cout);
-	timer.restart();
+//	timer.stop();
+//	timer.print(std::cout);
+//	timer.restart();
 //	std::cout << " done  " << std::endl;
     delete p_error_estimator;
 }

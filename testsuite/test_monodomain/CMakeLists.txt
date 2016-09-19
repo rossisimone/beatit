@@ -41,7 +41,7 @@ ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/Grandi11.pot  IS_NEWER_THAN ${GetPotFile} )
 
 
 add_test(${TESTNAME}_NashPanfilov mpirun -n 8 ${CMAKE_CURRENT_BINARY_DIR}/test_monodomain -i nash_panfilov.pot)
-add_test(${TESTNAME}_NashPanfilov_AMR mpirun -n 8 ${CMAKE_CURRENT_BINARY_DIR}/test_monodomain -i nash_panfilov_amr.pot)
+add_test(${TESTNAME}_NashPanfilov_AMR mpirun -n 4 ${CMAKE_CURRENT_BINARY_DIR}/test_monodomain -i nash_panfilov_amr.pot)
 add_test(${TESTNAME}_ORd mpirun -n 8 ${CMAKE_CURRENT_BINARY_DIR}/test_monodomain -i ORd.pot)
 add_test(${TESTNAME}_TP06 mpirun -n 8 ${CMAKE_CURRENT_BINARY_DIR}/test_monodomain -i TP06.pot)
 add_test(${TESTNAME}_Grandi11 mpirun -n 8 ${CMAKE_CURRENT_BINARY_DIR}/test_monodomain -i Grandi11.pot)
