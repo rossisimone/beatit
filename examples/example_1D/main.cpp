@@ -129,7 +129,8 @@ int main (int argc, char ** argv)
 
       // Constructor
       std::cout << "Create monodomain ..." << std::endl;
-      BeatIt::Monodomain monodomain(mesh);
+      libMesh::EquationSystems es1(mesh);
+      BeatIt::Monodomain monodomain(es1);
       // Setup the equation systems
       std::cout << "Setup monodomain ..." << std::endl;
       monodomain.setup(data, "monodomain");

@@ -1,0 +1,31 @@
+# FILE:    "data.pot"
+# PURPOSE: Test for GetPot
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+DIM = 2
+
+input_mesh_name = mesh1.e
+
+max_num_mesh_ref = 2 
+
+exodus_output_file = exo_sol.exo
+
+gmv_output_file = out.gmv
+
+
+numSteps = 100
+
+saveSteps = 50
+
+
+dt = 0.02
+
+refine_fraction = 0.95
+coarsen_fraction = 0.05
+
+
+AMR_steps = 10

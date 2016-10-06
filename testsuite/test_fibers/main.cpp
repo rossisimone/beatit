@@ -116,7 +116,8 @@ int main (int argc, char ** argv)
       int step1 = 1;
 
       // Constructor
-      BeatIt::Monodomain monodomain(mesh);
+      libMesh::EquationSystems& es(mesh);
+      BeatIt::Monodomain monodomain(es);
       // Setup the equation systems
       monodomain.setup(data, "monodomain");
       monodomain.init(0.0);
@@ -132,7 +133,7 @@ int main (int argc, char ** argv)
       double fiber_norm = monodomain.get_fibers()->l1_norm();
       std::cout << std::setprecision(25) << "fiber norm = " << fiber_norm << std::endl;
       // For ctest
-      const double reference_value = 2447.322388569795293733478;
+      const double reference_value = 2447.36543463943507958902;
       //We check only up to 12th
     return BeatIt::CTest::check_test(fiber_norm, reference_value, 1e-12);
 }

@@ -82,9 +82,6 @@ int main (int argc, char ** argv)
       // Initialize libraries, like in example 2.
       LibMeshInit init (argc, argv, MPI_COMM_WORLD);
 
-      // Create a mesh, with dimension to be overridden later, distributed
-      // across the default MPI communicator.
-      Mesh mesh(init.comm());
 
       // Use the MeshTools::Generation mesh generator to create a uniform
       // 3D grid
@@ -94,19 +91,33 @@ int main (int argc, char ** argv)
       std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
       GetPot data(datafile_name);
       // allow us to use higher-order approximation.
-      int numElementsX = data("mesh/elX", 15);
-      int numElementsY = data("mesh/elY",   5);
-      int numElementsZ = data("mesh/elZ",   4);
-      double maxX= data("mesh/maxX", 2.0);
-      double maxY = data("mesh/maxY", 0.7);
-      double maxZ = data("mesh/maxZ", 0.3);
+      // Create a mesh, with dimension to be overridden later, on the
+      // default MPI communicator.
+      libMesh::Mesh mesh(init.comm());
 
-      MeshTools::Generation::build_cube (mesh,
-    		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
-                                         0., maxX,
-                                         0., maxY,
-                                         0., maxZ,
-                                         TET4);
+      // We may need XDR support compiled in to read binary .xdr files
+      std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
+
+      // Read the input mesh.
+      mesh.read (&meshfile[0]);
+
+//      int numElementsX = data("mesh/elX", 15);
+//      int numElementsY = data("mesh/elY",   5);
+//      int numElementsZ = data("mesh/elZ",   4);
+//      double maxX= data("mesh/maxX", 2.0);
+//      double maxY = data("mesh/maxY", 0.7);
+//      double maxZ = data("mesh/maxZ", 0.3);
+//
+//      MeshTools::Generation::build_cube (mesh,
+//    		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
+//                                         0., maxX,
+//                                         0., maxY,
+//                                         0., maxZ,
+//                                         TET4);
+
+
+      // Print information about the mesh to the screen.
+      mesh.print_info();
 
 
       std::string reaction_mass = data("monodomain/reaction_mass", "mass");
@@ -124,7 +135,9 @@ int main (int argc, char ** argv)
 //      monodomain.set_fibers( BeatIt::Util::generate_gradient_field( mesh, data, "poisson") );
 //      monodomain.set_fibers( BeatIt::Util::generate_gradient_field( mesh, data, "poisson") );
       monodomain.generate_fibers(data, "poisson");
-      monodomain.set_potential_on_boundary(1, 1.0);
+      int init_bc = data("monodomain/init_bc", 1);
+
+      monodomain.set_potential_on_boundary(init_bc, 1.0);
 
       int save_iter = 0;
       monodomain.init_exo_output();

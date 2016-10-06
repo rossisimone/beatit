@@ -84,6 +84,7 @@ namespace BeatIt
 class IonicModel;
 class PacingProtocol;
 
+enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic };
 /// Class
 class Monodomain
 {
@@ -93,7 +94,8 @@ public:
     typedef libMesh::ExodusII_IO EXOExporter;
 
     /// Empty construcor
-    Monodomain( libMesh::MeshBase & mesh );
+//    Monodomain( libMesh::MeshBase & mesh );
+    Monodomain( libMesh::EquationSystems& es );
     ~Monodomain();
     void setup(GetPot& data, std::string section = "monodomain" );
 
@@ -143,7 +145,7 @@ public:
     /*!
      *  Use separate systems to avoid saving in all the variables
      */
-    libMesh::EquationSystems  M_equationSystems;
+    libMesh::EquationSystems&  M_equationSystems;
 
     std::unique_ptr<Exporter> M_monodomainExporter;
     std::set<std::string> M_monodomainExporterNames;
@@ -159,6 +161,8 @@ public:
 
     std::unique_ptr<PacingProtocol> M_pacing;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
+
+    Anisotropy M_anisotropy;
 };
 
 } /* namespace BeatIt */

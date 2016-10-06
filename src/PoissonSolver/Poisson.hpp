@@ -75,7 +75,8 @@ class Poisson {
 	    typedef libMesh::ExodusII_IO EXOExporter;
 
 public:
-	Poisson( libMesh::MeshBase & mesh );
+//	Poisson( libMesh::MeshBase & mesh );
+    Poisson( libMesh::EquationSystems& es, std::string system_name = "poisson" );
 	virtual ~Poisson();
     void setup(const GetPot& data, std::string section = "poisson" );
     void assemble_system();
@@ -98,10 +99,12 @@ public:
     double get_solution_norm();
 
     void compute_elemental_solution_gradient();
+
+    void deleteSystems();
     /// input file
 
     GetPot                     M_datafile;
-    libMesh::EquationSystems  M_equationSystems;
+    libMesh::EquationSystems&  M_equationSystems;
     BCHandler M_bch;
 
     std::set<std::string> M_parametersExporterNames;
@@ -109,6 +112,9 @@ public:
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
     std::string  M_outputFolder;
     SpiritFunction M_rhsFunction;
+    std::string M_myName;
+    std::string M_myNameGradient;
+    std::string M_myNameP0;
 
 private:
     void apply_BC( const libMesh::Elem*& elem,

@@ -64,7 +64,8 @@ generate_gradient_field( libMesh::MeshBase& mesh,
                          const std::string& section)
 {
     libMesh::Mesh new_mesh( dynamic_cast< libMesh::Mesh&>(mesh) );
-    Poisson p(new_mesh);
+    libMesh::EquationSystems es(mesh);
+    Poisson p(es);
     p.setup(data, section);
     p.assemble_system();
     p.solve_system();

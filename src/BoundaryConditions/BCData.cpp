@@ -35,6 +35,7 @@
 
 #include "BoundaryConditions/BCData.hpp"
 #include "libmesh/getpot.h"
+#include "Util/IO/io.hpp"
 
 namespace BeatIt {
 
@@ -76,13 +77,20 @@ BCData::~BCData() {
 void
 BCData::setup(const GetPot& data, const std::string& section )
 {
-	int flag = data(section+"/flag", -1);
+	std::string flags =  data(section+"/flag", "-1");
+	std::vector<int> flag_vec;
+	BeatIt::readList(flags,flag_vec);
+
+//	int flag = data(section+"/flag", -1);
 	std::cout << "Section: " << section << std::endl;
-	if(flag >= 0 ) M_flag = static_cast<unsigned int>(flag);
-	else
+	for(auto && fl : flag_vec)
 	{
-		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
-		throw std::runtime_error("BCData FLAG Error!");
+		if(fl >= 0 ) M_flag.push_back(  static_cast<unsigned int>(fl) );
+		else
+		{
+			std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
+			throw std::runtime_error("BCData FLAG Error!");
+		}
 	}
 
 	std::string comp = data(section+"/component", "");
@@ -130,7 +138,9 @@ void
 BCData::showMe( std::ostream& ofstream  )
 {
 	ofstream << " \t BCData: " << std::endl;
-	ofstream << " \t\t FLAG: " << M_flag << std::endl;
+	ofstream << " \t\t FLAGs: ";
+	for (auto && fl : M_flag ) std::cout << fl  << ", ";
+	std::cout << std::endl;
 	ofstream << " \t\t TYPE: ";
 	switch(M_type)
 	{

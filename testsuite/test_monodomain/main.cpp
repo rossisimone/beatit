@@ -104,21 +104,29 @@ int main (int argc, char ** argv)
       GetPot commandLine ( argc, argv );
       std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
       GetPot data(datafile_name);
-      // allow us to use higher-order approximation.
-      int numElementsX = data("mesh/elX", 15);
-      int numElementsY = data("mesh/elY",   5);
-      int numElementsZ = data("mesh/elZ",   4);
-      double maxX= data("mesh/maxX", 2.0);
-      double maxY = data("mesh/maxY", 0.7);
-      double maxZ = data("mesh/maxZ", 0.3);
 
-      MeshTools::Generation::build_cube (mesh,
-    		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
-                                         0., maxX,
-                                         0., maxY,
-                                         0., maxZ,
-                                         TET4);
+      // Reading Meshfile
+      std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
+      // Read the input mesh.
+      if( meshfile != "Pippo.e" )  mesh.read (&meshfile[0]);
+      // or generate the mesh
+      else
+      {
+		  // allow us to use higher-order approximation.
+		  int numElementsX = data("mesh/elX", 15);
+		  int numElementsY = data("mesh/elY",   5);
+		  int numElementsZ = data("mesh/elZ",   4);
+		  double maxX= data("mesh/maxX", 2.0);
+		  double maxY = data("mesh/maxY", 0.7);
+		  double maxZ = data("mesh/maxZ", 0.3);
 
+		  MeshTools::Generation::build_cube (mesh,
+											  numElementsX, numElementsY, numElementsZ,
+											 0., maxX,
+											 0., maxY,
+											 0., maxZ,
+											 TET4);
+      }
    	  perf_log.pop("Creating Mesh");
 
    	  perf_log.push("Creating Mesh Refinement");
@@ -157,14 +165,29 @@ int main (int argc, char ** argv)
 //      equation_systems.add_system<libMesh::TransientLinearImplicitSystem>("Test");
 //      equation_systems.get_system("Test").add_variable("Pippo",libMesh::FIRST);
 
-      // Constructor
 
    	  perf_log.push("Monodomain setup");
 
-      BeatIt::Monodomain monodomain(mesh);
+      libMesh::EquationSystems& es(mesh);
+      BeatIt::Monodomain monodomain(es);
       // Setup the equation systems
       monodomain.setup(data, "monodomain");
       monodomain.init(0.0);
+
+            // Constructor
+      std::string poisson_rhs = data("poisson/rhs", "NOPE");
+      if( poisson_rhs != "NOPE")
+	  {
+    	  monodomain.generate_fibers(data, "poisson");
+	  }
+      std::string V0_boundaries  = data("monodomain/init_boundaries", "NOPE");
+      std::vector<int> init_boundaries;
+      bool found_init_boundaries = BeatIt::readList(V0_boundaries, init_boundaries);
+      if( found_init_boundaries )
+      {
+    	  for (auto&& b_id : init_boundaries )  monodomain.set_potential_on_boundary(b_id, 1.0);
+      }
+
 
       BeatIt::TimeData datatime;
       datatime.setup(data, "monodomain/");
@@ -254,7 +277,7 @@ int main (int argc, char ** argv)
               if(usingAMR == true)
 			  {
             	  monodomain.save(save_iter);
-            	  monodomain.save_exo(save_iter++, datatime.M_time);
+            	  //monodomain.save_exo(save_iter++, datatime.M_time);
 			  }
               else monodomain.save_exo(save_iter++, datatime.M_time);
               perf_log.pop("saving");

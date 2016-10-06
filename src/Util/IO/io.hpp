@@ -26,7 +26,7 @@ bool  readList(std::string& list, Container& container, const ElementParser& ele
 	auto beg = list.begin();
 	auto end = list.end();
 	namespace qi = boost::spirit::qi;
-	bool ok = qi::phrase_parse(beg, end,  elementParser  % ',',  qi::blank, container);
+	bool ok = qi::phrase_parse(beg, end,  elementParser  % ( ',' | qi::lit('\t') ) ,  qi::blank, container);
 	return ok;
 }
 

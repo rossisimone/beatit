@@ -65,7 +65,13 @@ BCHandler::readBC(const GetPot& data,  const std::string& section)
 			bc_ptr->setup(data, path);
 			M_bcNames.push_back(path);
 			M_bcs.push_back(bc_ptr);
-			M_bcMap[bc_ptr->get_flag()] = bc_ptr;
+			auto size = bc_ptr->size();
+			if(size <= 0)
+			{
+				std::cout << "Wrong size in readBC" << std::endl;
+				throw std::runtime_error("Error in readBC");
+			}
+			for(int i = 0; i < size; ++i) M_bcMap[bc_ptr->get_flag(i)] = bc_ptr;
 		}
 	}
 

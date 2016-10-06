@@ -112,8 +112,24 @@ typedef libMesh::TransientExplicitSystem           IonicModelSystem;
 typedef libMesh::ExplicitSystem                     ParameterSystem;
 
 
-Monodomain::Monodomain( libMesh::MeshBase & mesh )
-    : M_equationSystems(mesh)
+//Monodomain::Monodomain( libMesh::MeshBase & mesh )
+//    : M_equationSystems( libMesh::EquationSystems(mesh) )
+//    , M_monodomainExporter()
+//    , M_monodomainExporterNames()
+//    , M_ionicModelExporter()
+//    , M_ionicModelExporterNames()
+//    , M_parametersExporter()
+//    , M_parametersExporterNames()
+//    , M_outputFolder()
+//    , M_datafile()
+//    , M_pacing()
+//    , M_linearSolver()
+//{
+//
+//}
+
+Monodomain::Monodomain( libMesh::EquationSystems& es )
+    : M_equationSystems(es)
     , M_monodomainExporter()
     , M_monodomainExporterNames()
     , M_ionicModelExporter()
@@ -124,6 +140,7 @@ Monodomain::Monodomain( libMesh::MeshBase & mesh )
     , M_datafile()
     , M_pacing()
     , M_linearSolver()
+    , M_anisotropy(Anisotropy::Orthotropic)
 {
 
 }
@@ -158,7 +175,7 @@ void Monodomain::setup(GetPot& data, std::string section)
     monodomain_system.add_matrix("stiffness");
     monodomain_system.add_vector("ionic_currents");
     M_monodomainExporterNames.insert("monodomain");
-
+    monodomain_system.init();
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // 2) ODEs
@@ -177,11 +194,11 @@ void Monodomain::setup(GetPot& data, std::string section)
         // For the time being we use P1 for the variables
         ionic_model_system.add_variable( &var_name[0], libMesh::FIRST );
     }
-
+    ionic_model_system.init();
     // Add the applied current to this system
     IonicModelSystem& istim_system = M_equationSystems.add_system<IonicModelSystem>("istim");
     istim_system.add_variable( "istim", libMesh::FIRST);
-
+    istim_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
     M_ionicModelExporterNames.insert("istim");
 
@@ -215,8 +232,15 @@ void Monodomain::setup(GetPot& data, std::string section)
     M_parametersExporterNames.insert("xfibers");
     M_parametersExporterNames.insert("conductivity");
     M_parametersExporterNames.insert("ProcID");
-
-    M_equationSystems.init();
+    std::cout << "* MONODOMAIN: Initializing equation systems " << std::endl;
+    // Initializing
+	activation_times_system.init();
+	fiber_system.init();
+	sheets_system.init();
+	xfiber_system.init();
+	conductivity_system.init();
+	procID_system.init();
+//    M_equationSystems.init();
     M_equationSystems.print_info();
 
     // Conductivity Tensor in local coordinates
@@ -231,11 +255,17 @@ void Monodomain::setup(GetPot& data, std::string section)
     double Dnn = M_datafile( section+"/Dnn", 0.17606);
     double Chi = M_datafile( section+"/Chi", 1400.0);
     M_equationSystems.parameters.set<double>("Chi") = Chi;
+    std::string anisotropy = M_datafile(section+"/anisotropy", "orhotropic");
+    std::map<std::string, Anisotropy> aniso_map;
+    aniso_map["orthotropic"] = Anisotropy::Orthotropic;
+    aniso_map["isotropic"] = Anisotropy::Isotropic;
+    aniso_map["transverse"] = Anisotropy::TransverselyIsotropic;
 
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Setup Exporters
+    std::cout << "* MONODOMAIN: Initializing exporters " << std::endl;
     M_monodomainExporter.reset( new Exporter(M_equationSystems.get_mesh() ) );
     M_ionicModelExporter.reset( new Exporter(M_equationSystems.get_mesh() ) );
     M_parametersExporter.reset( new EXOExporter(M_equationSystems.get_mesh() ) );
@@ -436,11 +466,14 @@ Monodomain::generate_fibers(   const GetPot& data,
     std::cout << "* MONODOMAIN: Solving Poisson porblem" << std::endl;
 
     libMesh::Mesh new_mesh( dynamic_cast< libMesh::Mesh&>(M_equationSystems.get_mesh() ) );
-    Poisson p(new_mesh);
+    libMesh::EquationSystems es(new_mesh);
+    Poisson p(es);
     p.setup(data, section);
     p.assemble_system();
     p.solve_system();
     p.compute_elemental_solution_gradient();
+    p.save_exo();
+
     const auto& sol_ptr = p.get_P0_solution();
 
 
@@ -452,6 +485,9 @@ Monodomain::generate_fibers(   const GetPot& data,
 
     auto first_local_index = fiber_system.solution->first_local_index();
     auto last_local_index = fiber_system.solution->last_local_index();
+    auto first_local_index_sol = sol_ptr->first_local_index();
+    auto last_local_index_sol = sol_ptr->last_local_index();
+
     double norm = 0.0;
     double fx = 0.0;
     double fy = 0.0;
@@ -520,7 +556,9 @@ Monodomain::generate_fibers(   const GetPot& data,
     std::cout << "* MONODOMAIN: Computing rule-based fiber fields" << std::endl;
 
 //    sol_ptr->print();
-    auto j = first_local_index;
+
+    auto j = first_local_index_sol;
+
     for(auto i = first_local_index; i < last_local_index; )
     {
 
@@ -609,9 +647,12 @@ Monodomain::generate_fibers(   const GetPot& data,
         xfiber_system.solution->set(i,   xfx);
         xfiber_system.solution->set(i+1, xfy);
         xfiber_system.solution->set(i+2, xfz);
+//        std::cout << "* MONODOMAIN: setting sol ... " << std::flush;
+
         fiber_system. solution->set(i,   f0x);
         fiber_system. solution->set(i+1, f0y);
         fiber_system. solution->set(i+2, f0z);
+//        std::cout << " done" << std::endl;
 
         i += 3;
     }
@@ -893,15 +934,47 @@ Monodomain::assemble_matrices()
          double Dss = (*conductivity_system.solution)(dof_indices_fibers[1]);
          double Dnn = (*conductivity_system.solution)(dof_indices_fibers[2]);
 
-         for(int idim = 0; idim < dim; ++idim )
-         {
-             for(int jdim = 0; jdim < dim; ++jdim )
-             {
-                 D0(idim,jdim) = Dff * f0[idim] * f0[jdim]
-                               + Dss * s0[idim] * s0[jdim]
-                               + Dnn * n0[idim] * n0[jdim];
-             }
-         }
+		 switch(M_anisotropy)
+		 {
+			 case Anisotropy::Isotropic:
+			 {
+				 for(int idim = 0; idim < dim; ++idim )
+				 {
+						  D0(idim,idim) = Dff;
+				 }
+				 break;
+			 }
+
+			 case Anisotropy::TransverselyIsotropic:
+			 {
+				 for(int idim = 0; idim < dim; ++idim )
+				 {
+					 for(int jdim = 0; jdim < dim; ++jdim )
+					 {
+
+										  D0(idim,jdim) = ( Dff - Dss ) * f0[idim] * f0[jdim];
+					 }
+					 D0(idim,idim) += Dss;
+				 }
+				 break;
+			 }
+
+			 case Anisotropy::Orthotropic:
+			 default:
+			 {
+				 for(int idim = 0; idim < dim; ++idim )
+				 {
+					 for(int jdim = 0; jdim < dim; ++jdim )
+					 {
+										  D0(idim,jdim) = Dff * f0[idim] * f0[jdim]
+									   + Dss * s0[idim] * s0[jdim]
+									   + Dnn * n0[idim] * n0[jdim];
+
+					 }
+				 }
+				 break;
+			 }
+		 }
 
 //    	 std::cout << "f  = [" << f0[0] << "," << f0[1]  << ", " << f0[2]  << "]"<< std::endl;
 //    	 std::cout << "s = [" << s0[0] << "," << s0[1]  << ", " << s0[2]  << "]"<< std::endl;
@@ -1203,27 +1276,58 @@ Monodomain::get_xfibers()
 void
 Monodomain::set_potential_on_boundary(unsigned int boundID, double value )
 {
-    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+std::cout << "* MONODOMAIN: WARNING:  set_potential_on_boundary works only for TET4" << std::endl;
+     libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+	  const unsigned int dim = mesh.mesh_dimension();
+
+    MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+    const libMesh::DofMap & dof_map = monodomain_system.get_dof_map();
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+
+         libMesh::FEType fe_type = dof_map.variable_type(0);
+           // Declare a special finite element object for
+  // boundary integration.
+  libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type));
+
+  // Boundary integration requires one quadraure rule,
+  // with dimensionality one less than the dimensionality
+  // of the element.
+  libMesh::QGauss qface(dim-1, libMesh::FIRST);
+
+  // Tell the finite element object to use our
+  // quadrature rule.
+  fe_face->attach_quadrature_rule (&qface);
+ libMesh::DenseVector<libMesh::Number> Fe;
+
+
     libMesh::MeshBase::const_element_iterator el =
             mesh.active_local_elements_begin();
     const libMesh::MeshBase::const_element_iterator end_el =
             mesh.active_local_elements_end();
 
-    MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
-    std::vector<libMesh::dof_id_type > node_id_list;
-    std::vector<libMesh::boundary_id_type > bc_id_list;
-    mesh.boundary_info->build_node_list_from_side_list();
-    mesh.boundary_info->build_node_list (node_id_list, bc_id_list);
-    auto first_local_index = monodomain_system.solution->first_local_index();
-    auto last_local_index = monodomain_system.solution->last_local_index();
-
-    for ( int i = 0; i < bc_id_list.size(); ++i )
+    for( ; el != end_el; ++el)
     {
-    	if( bc_id_list[i] == boundID )
-    	{
-            monodomain_system.solution->set(node_id_list[i], value);
+    	const libMesh::Elem * elem = *el;
+    	dof_map.dof_indices(elem, dof_indices);
+    	Fe.resize(dof_indices.size());
+        for (unsigned int side=0; side<elem->n_sides(); side++)
+        {
+			if (elem->neighbor(side) == libmesh_nullptr)
+            {
+                const unsigned int boundary_id =
+                mesh.boundary_info->boundary_id (elem, side);
+                if(boundary_id == boundID)
+                {
+                	monodomain_system.solution->set(dof_indices[0],value);
+                	monodomain_system.solution->set(dof_indices[1],value);
+                	monodomain_system.solution->set(dof_indices[2],value);
+                }
+            }
+
         }
     }
+    monodomain_system.solution->close();
 
 }
 

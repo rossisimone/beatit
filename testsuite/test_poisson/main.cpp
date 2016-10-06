@@ -98,7 +98,8 @@ int main (int argc, char ** argv)
                                          0., maxZ,
                                          TET4);
 
-      BeatIt::Poisson poisson(mesh);
+       libMesh::EquationSystems& es(mesh);
+      BeatIt::Poisson poisson(es);
 
       std::cout << "Calling setup: ..." << std::flush;
       poisson.setup(data, "poisson");

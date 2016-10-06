@@ -48,7 +48,7 @@
 [monodomain]
 
     # Output Folder
-    output_folder = ctest_nash_panfilov_output
+    output_folder = ctest_fibers_output
 
     # If we want to impose an initial conditions on the potential
     # we can use the parameter ic. For example

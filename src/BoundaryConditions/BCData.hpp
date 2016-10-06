@@ -55,9 +55,14 @@ public:
 	void setup(const GetPot& data, const std::string& section = "" );
 	void showMe(std::ostream& ofstream = std::cout );
 
-	unsigned int get_flag() const
+	unsigned int size()
 	{
-		return M_flag;
+		return M_flag.size();
+	}
+
+	unsigned int get_flag(int index = 0) const
+	{
+		return M_flag[index];
 	}
 	BCType get_type() const
 	{
@@ -77,7 +82,7 @@ public:
 		return M_function;
 	}
 
-	unsigned int         M_flag;
+	std::vector<unsigned int>         M_flag;
 	SpiritFunction          M_function;
 	BCComponent        M_component;
     BCMode                   M_mode;

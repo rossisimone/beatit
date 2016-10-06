@@ -35,7 +35,7 @@
 
 #include "BoundaryConditions/BCHandler.hpp"
 #include "libmesh/getpot.h"
-
+#include "BoundaryConditions/BCData.hpp"
 int main (int argc, char ** argv)
 {
 	GetPot data("data.pot");
@@ -46,6 +46,24 @@ int main (int argc, char ** argv)
 	bc2.readBC(data, "physic2");
 	bc1.showMe();
 	bc2.showMe();
+
+	double x = 1.0;
+	double y = 2.0;
+	double z = 3.0;
+	double t = 0.0;
+
+    // bc1 function: 1.0
+	double bc1_val_0 = (bc1.get_bc(1) ->get_function())(t,x,y,z,0);
+    std::cout << "bc1_val_0 = " << bc1_val_0 << std::endl;
+    double bc1_val_1 = (bc1.get_bc(1) ->get_function())(t,x,y,z,1);
+    std::cout << "bc1_val_1 = " << bc1_val_1 << std::endl;
+    double bc1_val_2 = (bc1.get_bc(1) ->get_function())(t,x,y,z,2);
+    std::cout << "bc1_val_2 = " << bc1_val_2 << std::endl;
+    double bc1_val      = (bc1.get_bc(2) ->get_function())(t,x,y,z,0);
+    std::cout << "bc1_val = " << bc1_val << std::endl;
+    double bc2_val      = (bc2.get_bc(3) ->get_function())(t,x,y,z,0);
+    std::cout << "bc2_val = " << bc2_val << std::endl;
+
 	return 0;
 }
 

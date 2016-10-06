@@ -99,7 +99,6 @@ int main (int argc, char ** argv)
 
       // Create an equation systems object.
       EquationSystems equation_systems (mesh);
-
       // Declare the Poisson system and its variables.
       // The Poisson system is another example of a steady system.
       equation_systems.add_system<LinearImplicitSystem> ("Poisson");

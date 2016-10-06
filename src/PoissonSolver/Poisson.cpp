@@ -74,14 +74,30 @@ namespace BeatIt {
 
 typedef libMesh::LinearImplicitSystem    PoissonSystem;
 
-Poisson::Poisson(libMesh::MeshBase & mesh)
-    : M_equationSystems(mesh)
+//Poisson::Poisson(libMesh::MeshBase & mesh)
+//    : M_equationSystems(mesh)
+//    , M_exporter()
+//    , M_outputFolder()
+//    , M_datafile()
+//    , M_linearSolver()
+//    , M_bch()
+//	, M_rhsFunction()
+//{
+//
+//}
+
+
+Poisson::Poisson( libMesh::EquationSystems& es, std::string system_name )
+    : M_equationSystems(es)
     , M_exporter()
     , M_outputFolder()
     , M_datafile()
     , M_linearSolver()
     , M_bch()
-	, M_rhsFunction()
+    , M_rhsFunction()
+    , M_myName(system_name)
+	, M_myNameGradient(system_name+"_gradient")
+	, M_myNameP0(system_name+"_P0")
 {
 
 }
@@ -90,6 +106,13 @@ Poisson::~Poisson() {
 	// TODO Auto-generated destructor stub
 }
 
+void
+Poisson::deleteSystems()
+{
+	M_equationSystems.delete_system(M_myName);
+	M_equationSystems.delete_system(M_myNameGradient);
+	M_equationSystems.delete_system(M_myNameP0);
+}
 
 void
 Poisson::setup(const GetPot& data, std::string section )
@@ -106,21 +129,23 @@ Poisson::setup(const GetPot& data, std::string section )
     // Starts by creating the equation systems
     // 1) ADR
     std::cout << "* POISSON: Creating new System for the Poisson Solver" << std::endl;
-    PoissonSystem& system  =  M_equationSystems.add_system<PoissonSystem>("poisson");
+    PoissonSystem& system  =  M_equationSystems.add_system<PoissonSystem>(M_myName);
     // TO DO: Generalize to higher order
-    system.add_variable( "phi", libMesh::FIRST);
-    libMesh::ExplicitSystem& grad_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>("gradient");
-    grad_system.add_variable( "dphix", libMesh::CONSTANT, libMesh::MONOMIAL);
-    grad_system.add_variable( "dphiy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    grad_system.add_variable( "dphiz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    system.add_variable( M_myName+"_phi", libMesh::FIRST);
+    libMesh::ExplicitSystem& grad_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>(M_myNameGradient);
+    grad_system.add_variable( M_myName+"_dphix", libMesh::CONSTANT, libMesh::MONOMIAL);
+    grad_system.add_variable( M_myName+"_dphiy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    grad_system.add_variable( M_myName+"_dphiz", libMesh::CONSTANT, libMesh::MONOMIAL);
 
-    libMesh::ExplicitSystem& sol_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>("P0sol");
-    sol_system.add_variable( "phi_p0", libMesh::CONSTANT, libMesh::MONOMIAL);
+    libMesh::ExplicitSystem& sol_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>(M_myNameP0);
+    sol_system.add_variable( M_myName+"_phi_p0", libMesh::CONSTANT, libMesh::MONOMIAL);
 
-	M_equationSystems.init();
+	system.init();
+	grad_system.init();
+	sol_system.init();
     M_equationSystems.print_info();
     /// Setting up BC
-    M_bch.readBC(data, "poisson");
+    M_bch.readBC(data, section);
     M_bch.showMe();
 
     std::string rhs = data(section+"/rhs", "0.0");
@@ -165,7 +190,7 @@ Poisson::setup(const GetPot& data, std::string section )
 double
 Poisson::get_solution_norm()
 {
-    PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
+    PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
     return system.solution->l1_norm();
 }
 
@@ -173,7 +198,7 @@ Poisson::get_solution_norm()
 void
 Poisson::solve_system()
 {
-	    PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
+	    PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
 
     double tol = 1e-12;
     double max_iter = 2000;
@@ -213,7 +238,7 @@ const
 libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_solution()
 {
-    libMesh::ExplicitSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
+    libMesh::ExplicitSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
     return p_system.solution;
 }
 
@@ -221,7 +246,7 @@ const
 libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_P0_solution()
 {
-    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<PoissonSystem>("P0sol");
+    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<PoissonSystem>(M_myNameP0);
     return s_system.solution;
 }
 
@@ -229,7 +254,7 @@ const
 libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_gradient()
 {
-    libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient");
+    libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameGradient);
     return g_system.solution;
 }
 
@@ -241,7 +266,7 @@ Poisson::assemble_system()
      const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
      const unsigned int dim = mesh.mesh_dimension();
 
-      PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
+      PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
      system.matrix->zero();
           // A reference to the  DofMap object for this system.  The  DofMap
      // object handles the index translation from node and element numbers
@@ -399,10 +424,36 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
                     switch(bc_type)
                     {
                         case BCType::Dirichlet:
+                        {
+                            double beta = 1e6;
+
+
+                            for (unsigned int qp=0; qp<qface.n_points(); qp++)
+                            {
+                                // The location on the boundary of the current
+                                // face quadrature point.
+                                const double xf = qface_point[qp](0);
+                                const double yf = qface_point[qp](1);
+                                const double zf = qface_point[qp](2);
+                                const double value = bc->get_function()(0.0, xf, yf, zf, 0);
+                                for (unsigned int i=0; i<phi_face.size(); i++)
+                                {
+                                    double nabla_test_normal = normals[qp]* dphi_face[i][qp];
+                                    for (unsigned int j=0; j<phi_face.size(); j++)
+                                    {
+                                        double nabla_trial_normal = normals[qp] * dphi_face[j][qp];
+                                        Ke(i,j) += JxW_face[qp] * beta * phi_face[i][qp] * phi_face[j][qp];
+                                    }
+                                    Fe(i) += JxW_face[qp] * beta * value * phi_face[i][qp];
+
+                                }
+                            }
+                            break;
+                        }
                         case BCType::NitscheSymmetric:
                         {
                             double hE = elem->side(side)->hmax();
-                            double beta = 1e1 / hE;
+                            double beta = 1e4 / hE;
 
 
                             for (unsigned int qp=0; qp<qface.n_points(); qp++)
@@ -502,9 +553,9 @@ void
 Poisson::compute_elemental_solution_gradient()
 {
     std::cout << "* POISSON: Evaluating the gradient ... " << std::flush;
-    libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient");
-    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>("P0sol");
-    PoissonSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>("poisson");
+    libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameGradient);
+    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameP0);
+    PoissonSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
     p_system.update();
     using libMesh::UniquePtr;
 
