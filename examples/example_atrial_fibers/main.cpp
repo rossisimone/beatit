@@ -74,7 +74,7 @@ int main (int argc, char ** argv)
 
       // Read the input mesh.
       mesh.read (&meshfile[0]);
-      libMesh::EquationSystems& es1(mesh);
+      libMesh::EquationSystems es1(mesh);
       BeatIt::Poisson poisson1(es1);
 
       std::cout << "Calling setup: ..." << std::flush;
@@ -93,7 +93,7 @@ int main (int argc, char ** argv)
 
 
       libMesh::Mesh mesh2(mesh);
-      libMesh::EquationSystems& es2(mesh2);
+      libMesh::EquationSystems es2(mesh2);
 
       BeatIt::Poisson poisson2(es2);
 
@@ -112,7 +112,7 @@ int main (int argc, char ** argv)
 
 
       libMesh::Mesh mesh4(mesh);
-      libMesh::EquationSystems& es4(mesh4);
+      libMesh::EquationSystems es4(mesh4);
       BeatIt::Poisson poisson4(es4);
 
       std::cout << "Calling setup: ..." << std::flush;
@@ -130,7 +130,7 @@ int main (int argc, char ** argv)
 
 
       libMesh::Mesh mesh3(mesh);
-      libMesh::EquationSystems& es3(mesh3);
+      libMesh::EquationSystems es3(mesh3);
       BeatIt::Poisson poisson3(es3);
 
       std::cout << "Calling setup: ..." << std::flush;

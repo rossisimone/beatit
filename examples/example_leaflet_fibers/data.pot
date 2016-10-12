@@ -1,0 +1,34 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+     input_mesh_name = BAV_2.e
+[../]
+
+[poisson1]
+    # Output Folder
+    output_folder = BAV2
+    rhs = 0.0
+
+    [./BC]
+        list = 'zero, one'
+        [./zero]
+        flag = 1
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./one]
+        flag = 3
+        type = Dirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+    [../]
+[../]

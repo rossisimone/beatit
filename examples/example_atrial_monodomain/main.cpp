@@ -73,12 +73,29 @@ int main (int argc, char ** argv)
 
       // We may need XDR support compiled in to read binary .xdr files
       std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
-
+      bool buildFibers = data("monodomain/build_fibers", true);
+      bool readMesh = data("mesh/read_mesh", false);
       // Read the input mesh.
-      mesh.read (&meshfile[0]);
+      if(readMesh) mesh.read (&meshfile[0]);
+      else
+      {
+    	  int elX = data("mesh/elX", 10);
+    	  int elY = data("mesh/elY", 10);
+    	  MeshTools::Generation::build_square(mesh, elX, elY, 0.0, 1.0, 0.0, 1.0, TRI3);
+      }
       libMesh::EquationSystems es(mesh);
       es.init();
 
+	  std::cout << "\nConstructing monodomain: ..." << std::flush;
+      BeatIt::Monodomain monodomain(es);
+      // Setup the equation systems
+      std::cout << "\nSetting it up monodomain: ..." << std::flush;
+      monodomain.setup(data, "monodomain");
+      std::cout << "\nInitializing monodomain: ..." << std::flush;
+      monodomain.init(0.0);
+
+if(buildFibers)
+{
       std::string pois1 = "poisson1";
       BeatIt::Poisson poisson1(es, pois1);
 
@@ -289,13 +306,7 @@ int main (int argc, char ** argv)
      }
 
 
-      std::cout << "\nConstructing monodomain: ..." << std::flush;
-      BeatIt::Monodomain monodomain(es);
-      // Setup the equation systems
-      std::cout << "\nSetting it up monodomain: ..." << std::flush;
-      monodomain.setup(data, "monodomain");
-      std::cout << "\nInitializing monodomain: ..." << std::flush;
-      monodomain.init(0.0);
+
 
 
 
@@ -318,7 +329,7 @@ int main (int argc, char ** argv)
 	  poisson2.deleteSystems();
 	  poisson3.deleteSystems();
 	  poisson4.deleteSystems();
-
+}
        BeatIt::TimeData datatime;
       datatime.setup(data, "monodomain/");
       datatime.print();
@@ -329,7 +340,8 @@ int main (int argc, char ** argv)
       monodomain.assemble_matrices();
       monodomain.form_system_matrix(datatime.M_dt, false);
       std::cout << "\nDatatime: ..." << std::flush;
-
+      std::string reaction_mass = data("monodomain/reaction_mass", "mass");
+      std::string diffusion_mass = data("monodomain/diffusion_mass", "lumped_mass");
       monodomain.save_parameters();
 	  for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
@@ -337,8 +349,8 @@ int main (int argc, char ** argv)
 		    datatime.advance();
 		    monodomain.advance();
 			monodomain.update_pacing(datatime.M_time);
-			monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time, 0, false);
-			monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time,  false);
+			monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time, 0, false, reaction_mass);
+			monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time,  false, diffusion_mass, false);
 			monodomain.update_activation_time(datatime.M_time);
 
           if( 0 == datatime.M_iter%datatime.M_saveIter )

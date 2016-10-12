@@ -127,7 +127,8 @@ int main (int argc, char ** argv)
       int step1 = 1;
 
       // Constructor
-      BeatIt::Monodomain monodomain(mesh);
+      libMesh::EquationSystems es(mesh);
+      BeatIt::Monodomain monodomain(es);
       // Setup the equation systems
       monodomain.setup(data, "monodomain");
       monodomain.init(0.0);

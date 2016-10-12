@@ -168,7 +168,7 @@ int main (int argc, char ** argv)
 
    	  perf_log.push("Monodomain setup");
 
-      libMesh::EquationSystems& es(mesh);
+      libMesh::EquationSystems es(mesh);
       BeatIt::Monodomain monodomain(es);
       // Setup the equation systems
       monodomain.setup(data, "monodomain");

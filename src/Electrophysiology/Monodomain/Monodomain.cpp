@@ -778,6 +778,7 @@ Monodomain::assemble_matrices()
 
      const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
      const unsigned int dim = mesh.mesh_dimension();
+     const unsigned int max_dim = 3;
      // Get a reference to the LinearImplicitSystem we are solving
      MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
      IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
@@ -844,6 +845,9 @@ Monodomain::assemble_matrices()
      const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp1 = fe_qp1->get_dphi();
      const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp2 = fe_qp2->get_dphi();
 
+      const std::vector<std::vector<libMesh::Real> > & dphidx_qp1 = fe_qp1->get_dphidx();
+      const std::vector<std::vector<libMesh::Real> > & dphidy_qp1 = fe_qp1->get_dphidy();
+      const std::vector<std::vector<libMesh::Real> > & dphidz_qp1 = fe_qp1->get_dphidz();
      // Define data structures to contain the element matrix
      // and right-hand-side vector contribution.  Following
      // basic finite element terminology we will denote these
@@ -938,7 +942,7 @@ Monodomain::assemble_matrices()
 		 {
 			 case Anisotropy::Isotropic:
 			 {
-				 for(int idim = 0; idim < dim; ++idim )
+				 for(int idim = 0; idim < max_dim; ++idim )
 				 {
 						  D0(idim,idim) = Dff;
 				 }
@@ -947,9 +951,9 @@ Monodomain::assemble_matrices()
 
 			 case Anisotropy::TransverselyIsotropic:
 			 {
-				 for(int idim = 0; idim < dim; ++idim )
+				 for(int idim = 0; idim < max_dim; ++idim )
 				 {
-					 for(int jdim = 0; jdim < dim; ++jdim )
+					 for(int jdim = 0; jdim < max_dim; ++jdim )
 					 {
 
 										  D0(idim,jdim) = ( Dff - Dss ) * f0[idim] * f0[jdim];
@@ -962,9 +966,9 @@ Monodomain::assemble_matrices()
 			 case Anisotropy::Orthotropic:
 			 default:
 			 {
-				 for(int idim = 0; idim < dim; ++idim )
+				 for(int idim = 0; idim < max_dim; ++idim )
 				 {
-					 for(int jdim = 0; jdim < dim; ++jdim )
+					 for(int jdim = 0; jdim < max_dim; ++jdim )
 					 {
 										  D0(idim,jdim) = Dff * f0[idim] * f0[jdim]
 									   + Dss * s0[idim] * s0[jdim]
@@ -1005,7 +1009,7 @@ Monodomain::assemble_matrices()
          monodomain_system.get_vector("lumped_mass_vector").add_vector(Fe, dof_indices);
          for (unsigned int qp = 0; qp < qrule_stiffness.n_points(); qp++)
          {
-             for (unsigned int i = 0; i < phi_qp1.size(); i++)
+             for (unsigned int i = 0; i < dphi_qp1.size(); i++)
              {
                  DgradV = D0  * dphi_qp1[i][qp];
 
@@ -1015,7 +1019,7 @@ Monodomain::assemble_matrices()
 //                	 std::cout << DgradV(idim, 0) << "," << DgradV(idim, 1) << ", " << DgradV(idim, 2) << std::endl;
 //                 }
 
-                 for (unsigned int j = 0; j < phi_qp1.size(); j++)
+                 for (unsigned int j = 0; j < dphi_qp1.size(); j++)
                  {
                      // stiffness term
                      Ke(i, j) += JxW_qp1[qp] * DgradV * dphi_qp1[j][qp];
@@ -1046,6 +1050,8 @@ Monodomain::advance()
 void
 Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoint, const std::string& mass)
 {
+	    std::cout << "REACTION MASS: " << mass << std::endl;
+
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
@@ -1203,6 +1209,8 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , con
     if(reassemble) form_system_matrix(dt, useMidpoint, mass);
     monodomain_system.rhs->zero();
 
+
+    std::cout << "DIFFUSION MASS: " << mass << std::endl;
     if(useMidpoint)
     {
         monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs, *monodomain_system.solution);
