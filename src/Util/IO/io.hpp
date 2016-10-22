@@ -10,6 +10,14 @@
 #include "boost/bind.hpp"
 #include <boost/spirit/include/qi_symbols.hpp>
 
+namespace libMesh
+{
+namespace Parallel
+{
+class Communicator;
+}
+}
+
 namespace BeatIt
 {
 
@@ -31,5 +39,8 @@ bool  readList(std::string& list, Container& container, const ElementParser& ele
 }
 
 bool  readList(std::string& list, std::vector<std::string>& container );
+
+void createOutputFolder(const libMesh::Parallel::Communicator & comm,
+		                                          std::string& output_folder );
 
 } // namespace BeatIt

@@ -1,4 +1,6 @@
 #include "Util/IO/io.hpp"
+#include <sys/stat.h>
+#include "libmesh/parallel.h"
 
 namespace BeatIt
 {
@@ -38,6 +40,19 @@ bool  readList(std::string& list, std::vector<std::string>& container )
 	namespace ascii = boost::spirit::ascii;
 	bool ok = qi::phrase_parse(beg, end,  (*~qi::char_(",")) % ',', ascii::blank, container);
 	return ok;
+}
+
+void createOutputFolder(const libMesh::Parallel::Communicator & comm,
+		                                          std::string& output_folder )
+{
+	struct stat out_dir;
+    if( stat(&output_folder[0],&out_dir) != 0  )
+    {
+        if ( comm.rank() == 0 )
+        {
+            mkdir ( output_folder.c_str(), 0777 );
+        }
+    }
 }
 
 

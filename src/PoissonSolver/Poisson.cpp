@@ -34,7 +34,7 @@
  */
 
 
-#include "Poisson.hpp"
+#include "PoissonSolver/Poisson.hpp"
 
 // Basic include files needed for the mesh functionality.
 #include "libmesh/mesh.h"

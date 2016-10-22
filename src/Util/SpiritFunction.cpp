@@ -88,7 +88,7 @@ SpiritFunction::read(std::string& str)
 void
 SpiritFunction::showMe(std::ostream& ofstream)
 {
-	for(auto&& str : M_expression)	ofstream << " \t\t\t\t " << str << std::endl;
+	for(auto&& str : M_expression)	ofstream << " \t\t\t\ funct " << str << std::endl;
 }
 
 
@@ -128,7 +128,8 @@ SpiritFunction::operator()(  const double t,
     }
     else
     {
-        std::cout << "Screw you." << std::endl;
+        std::cout << "SpiritFunction: asked for component " << component
+        		         << " but I have only " <<   M_expression.size() << " components." << std::endl;
     }
     return result;
 

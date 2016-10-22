@@ -1,0 +1,71 @@
+/*
+ ============================================================================
+
+ .______    _______     ___   .___________.    __  .___________.
+ |   _  \  |   ____|   /   \  |           |   |  | |           |
+ |  |_)  | |  |__     /  ^  \ `---|  |----`   |  | `---|  |----`
+ |   _  <  |   __|   /  /_\  \    |  |        |  |     |  |     
+ |  |_)  | |  |____ /  _____  \   |  |        |  |     |  |     
+ |______/  |_______/__/     \__\  |__|        |__|     |__|     
+ 
+ BeatIt - code for cardiovascular simulations
+ Copyright (C) 2016 Simone Rossi
+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ ============================================================================
+ */
+
+/*
+ * Material.cpp
+ *
+ *  Created on: Oct 21, 2016
+ *      Author: srossi
+ */
+
+#include "Elasticity/Materials/Material.hpp"
+
+namespace BeatIt {
+
+const libMesh::TensorValue <double>  Material::M_identity
+	= libMesh::TensorValue <double>( 1.0, 0.0, 0.0,
+																  0.0, 1.0, 0.0,
+																  0.0, 0.0, 1.0 );
+
+Material::Material()
+	: M_total_stress()
+	, M_deviatoric_stress()
+	, M_volumetric_stress()
+	, M_total_jacobian()
+	, M_deviatoric_jacobian()
+	, M_volumetric_jacobian()
+	, M_gradU()
+	, M_strain()
+	, M_strain_rate()
+	, M_Fk()
+	, M_Ck()
+	, M_Cinvk()
+	, M_Jk(1.0)
+	, M_pressure()
+	, M_parameters()
+	, M_fibers()
+{
+	// TODO Auto-generated constructor stub
+
+}
+
+Material::~Material() {
+	// TODO Auto-generated destructor stub
+}
+
+} /* namespace BeatIt */

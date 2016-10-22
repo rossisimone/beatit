@@ -1050,8 +1050,6 @@ Monodomain::advance()
 void
 Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoint, const std::string& mass)
 {
-	    std::cout << "REACTION MASS: " << mass << std::endl;
-
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
@@ -1210,7 +1208,6 @@ Monodomain::solve_diffusion_step(double dt, double time,  bool useMidpoint , con
     monodomain_system.rhs->zero();
 
 
-    std::cout << "DIFFUSION MASS: " << mass << std::endl;
     if(useMidpoint)
     {
         monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs, *monodomain_system.solution);
