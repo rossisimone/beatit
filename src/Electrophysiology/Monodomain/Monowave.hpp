@@ -4,10 +4,10 @@
  .______    _______     ___   .___________.    __  .___________.
  |   _  \  |   ____|   /   \  |           |   |  | |           |
  |  |_)  | |  |__     /  ^  \ `---|  |----`   |  | `---|  |----`
- |   _  <  |   __|   /  /_\  \    |  |        |  |     |  |
- |  |_)  | |  |____ /  _____  \   |  |        |  |     |  |
- |______/  |_______/__/     \__\  |__|        |__|     |__|
-
+ |   _  <  |   __|   /  /_\  \    |  |        |  |     |  |     
+ |  |_)  | |  |____ /  _____  \   |  |        |  |     |  |     
+ |______/  |_______/__/     \__\  |__|        |__|     |__|     
+ 
  BeatIt - code for cardiovascular simulations
  Copyright (C) 2016 Simone Rossi
 
@@ -26,28 +26,15 @@
  ============================================================================
  */
 
-/**
- * \file Monodomain.hpp
+/*
+ * Monowave.hpp
  *
- * \class Monodomain
- *
- * \brief This class provides the implementation of the monodomain
- *
- *
- * \author srossi
- *
- * \version 0.0
- *
- *
- * Contact: srossi@gmail.com
- *
- * Created on: Aug 11, 2016
- *
+ *  Created on: Oct 27, 2016
+ *      Author: srossi
  */
 
-#ifndef SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONODOMAIN_HPP_
-#define SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONODOMAIN_HPP_
-
+#ifndef SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONOWAVE_HPP_
+#define SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONOWAVE_HPP_
 
 #include "Util/TimeData.hpp"
 // Include file that defines (possibly multiple) systems of equations.
@@ -74,7 +61,6 @@ class  MeshRefinement;
 }
 
 
-
 namespace BeatIt
 {
 
@@ -88,7 +74,7 @@ enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic };
 enum class EquationType { ReactionDiffusion, Wave };
 
 /// Class
-class Monodomain
+class Monowave
 {
 public:
     typedef libMesh::GMVIO Exporter;
@@ -97,9 +83,10 @@ public:
 
     /// Empty construcor
 //    Monodomain( libMesh::MeshBase & mesh );
-    Monodomain( libMesh::EquationSystems& es );
-    ~Monodomain();
+    Monowave( libMesh::EquationSystems& es );
+    ~Monowave();
     void setup(GetPot& data, std::string section = "monodomain" );
+    void restart( std::string section = "monodomain/restart" );
 
     void init(double time);
     void save(int step);
@@ -139,6 +126,7 @@ public:
    get_xfibers();
     //protected:
 
+
     /// input file
     GetPot                     M_datafile;
     /// Store pointer to the ionic model
@@ -170,4 +158,5 @@ public:
 
 } /* namespace BeatIt */
 
-#endif /* SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONODOMAIN_HPP_ */
+
+#endif /* SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONOWAVE_HPP_ */

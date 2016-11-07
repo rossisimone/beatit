@@ -33,7 +33,7 @@
  *      Author: srossi
  */
 // Basic include files needed for the mesh functionality.
-#include "Elasticity/Elasticity.hpp"
+#include "Elasticity/MixedElasticity.hpp"
 
 #include "libmesh/linear_implicit_system.h"
 
@@ -92,12 +92,18 @@ int main (int argc, char ** argv)
 
   libMesh::EquationSystems es(mesh);
 
-  BeatIt::Elasticity elas(es, "Elasticity");
-  elas.setup(data,"elasticity");
-  elas.init_exo_output("elas.exo");
-  elas.newton();
-  elas.save_exo("elas.exo", 1, 1.0);
+//  BeatIt::Elasticity elas(es, "Elasticity");
+//  elas.setup(data,"elasticity");
+//  elas.init_exo_output("elas_primal.exo");
+//  elas.newton();
+//  elas.save_exo("elas_primal.exo", 1, 1.0);
 
-	  return 0;
+  BeatIt::MixedElasticity elas(es, "Elasticity");
+  elas.setup(data,"elasticity");
+  elas.init_exo_output("elas_mixed.exo");
+  elas.newton();
+  elas.save_exo("elas_mixed.exo", 1, 1.0);
+
+  return 0;
 }
 

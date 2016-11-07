@@ -50,11 +50,14 @@ public:
     void setup(GetPot& data, std::string section);
 	void evaluateVolumetricStress() {}
 	void evaluateDeviatoricStress() {}
-	void evaluateStress();
-
+	void evaluateStress(ElasticSolverType solverType) ;
 	void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) {}
 	void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) {}
 	void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0);
+
+	double evaluatePressure();
+    double evaluatePressureResidual();
+    double dpdF(const libMesh::TensorValue <double>&  dF) {}
 
 
 };

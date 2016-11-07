@@ -136,7 +136,7 @@ public:
                      libMesh::DenseVector<double> & output);
     double component(unsigned int i,
                      const Point & p,
-                     double time);
+                     double time = 0.0);
 	void showMe(std::ostream& ofstream = std::cout );
     static grammar_Type  M_grammar;
     std::vector<std::string>    M_expression;

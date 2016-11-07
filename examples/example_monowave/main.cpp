@@ -49,7 +49,7 @@
 
 
 // Basic include files needed for the mesh functionality.
-#include "Electrophysiology/Monodomain/Monodomain.hpp"
+#include "Electrophysiology/Monodomain/Monowave.hpp"
 #include "Electrophysiology/Monodomain/MonodomainUtil.hpp"
 
 #include "libmesh/linear_implicit_system.h"
@@ -69,9 +69,15 @@
 #include "libmesh/fourth_error_estimators.h"
 
 #include "Util/CTestUtil.hpp"
-#include "Util/GenerateFibers.hpp"
-
 #include <iomanip>
+//#include "libmesh/vtk_io.h"
+#include "libmesh/exodusII_io.h"
+enum class TestCase
+{
+	NP,                      // Nash Panfilov model
+	NP_AMR,           // Nash Panfilov model using AMR
+	ORd,                   // ORd model no AMR
+};
 
 
 int main (int argc, char ** argv)
@@ -101,42 +107,70 @@ int main (int argc, char ** argv)
       double maxY = data("mesh/maxY", 0.7);
       double maxZ = data("mesh/maxZ", 0.3);
 
-      MeshTools::Generation::build_cube (mesh,
-    		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
-                                         0., maxX,
-                                         0., maxY,
-                                         0., maxZ,
-                                         TET4);
+//      MeshTools::Generation::build_line ( mesh,
+//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
+//                                                                      0., maxX );
+      MeshTools::Generation::build_square ( mesh,
+    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX, numElementsY,
+                                                                      0., maxX, 0.0, maxY, TRI3 );
+      std::cout << "Mesh done!" << std::endl;
 
-
+     //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
       std::string reaction_mass = data("monodomain/reaction_mass", "mass");
       std::string diffusion_mass = data("monodomain/diffusion_mass", "lumped_mass");
-      bool useMidpointMethod = data("monodomain/time/use_midpoint", true);
+      bool useMidpointMethod = false;
       int step0 = 0;
       int step1 = 1;
 
       // Constructor
-      libMesh::EquationSystems es(mesh);
-      BeatIt::Monodomain monodomain(es);
-      // Setup the equation systems
-      monodomain.setup(data, "monodomain");
-      monodomain.init(0.0);
+      std::cout << "Create monodomain ..." << std::endl;
+      libMesh::EquationSystems es1(mesh);
+      BeatIt::Monowave monodomain(es1);
 
-//      monodomain.set_fibers( BeatIt::Util::generate_gradient_field( mesh, data, "poisson") );
-//      monodomain.set_fibers( BeatIt::Util::generate_gradient_field( mesh, data, "poisson") );
-      monodomain.generate_fibers(data, "poisson");
+
+      std::cout << "Setup monodomain ..." << std::endl;
+	  monodomain.setup(data, "monodomain");
+      // Setup the equation systems
+      monodomain.init(0.0);
+      std::cout << "Assembling monodomain ..." << std::endl;
+      monodomain.assemble_matrices();
+      monodomain.restart();
 
       int save_iter = 0;
+      std::cout << "Initializing output monodomain ..." << std::endl;
       monodomain.init_exo_output();
-      monodomain.save_parameters();
+//      return 0;
+      save_iter++;
 
-      double fiber_norm = monodomain.get_fibers()->l1_norm();
-      std::cout << std::setprecision(25) << "fiber norm = " << fiber_norm << std::endl;
-      // For ctest
-      const double reference_value = 2447.321987922462994902162;
-      //We check only up to 12th
-       BeatIt::CTest::check_test(fiber_norm, reference_value, 1e-8);
-       return 0;
+      BeatIt::TimeData datatime;
+      datatime.setup(data, "monodomain/");
+      datatime.print();
+      libMesh::PerfLog perf_log ("Solving");
+
+      for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
+      {
+
+		  datatime.advance();
+		  monodomain.advance();
+
+		  monodomain.update_pacing(datatime.M_time);
+		  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+		  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+		  monodomain.update_activation_time(datatime.M_time);
+
+
+          if( 0 == datatime.M_iter%datatime.M_saveIter )
+          {
+              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
+             monodomain.save_exo(save_iter++, datatime.M_time);
+          }
+      }
+
+      monodomain.save_parameters();
+      double last_activation_time = monodomain.last_activation_time();
+      double potential_norm = monodomain.potential_norm();
+      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
+      return 0;
 }
 
 

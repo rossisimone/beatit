@@ -67,6 +67,13 @@ public:
 
 };
 
+PacingProtocol* createPacingProtocolSpirit();
+
+namespace
+{
+	static bool register_PacingProtocolSpirit = BeatIt::PacingProtocol::PacingProtocolFactory::Register("function", &createPacingProtocolSpirit);
+}
+
 } /* namespace BeatIt */
 
 #endif /* SRC_ELECTROPHYSIOLOGY_PACING_PACINGPROTOCOLSPIRIT_HPP_ */

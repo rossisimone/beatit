@@ -119,11 +119,11 @@ int main (int argc, char ** argv)
 
       double solution_norm = poisson.get_solution_norm();
       std::cout << std::setprecision(25) << "pot norm = " << solution_norm << std::endl;
-      const double reference_value = 24.31114306824479598390099;
+      const double reference_value = 23.94608063311363110869934;
 
       //We check only up to 12th
         //We check only up to 12th
-      return BeatIt::CTest::check_test(solution_norm, reference_value, 1e-12);
+      return BeatIt::CTest::check_test(solution_norm, reference_value, 1e-8);
 
 
 }

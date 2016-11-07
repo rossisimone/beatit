@@ -54,6 +54,12 @@
 namespace BeatIt
 {
 
+PacingProtocol* createPacingProtocolSpirit()
+{
+	return new PacingProtocolSpirit;
+}
+
+
 PacingProtocolSpirit::PacingProtocolSpirit()
 {
     M_pacing = new SpiritFunction() ;
@@ -61,7 +67,7 @@ PacingProtocolSpirit::PacingProtocolSpirit()
 
 PacingProtocolSpirit::~PacingProtocolSpirit()
 {
-
+	delete M_pacing;
 }
 
 

@@ -75,6 +75,7 @@
 
 //Materials
 #include "Elasticity/Materials/LinearMaterial.hpp"
+#include "Elasticity/Materials/IsotropicMaterial.hpp"
 
 namespace BeatIt {
 
@@ -172,16 +173,26 @@ Elasticity::setup(const GetPot& data, std::string section )
     // PRESSURE SYSTEM
     std::string formulation = M_datafile(section+"/formulation",  "primal");
 
+    std::string pressure_name = "pressure";
+
     if(formulation == "mixed")
     {
-		std::string pressure_name = "pressure";
+        M_solverType = ElasticSolverType::Mixed;
 		ord = M_datafile(section+"/p_order",  1);
 		fam = M_datafile(section+"/p_fefamily",  "lagrange");
-		std::cout << "* ELASTICITY: Setting up pressure  field - order: " << ord << ", fefamily = " << fam  << std::endl;
-		libMesh::Order  p_order  = BeatIt::libmesh_order_map.find(ord)->second;
-		libMesh::FEFamily  p_fefamily   = BeatIt::libmesh_fefamily_map.find(fam)->second;
-		system.add_variable(pressure_name, p_order, p_fefamily);
+	    std::cout << "* ELASTICITY: Setting up pressure  field - order: " << ord << ", fefamily = " << fam  << std::endl;
+	    libMesh::Order  p_order  = BeatIt::libmesh_order_map.find(ord)->second;
+	    libMesh::FEFamily  p_fefamily   = BeatIt::libmesh_fefamily_map.find(fam)->second;
+	    system.add_variable(pressure_name, p_order, p_fefamily);
     }
+    else
+    {
+        M_solverType = ElasticSolverType::Primal;
+        LinearSystem& p_system  =  M_equationSystems.add_system<LinearSystem>("Pressure_Projection");
+        p_system.add_variable(pressure_name, libMesh::FIRST, libMesh::LAGRANGE);
+        p_system.init();
+    }
+
     system.add_vector("residual");
     system.add_vector("step");
 
@@ -269,7 +280,7 @@ Elasticity::setup(const GetPot& data, std::string section )
   std::cout << "* ELASTICITY: Setup linear solvers ... " << std::endl;
 
 	M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
-    M_linearSolver->set_solver_type(libMesh::GMRES);
+//    M_linearSolver->set_solver_type(libMesh::GMRES);
     M_linearSolver->set_preconditioner_type( libMesh::AMG_PRECOND);
     M_linearSolver->init();
 	M_projectionsLinearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
@@ -296,6 +307,14 @@ Elasticity::setup(const GetPot& data, std::string section )
     	M_materialMap[materialID]->setup(M_datafile, path);
     }
 
+    M_newtonData.tol = data(section+"/newton/tolerance", 1e-9);
+    M_newtonData.max_iter = data(section+"/newton/max_iter", 20);
+//    if(M_solverType == ElasticSolverType::Primal)
+//    {
+//    	std::cout << "Solver Type = PRIMAL" << std::endl;
+//    }
+//    else     	std::cout << "Solver Type = MIXED" << std::endl;
+
 
 }
 
@@ -317,38 +336,27 @@ Elasticity::assemble_residual()
     system.matrix->zero();
     system.update();
     unsigned int ux_var = system.variable_number ("displacementx");
-    unsigned int uy_var, uz_var, p_var;
+    unsigned int uy_var, uz_var;
 
    if(dim>1)uy_var =  system.variable_number ("displacementy");
    if(dim>2)uz_var =  system.variable_number ("displacementz");
-   p_var = 0;
-//   p_var =  system.variable_number ("pressure");
 
-    const libMesh::DofMap & dof_map = system.get_dof_map();
+   const libMesh::DofMap & dof_map = system.get_dof_map();
     libMesh::FEType fe_disp= dof_map.variable_type(ux_var);
-    libMesh::FEType fe_pr = dof_map.variable_type(p_var);
 
     UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp) );
-    UniquePtr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_pr) );
 
-    libMesh::QGauss qrule_1(dim,libMesh::FIRST  );
-    libMesh::QGauss qrule_2(dim, fe_pr.default_quadrature_order()  );
+    libMesh::QGauss qrule_1(dim, libMesh::FOURTH  );
 
     fe_u->attach_quadrature_rule(&qrule_1);
-    fe_p->attach_quadrature_rule(&qrule_2);
 
     const std::vector<libMesh::Real> & JxW_u = fe_u->get_JxW();
-    const std::vector<libMesh::Real> & JxW_p = fe_p->get_JxW();
-
     const std::vector<libMesh::Point> & q_point_u = fe_u->get_xyz();
-    const std::vector<libMesh::Point> & q_point_p = fe_p->get_xyz();
 
     // The element shape functions evaluated at the quadrature points.
     const std::vector<std::vector<libMesh::Real> > & phi_u = fe_u->get_phi();
-    const std::vector<std::vector<libMesh::Real> > & phi_p = fe_p->get_phi();
 
     const std::vector<std::vector<libMesh::RealGradient> > & dphi_u = fe_u->get_dphi();
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_p = fe_p->get_dphi();
 
     libMesh::DenseVector<libMesh::Number> Fe;
     libMesh::DenseMatrix<libMesh::Number>  Ke;
@@ -357,7 +365,6 @@ Elasticity::assemble_residual()
     std::vector<libMesh::dof_id_type> dof_indices_ux;
 	std::vector<libMesh::dof_id_type> dof_indices_uy;
 	std::vector<libMesh::dof_id_type> dof_indices_uz;
-	std::vector<libMesh::dof_id_type> dof_indices_p;
 
 	// Grad U
 	std::vector<double> solution_k;
@@ -377,19 +384,17 @@ Elasticity::assemble_residual()
 	  libMesh::TensorValue <libMesh::Number> S;
 	  // Grad W (test function)
 	  libMesh::TensorValue <libMesh::Number> dW;
-	  // Pressure
-	  double pk;
 
 	  double body_force[3];
-  const std::vector<libMesh::Point> & q_point = fe_u->get_xyz();
+      const std::vector<libMesh::Point> & q_point = fe_u->get_xyz();
 	    // On the boundary
-    libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_disp));
-    libMesh::QGauss qface(dim-1, fe_disp.default_quadrature_order());
-    fe_face->attach_quadrature_rule (&qface);
+     libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_disp));
+     libMesh::QGauss qface(dim-1,  libMesh::FOURTH);
+     fe_face->attach_quadrature_rule (&qface);
 
+     libMesh::MeshBase::const_element_iterator       el     = mesh.active_local_elements_begin();
+	 const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
 
-	  libMesh::MeshBase::const_element_iterator       el     = mesh.active_local_elements_begin();
-	  const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
 
 //	    std::cout << "* ELASTICITY:loop starts ... " << std::endl;
 
@@ -408,7 +413,6 @@ Elasticity::assemble_residual()
     const unsigned int n_ux_dofs = dof_indices_ux.size();
 
       fe_u->reinit (elem);
-      fe_p->reinit (elem);
       Fe.resize (n_dofs);
       Ke.resize(n_dofs, n_dofs);
 
@@ -417,6 +421,10 @@ Elasticity::assemble_residual()
 //  	  for(auto && di : dof_indices)  std::cout << "dof id: " << di << std::endl;
 
       system.current_local_solution->get(dof_indices, solution_k);
+      // local solution for a triangle contains
+      /*
+       *                        solution_k = [ ux1, ux2, ux3, uy1, uy2, uy3, uz1, uz2, uz3, p1, p2, p3];
+       */
       /*
         *            Jacobian =  | K_ux_wx        K_uy_wx        K_uz_wx        B_p_wx   |
         *                               | K_ux_wy        K_uy_wy        K_uz_wy        B_p_wy   |
@@ -441,9 +449,6 @@ Elasticity::assemble_residual()
     	  	  Ek *= 0.0;
     	  	  Sk *= 0.0;
 
-//    	  	  	    std::cout << "* ELASTICITY: evaluate dUk ... " << std::endl;
-//
-//    	  	  for(auto && di : dof_indices)  std::cout << "dof id: " << di << std::endl;
     	  	  const unsigned int n_phi = phi_u.size();
     	  	  for(unsigned int l = 0; l < n_phi; ++l )
     	  	  {
@@ -456,14 +461,9 @@ Elasticity::assemble_residual()
     	  		  }
     	  	  }
 
-//    	  	  	    std::cout << "* ELASTICITY: evaluate Sk ... " << std::endl;
-    	  	  M_materialMap[0]->M_gradU = dUk;
-    	  	  M_materialMap[0]->evaluateStress();
-//    	  	  Ek = 0.5 * ( dUk + dUk.transpose() );
-//    	  	  double trEk = Ek(0,0)+Ek(1,1)+Ek(2,2);
-//    	  	  Sk = 2.0 * mu * ( Ek - 1.0 / 3.0 * trEk * id ) + kappa * trEk * id;
-    	  	  Sk = M_materialMap[0]->M_total_stress;
-
+    		M_materialMap[0]->M_gradU = dUk;
+            M_materialMap[0]->evaluateStress( ElasticSolverType::Primal);
+            Sk = M_materialMap[0]->M_total_stress;
     	  	  // Residual
     		const double x = q_point[qp](0);
             const double y = q_point[qp](1);
@@ -479,76 +479,51 @@ Elasticity::assemble_residual()
 						  dW(jdim, 0) = JxW_u[qp]* dphi_u[n][qp](0);
 						  dW(jdim, 1) = JxW_u[qp]* dphi_u[n][qp](1);
 						  dW(jdim, 2) = JxW_u[qp]* dphi_u[n][qp](2);
+						  // Compute  - \nabla \cdot \sigma + f
 						  Fe(n+jdim*n_ux_dofs) -= Sk.contract(dW);
 						  Fe(n+jdim*n_ux_dofs) += body_force[jdim] * phi_u[n][qp];
 					  }
-
     	  	  }
+
     	  	  // Matrix
-//    	  	  	    std::cout << "* ELASTICITY: evaluate J ... " << std::endl;
-    	  	  for(unsigned int m = 0; m < phi_u.size(); ++m )
-    	  	  {
-				  for(unsigned int n = 0; n < phi_u.size(); ++n )
+    	  	  // For each test function
+    	  	  for(unsigned int n = 0; n < phi_u.size(); ++n )
+			  {
+    	  		  // for each dimension of the test function
+				  for(int jdim= 0; jdim < dim; jdim++)
 				  {
-					  for(int idim = 0; idim < dim; idim++)
+					  dW *= 0.0;
+					  dW(jdim, 0) = JxW_u[qp]* dphi_u[n][qp](0);
+					  dW(jdim, 1) = JxW_u[qp]* dphi_u[n][qp](1);
+					  dW(jdim, 2) = JxW_u[qp]* dphi_u[n][qp](2);
+
+					  // for each trial function
+					  for(unsigned int m = 0; m < phi_u.size(); ++m )
 					  {
-						  dU*= 0.0;
-						  E*= 0.0;
-						  S*= 0.0;
-
-						  dU(idim, 0) =  dphi_u[m][qp](0);
-						  dU(idim, 1) =  dphi_u[m][qp](1);
-						  dU(idim, 2) =  dphi_u[m][qp](2);
-
-						  M_materialMap[0]->evaluateJacobian(dU, 0.0);
-//						  E = 0.5 * (dU + dU.transpose() );
-//						  double trE = E(0,0)+E(1,1)+E(2,2);
-//						  S = 2.0 * mu * (E - 1.0/3.0 * trE * id) + kappa * trE * id;
-						  S = M_materialMap[0]->M_total_jacobian;
-						  for(int jdim= 0; jdim < dim; jdim++)
+						  // for each dimension of the trial function
+						  for(int idim = 0; idim < dim; idim++)
 						  {
-							  dW *= 0.0;
-							  dW(jdim, 0) = JxW_u[qp]* dphi_u[n][qp](0);
-							  dW(jdim, 1) = JxW_u[qp]* dphi_u[n][qp](1);
-							  dW(jdim, 2) = JxW_u[qp]* dphi_u[n][qp](2);
-//    	  	  	    std::cout << "* ELASTICITY: contract ... " << std::endl;
-//    	  	  	    double val = ;
-//    	  	  	    std::cout << "* ELASTICITY: Add val ... " << std::endl;
+							  dU*= 0.0;
+							  E*= 0.0;
+							  S*= 0.0;
+
+							  dU(idim, 0) =  dphi_u[m][qp](0);
+							  dU(idim, 1) =  dphi_u[m][qp](1);
+							  dU(idim, 2) =  dphi_u[m][qp](2);
+
+							  M_materialMap[0]->evaluateJacobian(dU, 0.0);
+							  S = M_materialMap[0]->M_total_jacobian;
 							  Ke(n+jdim*n_ux_dofs,m+idim*n_ux_dofs) += S.contract(dW);
 						  }
 					   }
 				  }
     	  	  }
-
       }
 
-//      std::cout << "\n Fe1: " << mu <<", " << kappa <<  std::endl;
-//      Fe.print(std::cout);
-
       apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs);
-//            std::cout << "\n Fe2: " << mu <<", " << kappa <<  std::endl;
-//      Fe.print(std::cout);
-
       dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
-
-//      std::cout << "\n Ke: " << mu <<", " << kappa <<  std::endl;
-//      Ke.print(std::cout);
-////    	  	  	    std::cout << "* ELASTICITY: BC ... " << std::endl;
-//
-//
-//
-////    	  	  	    std::cout << "* ELASTICITY: Constrain ... . " << std::endl;
-//
-//      std::cout << "\n Fe3: " << mu <<", " << kappa <<  std::endl;
-//      Fe.print(std::cout);
-
       system.matrix->add_matrix (Ke, dof_indices);
       system.rhs->add_vector    (Fe, dof_indices);
-
-
-
-
-
   }
     system.matrix->close();
     system.rhs->close();
@@ -631,6 +606,149 @@ Elasticity::solve_system()
 
 }
 
+void
+Elasticity::project_pressure()
+{
+    std::cout << "* ELASTICITY: projecting pressure ... " << std::endl;
+
+    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+    const unsigned int dim = mesh.mesh_dimension();
+
+    LinearSystem & system = M_equationSystems.get_system<LinearSystem>(M_myName);
+    LinearSystem & system_p = M_equationSystems.get_system<LinearSystem>("Pressure_Projection");
+    system.update();
+    unsigned int ux_var = system.variable_number ("displacementx");
+    unsigned int uy_var, uz_var, p_var;
+
+   if(dim>1)uy_var =  system.variable_number ("displacementy");
+   if(dim>2)uz_var =  system.variable_number ("displacementz");
+    p_var = system_p.variable_number ("pressure");
+
+    const libMesh::DofMap & dof_map = system.get_dof_map();
+    libMesh::FEType fe_type = dof_map.variable_type(0);
+    libMesh::UniquePtr<libMesh::FEBase> fe (libMesh::FEBase::build(dim, fe_type));
+    libMesh::QGauss qrule (dim, libMesh::SECOND);
+    fe->attach_quadrature_rule (&qrule);
+
+    const libMesh::DofMap & dof_map_p = system_p.get_dof_map();
+    libMesh::FEType fe_type_p = dof_map_p.variable_type(0);
+    libMesh::UniquePtr<libMesh::FEBase> fe_p (libMesh::FEBase::build(dim, fe_type_p));
+    libMesh::QGauss qrule_p (dim,libMesh::SECOND);
+    fe_p->attach_quadrature_rule (&qrule_p);
+
+
+    const std::vector<libMesh::Real> & JxW = fe_p->get_JxW();
+    const std::vector<std::vector<libMesh::RealGradient> > & dphi = fe_p->get_dphi();
+    const std::vector<std::vector<libMesh::Real> > & phi = fe_p->get_phi();
+    const std::vector<std::vector<libMesh::RealGradient> > & dphi_u = fe->get_dphi();
+    const std::vector<std::vector<libMesh::Real> > & phi_u = fe->get_phi();
+
+    libMesh::DenseMatrix<libMesh::Number> Ke;
+    libMesh::DenseVector<libMesh::Number> Fe;
+    // Grad U
+    // Grad U
+    std::vector<double> solution_k;
+
+      libMesh::TensorValue <libMesh::Number> dUk;
+
+
+    std::vector<libMesh::dof_id_type> dof_indices;
+    std::vector<libMesh::dof_id_type> dof_indices_ux;
+    std::vector<libMesh::dof_id_type> dof_indices_uy;
+    std::vector<libMesh::dof_id_type> dof_indices_uz;
+    std::vector<libMesh::dof_id_type> dof_indices_p;
+
+    libMesh::MeshBase::const_element_iterator       el     = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+    for ( ; el != end_el; ++el)
+    {
+        const libMesh::Elem * elem = *el;
+
+        dof_map.dof_indices (elem, dof_indices);
+        dof_map.dof_indices (elem, dof_indices_ux, ux_var);
+        if(dim > 1)
+        {
+            dof_map.dof_indices (elem, dof_indices_uy, uy_var);
+        }
+        if(dim > 2)
+        {
+            dof_map.dof_indices (elem, dof_indices_uz, uz_var);
+        }
+        dof_map_p.dof_indices (elem, dof_indices_p, p_var);
+
+        const unsigned int n_dofs   = dof_indices.size();
+        const unsigned int n_ux_dofs = dof_indices_ux.size();
+        const unsigned int n_uy_dofs = dof_indices_uy.size();
+        const unsigned int n_uz_dofs = dof_indices_uz.size();
+        const unsigned int n_p_dofs = dof_indices_p.size();
+
+        fe->reinit (elem);
+        fe_p->reinit (elem);
+
+       Ke.resize(dof_indices_p.size(), dof_indices_p.size());
+        Fe.resize(dof_indices_p.size());
+
+        // get uk
+        solution_k.resize(n_dofs);
+  //        for(auto && di : dof_indices)  std::cout << "dof id: " << di << std::endl;
+
+        system.current_local_solution->get(dof_indices, solution_k);
+
+           for (unsigned int qp = 0; qp < qrule_p.n_points(); qp++)
+           {
+//              std::cout << "* ELASTICITY: evaluate dUk ... " << std::endl;
+
+               dUk *= 0.0;
+               const unsigned int n_phi = phi_u.size();
+               for(unsigned int l = 0; l < n_phi; ++l )
+               {
+                   for(int idim = 0; idim < dim; idim++)
+                   {
+                       for(int jdim = 0; jdim < dim; jdim++)
+                       {
+                           dUk(idim, jdim) += dphi_u[l][qp](jdim) *solution_k[l+idim*n_phi];
+                       }
+                   }
+               }
+//               std::cout << "* ELASTICITY: evaluate p ... " << std::endl;
+
+               M_materialMap[0]->M_gradU = dUk;
+               double p = M_materialMap[0]->evaluatePressure();
+
+               for (unsigned int i = 0; i < phi.size(); i++)
+               {
+                   Fe(i) +=  JxW[qp] * p* phi[i][qp];
+
+                   for (unsigned int j = 0; j < phi.size(); j++)
+                   {
+                       // mass term
+                       Ke(i, j) += JxW[qp] * phi[i][qp] * phi[j][qp];
+                   }
+               }
+           }
+//           std::cout << "* ELASTICITY: add matrices ... " << std::endl;
+
+                 system_p.matrix->add_matrix (Ke, dof_indices_p);
+                 system_p.rhs->add_vector    (Fe, dof_indices_p);
+
+      }
+//    std::cout << "* ELASTICITY: solving p ... " << std::endl;
+
+    system_p.matrix->close();
+    system_p.rhs->close();
+
+    double tol = 1e-12;
+    double max_iter = 2000;
+
+    std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
+
+    rval = M_projectionsLinearSolver->solve (*system_p.matrix, nullptr,
+                                    *system_p.solution,
+                                                        *system_p.rhs, tol, max_iter);
+
+
+}
 
 void
 Elasticity::newton()
@@ -638,11 +756,11 @@ Elasticity::newton()
 	    LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
 	    assemble_residual();
 	    auto res_norm = system.rhs->linfty_norm ();
-		double tol = 1e-9;
-		int max_iter = 20;
+		double tol = M_newtonData.tol;
+		int max_iter = M_newtonData.max_iter;
 		int iter = 0;
 
-		std::cout << "* ELASTICITY: Performing Newton solve: " << std::endl;
+		std::cout << "* ELASTICITY: Performing Newton solve:  max iterations: " << max_iter << std::endl;
 		std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
 
  	    while(res_norm > tol && iter < max_iter)
@@ -656,6 +774,10 @@ Elasticity::newton()
 			std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
  	    }
 
+ 	    if(M_solverType == ElasticSolverType::Primal)
+ 	    {
+ 	        project_pressure();
+ 	    }
 		std::cout << "* ELASTICITY: Newton solve completed. " << std::endl;
 
 }

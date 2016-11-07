@@ -294,7 +294,7 @@ int main (int argc, char ** argv)
 
   	//We check only up to 12th
       //We check only up to 12th
-  	return BeatIt::CTest::check_test(potential_norm, reference_value, 1e-12);
+  	return BeatIt::CTest::check_test(potential_norm, reference_value, 1e-8);
 
 }
 
@@ -304,9 +304,9 @@ double get_reference_value(const BeatIt::Monodomain& monodomain, bool usingAMR)
 	else
 	{
 		std::string im = monodomain.get_ionic_model_name();
-		if("ORd" == im) return 129127.463204705185489729;
-		else if("TP06" == im) return 120756.656022836803458631;
-		else if("Grandi11" == im) return 107227.470842540860758163;
+		if("ORd" == im) return 129127.4632047053601127118;
+		else if("TP06" == im) return 120756.6560228370362892747;
+		else if("Grandi11" == im) return 107227.4708425408462062478;
 		else return  56.92915449886483258978842;
 	}
 }

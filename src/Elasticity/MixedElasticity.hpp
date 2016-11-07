@@ -27,52 +27,29 @@
  */
 
 /*
- * LinearMaterial.hpp
+ * MixedElasticity.hpp
  *
- *  Created on: Oct 21, 2016
+ *  Created on: Oct 24, 2016
  *      Author: srossi
  */
 
-#ifndef SRC_ELASTICITY_MATERIALS_LINEARMATERIAL_HPP_
-#define SRC_ELASTICITY_MATERIALS_LINEARMATERIAL_HPP_
+#ifndef SRC_ELASTICITY_MIXEDELASTICITY_HPP_
+#define SRC_ELASTICITY_MIXEDELASTICITY_HPP_
 
-#include "Elasticity/Materials/Material.hpp"
+#include "Elasticity/Elasticity.hpp"
 
 namespace BeatIt {
 
-class LinearMaterial : public virtual Material
+class MixedElasticity : public virtual Elasticity
 {
 public:
-	LinearMaterial();
-	virtual ~LinearMaterial();
+	MixedElasticity( libMesh::EquationSystems& es, std::string system_name );
+	virtual ~MixedElasticity();
 
-	void setup(GetPot& data, std::string section);
-	void evaluateVolumetricStress();
-	void evaluateDeviatoricStress();
-	void evaluateStress(ElasticSolverType solverType);
-
-	void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) ;
-	void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) ;
-	void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0);
-
-	double evaluatePressure();
-    double evaluatePressureResidual();
-    double dpdF(const libMesh::TensorValue <double>&  dF);
-
+	void assemble_residual();
+    void assemble_jacobian(){}
 };
-
-Material* createLinearMaterial();
-
-namespace
-{
-	static bool register_linear_material = BeatIt::Material::MaterialFactory::Register("linear", &createLinearMaterial);
-}
 
 } /* namespace BeatIt */
 
-
-
-
-
-
-#endif /* SRC_ELASTICITY_MATERIALS_LINEARMATERIAL_HPP_ */
+#endif /* SRC_ELASTICITY_MIXEDELASTICITY_HPP_ */

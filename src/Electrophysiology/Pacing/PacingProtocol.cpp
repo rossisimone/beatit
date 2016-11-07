@@ -52,6 +52,33 @@
 namespace BeatIt
 {
 
+bool isPointInside(DistanceType type, double r, double x, double y ,  double z)
+{
+	bool isInside = false;
+	switch(type)
+	{
+		case DistanceType::l_1:
+		{
+			if( r >=  std::abs(x) + std::abs(y) + std::abs(z)  ) isInside = true;
+			break;
+		}
+		case DistanceType::l_inf:
+		{
+			double max = std::max(std::abs(x), std::abs(y));
+			max = std::max(max, std::abs(z));
+			if( r >=  max) isInside = true;
+			break;
+		}
+		default:
+		case DistanceType::l_2:
+		{
+			if( r*r >= x*x + y*y + z*z  ) isInside = true;
+			break;
+		}
+	}
+	return isInside;
+}
+
 PacingProtocol::PacingProtocol()
     : M_pacing(nullptr)
 {
@@ -59,7 +86,7 @@ PacingProtocol::PacingProtocol()
 
 PacingProtocol::~PacingProtocol()
 {
-    if(M_pacing) delete M_pacing;
+//    if(M_pacing) delete M_pacing;
 }
 
 

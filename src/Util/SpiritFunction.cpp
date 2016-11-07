@@ -88,7 +88,7 @@ SpiritFunction::read(std::string& str)
 void
 SpiritFunction::showMe(std::ostream& ofstream)
 {
-	for(auto&& str : M_expression)	ofstream << " \t\t\t\ funct " << str << std::endl;
+	for(auto&& str : M_expression)	ofstream << " \t\t\t function " << str << std::endl;
 }
 
 
@@ -185,7 +185,7 @@ SpiritFunction::operator() (const Point & p,
 double
 SpiritFunction::component(unsigned int i,
                  const Point & p,
-                 double time=0.)
+                 double time)
 {
  return operator ()(time, p(0), p(1), p(2), i);
 }

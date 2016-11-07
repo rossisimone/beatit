@@ -1,3 +1,7 @@
+
+#ifndef SRC_UTIL_IO_IO_HPP_
+#define SRC_UTIL_IO_IO_HPP_
+
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -9,6 +13,7 @@
 #include "boost/function.hpp"
 #include "boost/bind.hpp"
 #include <boost/spirit/include/qi_symbols.hpp>
+#include "libmesh/parallel.h"
 
 namespace libMesh
 {
@@ -44,3 +49,6 @@ void createOutputFolder(const libMesh::Parallel::Communicator & comm,
 		                                          std::string& output_folder );
 
 } // namespace BeatIt
+
+
+#endif /* SRC_UTIL_IO_IO_HPP_ */

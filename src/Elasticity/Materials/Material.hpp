@@ -40,6 +40,7 @@
 #include "libmesh/tensor_value.h"
 #include "Util/Factory.hpp"
 #include <vector>
+#include "Elasticity/ElasticSolverType.hpp"
 
 
 /// Forward Declarations
@@ -58,12 +59,19 @@ public:
 
 	virtual void evaluateVolumetricStress() = 0;
 	virtual void evaluateDeviatoricStress() = 0;
-	virtual void evaluateStress() = 0;
+	virtual void evaluateStress( ElasticSolverType solverType) = 0;
 
-	virtual void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) = 0;
+    virtual void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) = 0;
 	virtual void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) = 0;
 	virtual void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) = 0;
 
+	virtual double evaluatePressure() = 0;
+	virtual double evaluatePressureResidual() = 0;
+	virtual double dpdF(const libMesh::TensorValue <double>&  dF) = 0;
+	bool isIncompressible ()
+	{
+		return M_isIncompressible;
+	}
 
    libMesh::TensorValue <double> M_total_stress;
    libMesh::TensorValue <double> M_deviatoric_stress;
@@ -79,8 +87,10 @@ public:
    libMesh::TensorValue <double> M_Cinvk;
    double M_Jk;
    double M_pressure;
+   double M_pressureResidual;
    std::vector<double>  M_parameters;
    std::vector<double>  M_fibers;
+   bool M_isIncompressible;
 
    const static libMesh::TensorValue <double> M_identity;
 

@@ -1,7 +1,7 @@
-SET(TESTNAMEV test_zero)
+SET(TESTNAMEV example_level_set)
 add_executable(${TESTNAMEV} main.cpp)
 
-set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_zero.x")
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_level_set.x")
 
 
 target_link_libraries(${TESTNAMEV} beatit)

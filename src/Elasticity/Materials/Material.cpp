@@ -59,6 +59,7 @@ Material::Material()
 	, M_pressure()
 	, M_parameters()
 	, M_fibers()
+	, M_isIncompressible(false)
 {
 	// TODO Auto-generated constructor stub
 

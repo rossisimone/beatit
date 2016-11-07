@@ -43,6 +43,10 @@
 #include <boost/phoenix/stl/cmath.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
 #include <cmath>
+#include <boost/spirit/include/qi_grammar.hpp>
+
+
+#define _USE_MATH_DEFINES
 
 namespace qi = boost::spirit::qi;
 namespace ascii=boost::spirit::ascii;
@@ -51,17 +55,23 @@ using boost::spirit::ascii::space;
 using boost::spirit::qi::symbols;
 
 
+namespace BeatIt
+{
+	constexpr static double S_PI = M_PI;
+	constexpr static double S_E = M_E;
+}
+
+
 template< typename Iterator >
 struct Grammar : public virtual qi::grammar<  Iterator, double(), ascii::space_type >
 {
     typedef qi::symbols<char, double >  variable_Type;
-    constexpr const static double S_PI = M_PI;
-    constexpr const static double S_E = M_E;
+
 
     Grammar() : Grammar::base_type(M_expression)
     {
-        M_symbol.add("pi", S_PI);
-        M_symbol.add("e", S_E);
+        M_symbol.add("pi", BeatIt::S_PI);
+        M_symbol.add("e",  BeatIt::S_E);
 
         using qi::double_;
         using qi::_val;

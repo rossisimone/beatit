@@ -53,11 +53,19 @@
 #include "libmesh/function_base.h"
 #include <string>
 #include <memory>
+#include <cmath>
+#include "Util/Factory.hpp"
 
 class GetPot;
 
 namespace BeatIt
 {
+
+enum class DistanceType { l_1,  l_2,  l_inf };
+
+bool isPointInside(DistanceType type, double r, double x, double y = 0.0,  double z = 0.0);
+
+
 
 /*!
  *
@@ -65,6 +73,10 @@ namespace BeatIt
 class PacingProtocol
 {
 public:
+
+		/// Create a factory
+	typedef Factory<PacingProtocol, std::string>     PacingProtocolFactory;
+
     PacingProtocol();
     virtual ~PacingProtocol();
 

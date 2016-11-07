@@ -27,52 +27,38 @@
  */
 
 /*
- * LinearMaterial.hpp
+ * MapsToLibMeshTypes.hpp
  *
- *  Created on: Oct 21, 2016
+ *  Created on: Oct 19, 2016
  *      Author: srossi
  */
 
-#ifndef SRC_ELASTICITY_MATERIALS_LINEARMATERIAL_HPP_
-#define SRC_ELASTICITY_MATERIALS_LINEARMATERIAL_HPP_
+#ifndef SRC_UTIL_MAPSTOLIBMESHTYPES_HPP_
+#define SRC_UTIL_MAPSTOLIBMESHTYPES_HPP_
 
-#include "Elasticity/Materials/Material.hpp"
+#include <string>
+#include <map>
+#include "libmesh/enum_order.h"
+#include "libmesh/enum_fe_family.h"
 
-namespace BeatIt {
-
-class LinearMaterial : public virtual Material
+namespace BeatIt
 {
-public:
-	LinearMaterial();
-	virtual ~LinearMaterial();
 
-	void setup(GetPot& data, std::string section);
-	void evaluateVolumetricStress();
-	void evaluateDeviatoricStress();
-	void evaluateStress(ElasticSolverType solverType);
-
-	void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) ;
-	void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) ;
-	void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0);
-
-	double evaluatePressure();
-    double evaluatePressureResidual();
-    double dpdF(const libMesh::TensorValue <double>&  dF);
-
+static const std::map<int, libMesh::Order> libmesh_order_map =
+{
+		{ 0, libMesh::CONSTANT },
+		{ 1, libMesh::FIRST },
+		{ 2, libMesh::SECOND },
 };
 
-Material* createLinearMaterial();
 
-namespace
+static const std::map<std::string, libMesh::FEFamily> libmesh_fefamily_map =
 {
-	static bool register_linear_material = BeatIt::Material::MaterialFactory::Register("linear", &createLinearMaterial);
-}
+		{ "lagrange", libMesh::LAGRANGE },
+		{ "monomial", libMesh::MONOMIAL },
+};
 
-} /* namespace BeatIt */
-
-
-
+} // BeatIt namespace
 
 
-
-#endif /* SRC_ELASTICITY_MATERIALS_LINEARMATERIAL_HPP_ */
+#endif /* SRC_UTIL_MAPSTOLIBMESHTYPES_HPP_ */

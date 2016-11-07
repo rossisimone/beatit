@@ -44,6 +44,8 @@
 #include "libmesh/getpot.h"
 #include "BoundaryConditions/BCHandler.hpp"
 #include "Util/SpiritFunction.hpp"
+#include "Elasticity/ElasticSolverType.hpp"
+
 
 namespace libMesh
 {
@@ -69,6 +71,8 @@ class BCHandler;
 class SpiritFunction;
 class Material;
 
+
+
 class Elasticity {
     typedef libMesh::ExodusII_IO EXOExporter;
 public:
@@ -79,16 +83,23 @@ public:
     void read_equation_system(const std::string& es = "elasticity.dat");
 
     void deleteSystems();
-    void assemble_residual();
-    void assemble_jacobian();
+    virtual void assemble_residual();
+    virtual void assemble_jacobian() {}
     void newton();
     void solve_system();
+    void project_pressure();
 
     void init_exo_output(const std::string& output_filename);
     virtual ~Elasticity();
 
 
-
+    struct NewtonData
+    {
+    	NewtonData() : tol(1e-9), max_iter(20), iter(0)  {}
+    	double tol;
+		int max_iter;
+		int iter;
+    };
 
     GetPot                     M_datafile;
     libMesh::EquationSystems&  M_equationSystems;
@@ -105,7 +116,10 @@ public:
     typedef std::unique_ptr<Material> MaterialPtr;
     std::map<unsigned int, MaterialPtr> M_materialMap;
 
-private:
+    ElasticSolverType M_solverType;
+    NewtonData M_newtonData;
+
+protected:
     void apply_BC( const libMesh::Elem*& elem,
             libMesh::DenseMatrix<libMesh::Number>& Ke,
             libMesh::DenseVector<libMesh::Number>& Fe,
