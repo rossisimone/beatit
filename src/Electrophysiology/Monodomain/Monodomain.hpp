@@ -56,7 +56,6 @@
 
 #include <memory>
 
-#include "Electrophysiology/Monodomain/MonodomainOptions.hpp"
 // Forward Definition
 namespace libMesh
 {
