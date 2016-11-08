@@ -1,7 +1,5 @@
 ############################################
-#
 #   Beat It     0.1
-#
 ############################################
 
 Install instructions:
@@ -23,9 +21,11 @@ From your build folder run
 BeatIt/build$ sh my-configure.sh
 
 ############################################
+#
 #   Linking Error With Libmesh
+#
 ############################################
 The default debug mode in libmesh adds the _GLIBCXX_DEBUG flag.
-If you compile libmesh with the option --disable--glibcxx-debugging
+If you compile libmesh with the option --disable-glibcxx-debugging
 you need to remove the flag from the CMakelists.txt file in 
 the base BeatIt directory.
