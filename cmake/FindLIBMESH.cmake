@@ -7,8 +7,8 @@ if(${BUILD_TYPE_UPPER} MATCHES DEBUG)
 else()
   set(METHOD opt)
 endif()
-set(METHOD opt)
 message(STATUS "linking against ${METHOD} libmesh library")
+message(STATUS "MAKE SURE YOU ARE BUILDING BEATIT IN ${METHOD} MODE")
 
 find_package(PkgConfig QUIET)
 

@@ -13,6 +13,14 @@ set (BeatIt_VERSION_MINOR 0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+message("\n\t Compiling in ${CMAKE_BUILD_TYPE}\n")
+if( ${CMAKE_BUILD_TYPE} MATCHES DEBUG)
+  message("\t Adding -D_GLIBCXX_DEBUG to the CXX flags:\n")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -Wall -D_GLIBCXX_DEBUG")
+endif()
+message(STATUS "CXX flags: ${CMAKE_CXX_FLAGS} \n")
+
+
 # Packages 
 find_package(MPI REQUIRED)
 find_package(VTK QUIET)
@@ -52,20 +60,19 @@ add_subdirectory(examples)
 add_subdirectory(testsuite)
 
 # set flags
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+#set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 
 
 
 # Summary 
-message(" Compiling in ${CMAKE_BUILD_TYPE}")
-
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 foreach(dir ${dirs})
   message(STATUS "dir='${dir}'")
 endforeach()
 
-message("Please type `make` in order to compile BeatIt.")
+message("\n\tPlease type `make` in order to compile BeatIt.\n")
 
 
+message(STATUS "CXX DEBUG flags: ${CMAKE_CXX_FLAGS} \n")
