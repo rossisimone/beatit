@@ -89,7 +89,7 @@ public:
 
     libMesh::FunctionBase<double>* M_pacing;
 
-
+    static int S_beats;
 };
 
 } /* namespace BeatIt */

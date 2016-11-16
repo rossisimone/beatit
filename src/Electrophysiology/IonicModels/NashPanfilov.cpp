@@ -48,6 +48,7 @@
  */
 
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
+#include "libmesh/getpot.h"
 
 namespace BeatIt
 {
@@ -60,16 +61,28 @@ IonicModel* createNashPanfilov()
 
 NashPanfilov::NashPanfilov()
  : super(2, 0, "NashPanfilov")
- , M_mu1(0.12)
+ , M_mu1(0.12) // Original value 0.12
  , M_mu2(0.3)
  , M_k(8.0)
- , M_a(0.1)
+ , M_a(0.1) // original value 0.1
+ , M_b(0.1)
  , M_epsilon(0.01)
 {
     // Without potential
     M_variablesNames[0] = "r";
 }
 
+void
+NashPanfilov::setup(GetPot& data, std::string sect)
+{
+	std::string section = sect + "/NashPanfilov";
+	M_mu1     = data(section+"/mu1",       0.12);
+	M_mu2     = data(section+"/mu2",       0.3);
+	M_k       = data(section+"/k",         8.0);
+	M_a       = data(section+"/a",         0.1);
+	M_b       = data(section+"/b",         0.1);
+	M_epsilon = data(section+"/epsilon",   0.01);
+}
 
 
 void
@@ -85,7 +98,7 @@ NashPanfilov::updateVariables(std::vector<double>& variables, double appliedCurr
     double V = variables[0];
     double r = variables[1];
     variables[1] += dt * (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
-                         (- r - M_k * V * (V - M_a - 1.0) );
+                         (- r - M_k * V * (V - M_b - 1.0) );
 }
 
 void
@@ -94,12 +107,12 @@ NashPanfilov::updateVariables(std::vector<double>& v_n, std::vector<double>& v_n
     double V = v_n[0];
     double r = v_n[1];
    double f_n =  (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
-                             (- r - M_k * V * (V - M_a - 1.0) );
+                             (- r - M_k * V * (V - M_b - 1.0) );
    V = v_np1[0];
    r = v_np1[1];
 
    double f_np1 =  (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
-                                (- r - M_k * V * (V - M_a - 1.0) );
+                                (- r - M_k * V * (V - M_b - 1.0) );
 
     v_np1[1] = v_n[1] +  dt / 2 * ( f_n + f_np1 );
 
@@ -112,7 +125,7 @@ NashPanfilov::updateVariables(double V, std::vector<double>& variables, double d
 {
 	double r = variables[0] ;
     variables[0] += dt * (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
-                         (- r - M_k * V * (V - M_a - 1.0) );
+                         (- r - M_k * V * (V - M_b - 1.0) );
 }
 
 double

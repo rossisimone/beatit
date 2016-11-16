@@ -7,6 +7,9 @@
 #include "Util/Factory.hpp"
 #include "Electrophysiology/IonicModels/IonicModelsOptions.hpp"
 
+
+class GetPot;
+
 namespace BeatIt
 {
 
@@ -81,6 +84,8 @@ public:
 	 *  \param [in] output output file where we will save the values
 	 */
     virtual void initializeSaveData(std::ostream& output) = 0;
+
+    virtual void setup(GetPot& data, std::string section) {}
 
     int numVariables()
     {

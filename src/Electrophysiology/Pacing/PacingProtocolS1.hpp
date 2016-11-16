@@ -74,9 +74,15 @@ public:
     double  M_startTime;
     double  M_endTime;
     double  M_cycleLength;
+    double M_minCycleLength;
     double M_amplitude;
     double M_radius;
     DistanceType M_type;
+    double M_decrement;
+    unsigned int M_decrementBeats;
+    double M_x0;
+    double M_y0;
+    double M_z0;
 };
 
 PacingProtocol* createPacingProtocolS1();

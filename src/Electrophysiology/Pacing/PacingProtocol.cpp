@@ -52,6 +52,8 @@
 namespace BeatIt
 {
 
+int PacingProtocol::S_beats = 0;
+
 bool isPointInside(DistanceType type, double r, double x, double y ,  double z)
 {
 	bool isInside = false;

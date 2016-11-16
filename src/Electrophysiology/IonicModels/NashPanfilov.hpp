@@ -126,12 +126,16 @@ public:
      *  \param [in] output output file where we will save the values
      */
     void initializeSaveData(std::ostream& output);
+
+    void setup(GetPot& data, std::string section = "monodomain");
+
 private:
 
     double M_mu1;
     double M_mu2;
     double M_k;
     double M_a;
+    double M_b;
     double M_epsilon;
 };
 

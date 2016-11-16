@@ -58,6 +58,7 @@
 #include "libmesh/wrapped_functor.h"
 #include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"
+#include "libmesh/mesh_modification.h"
 #include "Util/SpiritFunction.hpp"
 
 #include "libmesh/numeric_vector.h"
@@ -99,20 +100,49 @@ int main (int argc, char ** argv)
       GetPot commandLine ( argc, argv );
       std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
       GetPot data(datafile_name);
-      // allow us to use higher-order approximation.
-      int numElementsX = data("mesh/elX", 15);
-      int numElementsY = data("mesh/elY",   5);
-      int numElementsZ = data("mesh/elZ",   4);
-      double maxX= data("mesh/maxX", 2.0);
-      double maxY = data("mesh/maxY", 0.7);
-      double maxZ = data("mesh/maxZ", 0.3);
 
-//      MeshTools::Generation::build_line ( mesh,
-//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
-//                                                                      0., maxX );
-      MeshTools::Generation::build_square ( mesh,
-    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX, numElementsY,
-                                                                      0., maxX, 0.0, maxY, TRI3 );
+
+      bool do_restart = data("monodomain/restart/restart", false);
+      ExodusII_IO importer(mesh) ;
+      if(do_restart)
+      {
+  		std::string restart_file = data("monodomain/restart/restart_file", "NONE");
+  		if(restart_file != "NONE")
+  		{
+  			importer.read(restart_file);
+  			mesh.prepare_for_use();
+  		}
+  		else
+  		{
+  			do_restart = false;
+  		}
+
+      }
+
+      if(do_restart == false)
+      {
+		  // allow us to use higher-order approximation.
+		  int numElementsX = data("mesh/elX", 15);
+		  int numElementsY = data("mesh/elY",   5);
+		  int numElementsZ = data("mesh/elZ",   4);
+		  double maxX= data("mesh/maxX", 2.0);
+		  double maxY = data("mesh/maxY", 0.7);
+		  double maxZ = data("mesh/maxZ", 0.3);
+		  double rotation = data("mesh/rotation", 0.0);
+		  double x_translation = data("mesh/x_translation", 0.0);
+		  double y_translation = data("mesh/y_translation", 0.0);
+		  double z_translation = data("mesh/z_translation", 0.0);
+
+	//      MeshTools::Generation::build_line ( mesh,
+	//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
+	//                                                                      0., maxX );
+		  MeshTools::Generation::build_square ( mesh,
+																		  numElementsX, numElementsY,
+																		  0., maxX, 0.0, maxY, TRI3 );
+		  MeshTools::Modification::rotate(mesh, rotation);
+		  MeshTools::Modification::translate(mesh, x_translation, y_translation, z_translation);
+      }
+
       std::cout << "Mesh done!" << std::endl;
 
      //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
@@ -134,7 +164,11 @@ int main (int argc, char ** argv)
       monodomain.init(0.0);
       std::cout << "Assembling monodomain ..." << std::endl;
       monodomain.assemble_matrices();
-      monodomain.restart();
+      if(do_restart)
+      {
+  		int restart_step = data("monodomain/restart/step", 2);
+  		monodomain.restart(importer, restart_step);
+      }
 
       int save_iter = 0;
       std::cout << "Initializing output monodomain ..." << std::endl;
@@ -143,9 +177,11 @@ int main (int argc, char ** argv)
       save_iter++;
 
       BeatIt::TimeData datatime;
-      datatime.setup(data, "monodomain/");
+      datatime.setup(data, "monodomain");
       datatime.print();
       libMesh::PerfLog perf_log ("Solving");
+
+      monodomain.form_system_matrix(datatime.M_dt,useMidpointMethod, reaction_mass);
 
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
@@ -155,18 +191,30 @@ int main (int argc, char ** argv)
 
 		  monodomain.update_pacing(datatime.M_time);
 		  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+//          if( 0 == datatime.M_iter%datatime.M_saveIter )
+//          {
+//              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
+//             monodomain.save_potential(save_iter++, datatime.M_time-0.5*datatime.M_dt);
+//          }
 		  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
-		  monodomain.update_activation_time(datatime.M_time);
+//          if( 0 == datatime.M_iter%datatime.M_saveIter )
+//          {
+//              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
+//             monodomain.save_potential(save_iter++, datatime.M_time);
+//          }
 
+		  monodomain.update_activation_time(datatime.M_time);
 
           if( 0 == datatime.M_iter%datatime.M_saveIter )
           {
               std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
-             monodomain.save_exo(save_iter++, datatime.M_time);
+             monodomain.save_potential(save_iter++, datatime.M_time);
           }
+
       }
 
       monodomain.save_parameters();
+      monodomain.save_exo(1, datatime.M_time);
       double last_activation_time = monodomain.last_activation_time();
       double potential_norm = monodomain.potential_norm();
       std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;

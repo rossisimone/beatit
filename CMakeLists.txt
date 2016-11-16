@@ -17,6 +17,8 @@ message("\n\t Compiling in ${CMAKE_BUILD_TYPE}\n")
 if( ${CMAKE_BUILD_TYPE} MATCHES DEBUG)
   message("\t Adding -D_GLIBCXX_DEBUG to the CXX flags:\n")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -Wall -D_GLIBCXX_DEBUG")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -ffast-math")  
 endif()
 message(STATUS "CXX flags: ${CMAKE_CXX_FLAGS} \n")
 

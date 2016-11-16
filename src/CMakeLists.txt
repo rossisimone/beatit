@@ -16,3 +16,4 @@ file(GLOB_RECURSE HEADERS  *.hpp)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_library( beatit  ${HEADERS} ${SOURCES})
+target_link_libraries (beatit ${LIBMESH_LIB})

@@ -188,6 +188,7 @@ Monodomain::setup(GetPot& data, std::string section)
     // Create Ionic Model
     std::string ionic_model = M_datafile(section+"/ionic_model", "NashPanfilov");
     M_ionicModelPtr.reset(  BeatIt::IonicModel::IonicModelFactory::Create(ionic_model) );
+    M_ionicModelPtr->setup(M_datafile, section);
     int num_vars = M_ionicModelPtr->numVariables();
     // TO DO: Generalize to other conditions
     // We need to exclude the potential

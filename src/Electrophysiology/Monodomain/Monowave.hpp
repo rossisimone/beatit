@@ -85,13 +85,13 @@ public:
     Monowave( libMesh::EquationSystems& es );
     ~Monowave();
     void setup(GetPot& data, std::string section = "monodomain" );
-    void restart( std::string section = "monodomain/restart" );
+    void restart( EXOExporter& importer, int step = 0, bool restart = true );
 
     void init(double time);
     void save(int step);
     void save_exo(int step, double time);
     void init_exo_output();
-    void save_potential(int step);
+    void save_potential(int step, double time = 0.0);
     void save_parameters();
 
     void amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& type = "kelly" );
@@ -102,6 +102,7 @@ public:
 
     void assemble_matrices();
     void form_system_matrix(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");
+    void form_system_rhs(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");
     void advance();
     void solve_reaction_step( double dt, double time, int step = 0,  bool useMidpoint = true, const std::string& mass = "mass");
 
@@ -143,10 +144,12 @@ public:
     std::unique_ptr<EXOExporter> M_parametersExporter;
     std::set<std::string> M_parametersExporterNames;
     std::unique_ptr<EXOExporter> M_monodomainEXOExporter;
+    std::unique_ptr<EXOExporter> M_potentialEXOExporter;
 
     std::string  M_outputFolder;
     bool M_assembleMatrix;
     bool M_useAMR;
+    std::string  M_systemMass;
 
     std::unique_ptr<PacingProtocol> M_pacing;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;

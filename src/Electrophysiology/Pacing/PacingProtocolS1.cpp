@@ -48,10 +48,16 @@ PacingProtocolS1::PacingProtocolS1()
     :  M_isPacingOn(false)
     , M_startTime(0.0)
     , M_endTime(2.0)
-    , M_cycleLength(10.0)
+    , M_cycleLength(60.0)
+    , M_minCycleLength(10.0)
     , M_amplitude(10.)
     , M_type(DistanceType::l_2)
     , M_radius(1.0)
+    , M_decrement(0.0)
+    , M_decrementBeats(5)
+	, M_x0(0.0)
+	, M_y0(0.0)
+	, M_z0(0.0)
 {
 	_initialized = true;
     _is_time_dependent = true;
@@ -65,16 +71,23 @@ void
 PacingProtocolS1::setup(const GetPot& data, std::string section)
 {
     std::cout << "* PacingProtocolS1: reading  from input file" << std::endl;
-    M_cycleLength  = data( section+"/cycle_length", 10.);
+    M_cycleLength  = data( section+"/cycle_length", 60.);
     M_amplitude  = data( section+"/amplitude", 10.);
     M_startTime  = data( section+"/start_time", 0.0);
-    M_endTime = M_startTime + data( section+"/duration", 1.0);;
+    M_endTime = M_startTime + data( section+"/duration", 1.0);
     M_radius = data( section+"/radius", 0.15);
-
+    M_decrement = data( section+"/decrement", 0.0);
+    M_decrementBeats = data( section+"/decrement_beats", 5);
+    M_minCycleLength = data( section+"/cycle_length_min", 10.0);
+    M_x0 = data( section+"/x0", 0.0);
+    M_y0 = data( section+"/y0", 0.0);
+    M_z0 = data( section+"/z0", 0.0);
     std::cout << "\t\t start_time: " << M_startTime << std::endl;
     std::cout << "\t\t end_time: " << M_endTime << std::endl;
     std::cout << "\t\t cycle_length: " << M_cycleLength << std::endl;
     std::cout << "\t\t radius: " << M_radius << std::endl;
+    std::cout << "\t\t center: " << M_x0 << ", " << M_y0 << ", " << M_z0 << std::endl;
+
 	std::string type = data(section+"/distance", "l_2");
     if(type == "l_1")
 	{
@@ -116,6 +129,12 @@ PacingProtocolS1::clone () const
     pcopy-> M_amplitude = M_amplitude;
     pcopy-> M_type = M_type;
     pcopy-> M_radius = M_radius;
+    pcopy-> M_decrementBeats = M_decrementBeats;
+    pcopy-> M_minCycleLength = M_minCycleLength;
+    pcopy-> M_decrement = M_decrement;
+    pcopy-> M_x0 = M_x0;
+    pcopy-> M_y0 = M_y0;
+    pcopy-> M_z0 = M_z0;
 
 	return libMesh::UniquePtr<libMesh::FunctionBase<double> >(pcopy);
 }
@@ -130,12 +149,17 @@ PacingProtocolS1::operator() (const Point & p,
 	else if(time >= M_startTime && time <= M_endTime) M_isPacingOn = true;
 	else // time > M_endTime
 	{
+	    S_beats++;
+	    if(S_beats%M_decrementBeats == 0  && M_cycleLength > M_minCycleLength)
+        {
+	        M_cycleLength -= M_decrement;
+        }
 		M_startTime += M_cycleLength;
 		M_endTime += M_cycleLength;
     	M_isPacingOn = false;
 	}
 
-	bool isPointInside = BeatIt::isPointInside(M_type, M_radius, p(0), p(1), p(2));
+	bool isPointInside = BeatIt::isPointInside(M_type, M_radius, p(0)-M_x0, p(1)-M_y0, p(2)-M_z0);
 	if(isPointInside)
 	{
 		if(M_isPacingOn) pacing = M_amplitude;
