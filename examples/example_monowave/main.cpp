@@ -146,8 +146,8 @@ int main (int argc, char ** argv)
       std::cout << "Mesh done!" << std::endl;
 
      //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
-      std::string reaction_mass = data("monodomain/reaction_mass", "mass");
-      std::string diffusion_mass = data("monodomain/diffusion_mass", "lumped_mass");
+      std::string system_mass = data("monodomain/system_mass", "mass");
+      std::string iion_mass = data("monodomain/iion_mass", "lumped_mass");
       bool useMidpointMethod = false;
       int step0 = 0;
       int step1 = 1;
@@ -181,7 +181,7 @@ int main (int argc, char ** argv)
       datatime.print();
       libMesh::PerfLog perf_log ("Solving");
 
-      monodomain.form_system_matrix(datatime.M_dt,useMidpointMethod, reaction_mass);
+      monodomain.form_system_matrix(datatime.M_dt,useMidpointMethod, system_mass);
 
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
@@ -190,13 +190,13 @@ int main (int argc, char ** argv)
 		  monodomain.advance();
 
 		  monodomain.update_pacing(datatime.M_time);
-		  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, reaction_mass);
+		  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
 //          if( 0 == datatime.M_iter%datatime.M_saveIter )
 //          {
 //              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
 //             monodomain.save_potential(save_iter++, datatime.M_time-0.5*datatime.M_dt);
 //          }
-		  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, diffusion_mass);
+		  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
 //          if( 0 == datatime.M_iter%datatime.M_saveIter )
 //          {
 //              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;

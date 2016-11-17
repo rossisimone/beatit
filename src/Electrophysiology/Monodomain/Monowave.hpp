@@ -151,6 +151,8 @@ public:
     bool M_useAMR;
     std::string  M_systemMass;
 
+    bool M_artificialDiffusion;
+
     std::unique_ptr<PacingProtocol> M_pacing;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
 

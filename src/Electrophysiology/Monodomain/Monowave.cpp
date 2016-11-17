@@ -141,6 +141,7 @@ Monowave::Monowave( libMesh::EquationSystems& es )
     , M_linearSolver()
     , M_anisotropy(Anisotropy::Orthotropic)
 	, M_equationType(EquationType::ReactionDiffusion)
+	, M_artificialDiffusion(false)
 {
 
 }
@@ -174,6 +175,7 @@ void Monowave::setup(GetPot& data, std::string section)
     monodomain_system.add_variable( "Q", libMesh::FIRST);
     // Add 3 matrices
     monodomain_system.add_matrix("lumped_mass");
+    monodomain_system.add_matrix("high_order_mass");
     // Add lumped mass matrix
     monodomain_system.add_vector("lumped_mass_vector");
     monodomain_system.add_matrix("mass");
@@ -305,6 +307,8 @@ void Monowave::setup(GetPot& data, std::string section)
     M_equationType = EquationType::Wave;
     std::string eq_type = M_datafile(section+"/type", "wave");
     if(eq_type != "wave") M_equationType = EquationType::ReactionDiffusion;
+
+    M_artificialDiffusion = M_datafile(section+"/artificial_diffusion", false);
 
 }
 
@@ -849,6 +853,7 @@ Monowave::assemble_matrices()
 
      monodomain_system.get_matrix("mass").zero();
      monodomain_system.get_matrix("lumped_mass").zero();
+     monodomain_system.get_matrix("high_order_mass").zero();
      monodomain_system.get_matrix("stiffness").zero();
      monodomain_system.get_vector("lumped_mass_vector").zero();
 
@@ -984,6 +989,7 @@ Monowave::assemble_matrices()
          Me.resize(dof_indices.size(), dof_indices.size());
          Mel.resize(dof_indices.size(), dof_indices.size());
          Fe.resize(dof_indices.size());
+
  //        std::cout << "Fibers" << std::endl;
          // fiber direction
          f0[0] = (*fiber_system.solution)(dof_indices_fibers[0]);
@@ -1002,6 +1008,32 @@ Monowave::assemble_matrices()
          double Dss = (*conductivity_system.solution)(dof_indices_fibers[1]);
          double Dnn = (*conductivity_system.solution)(dof_indices_fibers[2]);
 
+         if(M_artificialDiffusion)
+         {
+        	 double delta = 0.0;
+             double h = elem->hmax();
+             double hf, hs, hn;
+             double hfmin, hsmin, hnmin;
+             double hfmax, hsmax, hnmax;
+             int n_points = elem->n_nodes();
+             for(int np = 0; np < n_points; np++)
+             {
+            	 auto p1 = elem->point(np);
+            	 hfmax = std::max(hfmax, p1(0)*f0[0]+p1(1)*f0[1]+p1(2)*f0[2]);
+            	 hfmin = std::min(hfmin, p1(0)*f0[0]+p1(1)*f0[1]+p1(2)*f0[2]);
+            	 hsmax = std::max(hsmax, p1(0)*s0[0]+p1(1)*s0[1]+p1(2)*s0[2]);
+            	 hsmin = std::min(hsmin, p1(0)*s0[0]+p1(1)*s0[1]+p1(2)*s0[2]);
+            	 hnmax = std::max(hnmax, p1(0)*n0[0]+p1(1)*n0[1]+p1(2)*n0[2]);
+            	 hnmin = std::min(hnmin, p1(0)*n0[0]+p1(1)*n0[1]+p1(2)*n0[2]);
+
+             }
+             hf = hfmax - hfmin;
+             hs = hsmax - hsmin;
+             hn = hnmax - hnmin;
+        	 Dff += delta * hf * std::sqrt(Dff/Dff);
+        	 Dss += delta * hs * std::sqrt(Dff/Dss);
+        	 Dnn += delta * hn * std::sqrt(Dff/Dnn);
+         }
 		 switch(M_anisotropy)
 		 {
 			 case Anisotropy::Isotropic:
@@ -1010,6 +1042,7 @@ Monowave::assemble_matrices()
 				 {
 						  D0(idim,idim) = Dff;
 				 }
+
 				 break;
 			 }
 
@@ -1043,6 +1076,8 @@ Monowave::assemble_matrices()
 				 break;
 			 }
 		 }
+
+
 
 //    	 std::cout << "f  = [" << f0[0] << "," << f0[1]  << ", " << f0[2]  << "]"<< std::endl;
 //    	 std::cout << "s = [" << s0[0] << "," << s0[1]  << ", " << s0[2]  << "]"<< std::endl;
@@ -1097,6 +1132,10 @@ Monowave::assemble_matrices()
      monodomain_system.get_matrix("lumped_mass").close();
      monodomain_system.get_matrix("stiffness").close();
      monodomain_system.get_vector("lumped_mass_vector").close();
+     monodomain_system.get_matrix("high_order_mass").close();
+     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("mass"));
+     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("lumped_mass"));
+
 }
 
 void
@@ -1199,6 +1238,7 @@ Monowave::form_system_matrix(double dt, bool useMidpoint , const std::string& ma
         monodomain_system.matrix->add(alpha, monodomain_system.get_matrix(mass) );
         // dt * Chi * M
         monodomain_system.matrix->add(dt*Chi, monodomain_system.get_matrix(mass) );
+    	//  alpha * M
         // dt^2 * K
         monodomain_system.matrix->add(dt*dt, monodomain_system.get_matrix("stiffness" ) );
     }
