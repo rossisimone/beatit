@@ -52,6 +52,8 @@
 #include "Util/IO/io.hpp"
 #include <cmath>
 #include <iomanip>
+#include "Util/CTestUtil.hpp"
+
 int main()
 {
     BeatIt::printBanner(std::cout);
@@ -97,9 +99,8 @@ int main()
 	solution_norm /= iter;
 	//up to the 16th digit
 	std::cout << std::setprecision(18) << "Solution norm = " << solution_norm << std::endl;
-	const double reference_solution_norm = -18.2035079050864645;
+	const double reference_solution_norm = -18.2035079050909516;
 	//We check only up to 12th
-	if( std::abs(solution_norm-reference_solution_norm) < 1e-12) return EXIT_SUCCESS;
-	else return EXIT_FAILURE;
+	return BeatIt::CTest::check_test(solution_norm, reference_solution_norm, 1e-10);
 }
 

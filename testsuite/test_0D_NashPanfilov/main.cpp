@@ -49,25 +49,49 @@
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
 #include "Util/IO/io.hpp"
 #include "Util/CTestUtil.hpp"
-
-
+#include <iomanip>
+/*
+ * We start by definig an object that will help us keeping track of the pacing protocol
+ * In this case we use a simple S1 protocol, that is we apply the same stimulus every time
+ * and the time between two stimuli is always the same.
+ */
 struct Pacing
 {
+    /*! Get the magnitude of the stimulus at the current time
+     *
+     * @param t current time
+     * @return amplitue of the stimulus
+     */
     double istim(double t)
     {
+        // First update the Pacing object
+        // See description of the update method for more info
         update(t);
+        // If stimulus is active the return it's amplitude
         if(on) return amplitude;
+        // else return 0
         else return 0.0;
     }
 
+    /*!  Get the current time and update the members of this class
+     *
+     * @param t current time
+     */
     void update(double t)
     {
+        // If the stimulus is on
+        // but we passed the stimulus final time
+        // we need to turn it off
+        // In addition we update start and end times
+        // for the next stimulus
         if(t > end_time && on == true)
         {
             on = false;
             start_time += cycle_length;
             end_time += cycle_length;
         }
+        // If the current time is in the stimulation interval
+        // then we need to activate the pacing
         if(t >= start_time && t <= end_time)
         {
             on = true;
@@ -75,15 +99,29 @@ struct Pacing
 
 
     }
+    /// True if we are applying an external stimulus
     bool on;
+    /// Initial time of the current stimulus
     double start_time;
+    /// Final time of the current stimulus
     double end_time;
+    /// Time interval between 2 stimuli
     double cycle_length;
+    /// Amplitude of the stimulus
     double amplitude;
 
 };
 
-
+/*! Computes the APD and it saves it in a vector
+ *  Example: we want to measure the time interval between to V = 0.5 (APD50)
+ *
+ * @param on are the measurements on? This values will be changed by this function
+ * @param APD_threshold percentage of the for computing the APD
+ * @param time current time
+ * @param APD vector to store the APDs
+ * @param APD_time value where we store the last APD time
+ * @param v transmembrane potential
+ */
 void checkAPD(bool& on, double APD_threshold, double time, std::vector<double>& APD, double& APD_time, double v)
 {
 		if(on)
@@ -91,7 +129,6 @@ void checkAPD(bool& on, double APD_threshold, double time, std::vector<double>& 
 			if( v < APD_threshold)
 			{
 				APD_time -= time;
-//				std::cout << "Finishing an AP at time: " << time << ", with APD: " << APD_time << std::endl;
 				APD.push_back(-APD_time);
 				APD_time = 0.0;
 				on = false;
@@ -99,101 +136,97 @@ void checkAPD(bool& on, double APD_threshold, double time, std::vector<double>& 
 		}
 		else
 		{
+		    // If the potential is greater than the given threshold
+		    // we start measuring from this time
+		    // Example: For APD50, if V >= 0.5 than we turn measurments on
 			if( v >= APD_threshold)
 			{
-//				std::cout << "Starting an AP at time: " << time << std::endl;
 				on = true;
 				APD_time = time;
 			}
 		}
 }
 
+
+
+// Start the main Program
 int main()
 {
+    // Print BeatIt on screen
     BeatIt::printBanner(std::cout);
 
+    // Create a the Nas-Panfilov model using the Ionic Model factory
 	std::unique_ptr<BeatIt::IonicModel> pNP( BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov") );
+	// Check the number of variables in the model
 	int numVar = pNP->numVariables();
+	// Create a container to store the variables of the ionic model
 	std::vector<double> variables(numVar, 0.0);
 
+    // Create the output file
 	std::ofstream output("results.txt");
+    // Initialize the output file
 	pNP->initializeSaveData(output);
+    // set the default initial conditions in the ionic model
 	pNP->initialize(variables);
 
-	double dt = 0.005;
-	int save_iter = 0.1 / dt;
-	double TF = 3000.0;
-	double Ist = 0;
-	double time = 0.0;
-	BeatIt::saveData(0.0, variables, output);
+    // We check the APD90
+    bool on90 = false;
+    std::vector<double> APD90;
+    double APD90_time = 0.0;
+    // the thershold is 0.1  because we want 90% of the action potential
+    double APD90_threshold = 0.1;
 
+	// timestep
+	double dt = 0.005;
+    // output at every save_iter
+	int save_iter = 0.1 / dt;
+	// Final time
+	double TF = 3000.0;
+	// External Stimulus
+	double Ist = 0;
+	// Current time
+	double time = 0.0;
+	// save to output the initial data
+	BeatIt::saveData(time, variables, output);
+	// I don't remember why we use this (may be we do not use it ...)
 	int iter = 0;
 
-
-	// for ctest purposes
-	double solution_norm = 0.0;
-
+    // Create the pacing object and set the pacing conditions
 	Pacing pacing;
+	// Amplitude of the stimulus Iapp = 1
 	pacing.amplitude = 1.0;
+	// Start to stimulate at t = 0
     pacing.start_time= 0.0;
+    // End to stimulat at t = 0.5
     pacing.end_time= 0.5;
+    // Stimulate every 15
     pacing.cycle_length= 15.0;
 
-    bool on75 = false;
-    bool on50 = false;
-    bool on25 = false;
-    std::vector<double> APD75;
-    std::vector<double> APD50;
-    std::vector<double> APD25;
-    double APD75_time = 0.0;
-    double APD50_time = 0.0;
-    double APD25_time = 0.0;
-    double APD75_threshold = 0.75;
-    double APD50_threshold = 0.5;
-    double APD25_threshold = 0.25;
 
+    // loop over time
     while( time <= TF )
 	{
+        // compute external stimulus
 	    Ist = pacing.istim(time);
-//		if(time >= 0. && time <= 0.5)
-//		{
-//			Ist = 1.0;
-//		}
-//		else Ist = 0.0;
-
+	    // solve one timestep
 		pNP->solve(variables, Ist, dt);
+		// update the current time
 		time += dt;
+		// update current iteration
 		++iter;
+		// if we want to output we can
 		if( 0 == iter%save_iter ) BeatIt::saveData(time, variables, output);
-
-		// for ctest purposes
-		solution_norm += variables[0];
-
-		checkAPD(on75, APD75_threshold, time, APD75, APD75_time, variables[0]);
-		checkAPD(on50, APD50_threshold, time, APD50, APD50_time, variables[0]);
-		checkAPD(on25, APD25_threshold, time, APD25, APD25_time, variables[0]);
+		// update the APD
+		checkAPD(on90, APD90_threshold, time, APD90, APD90_time, variables[0]);
 	}
-
+    // close output file
 	output.close();
-	//for ctest purposes
-	solution_norm /= iter;
+
 	//up to the 16th digit
-	const double reference_solution_norm =    0.6704271748046145;
+	const double reference_solution_norm = 25.3500000005533;
 
-	std::cout << "APD75 size: " << APD75.size() << std::endl;
-//	for(auto&& v : APD75) std::cout << v << std::endl;
-		std::cout << APD75[APD75.size()-1] << std::endl;
-	std::cout << "APD50 size: " << APD50.size() << std::endl;
-//	for(auto&& v : APD50) std::cout << v << std::endl;
-		std::cout << APD50[APD50.size()-1] << std::endl;
-	std::cout << "APD25 size: " << APD25.size() << std::endl;
-//	for(auto&& v : APD25)
-		std::cout << APD25[APD25.size()-1] << std::endl;
-//	for(int i = 0; i < APD.size(); ++i)
-//	{
-//		std::cout << "APD in cycle: " << i+1 << APD[i] << std::endl;
-//	}
-	return BeatIt::CTest::check_test(solution_norm, reference_solution_norm, 1e-12);
-
+	std::cout << "APD90 size: " << APD90.size() << std::endl;
+    std::cout << std::setprecision(15) << APD90[APD90.size()-1] << std::endl;
+	return BeatIt::CTest::check_test(APD90[APD90.size()-1], reference_solution_norm, 1e-12);
 }
 
