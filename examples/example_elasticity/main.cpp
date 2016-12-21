@@ -86,8 +86,8 @@ int main (int argc, char ** argv)
 
   MeshTools::Generation::build_square (mesh,
                                        elX, elY,
-                                       0., 1.,
-                                       0., 1.,
+                                       0., 10.,
+                                       0., 2.,
                                        elType);
 
 //  mesh.read("square.e");

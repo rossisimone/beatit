@@ -125,10 +125,11 @@ MixedElasticity::assemble_residual()
     UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp) );
     UniquePtr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_pr) );
 
-    //libMesh::QGauss qrule_1(dim, libMesh::FOURTH  );
-    //libMesh::QGauss qrule_2(dim,  libMesh::FOURTH   );
-    libMesh::QGauss qrule_1(dim, libMesh::SECOND  );
-    libMesh::QGauss qrule_2(dim,  libMesh::SECOND   );
+    auto order_u = fe_u->get_order();
+    auto order_p = fe_u->get_order();
+
+    libMesh::QGauss qrule_1(dim,  libMesh::SECOND );
+    libMesh::QGauss qrule_2(dim,  libMesh::SECOND );
 
     fe_u->attach_quadrature_rule(&qrule_1);
     fe_p->attach_quadrature_rule(&qrule_2);
@@ -211,8 +212,9 @@ MixedElasticity::assemble_residual()
         auto elID = elem->id();
         double h = elem->hmin();
         rho = M_materialMap[0]->M_density;
-        tau = h * h * M_materialMap[0]->M_tau;
         tau = M_materialMap[0]->M_tau;
+        auto h2 = h*h;
+
         dof_map.dof_indices (elem, dof_indices);
 //        for(auto && v : dof_indices) std::cout << v << std::endl;
         dof_map.dof_indices (elem, dof_indices_ux, ux_var);
@@ -223,25 +225,24 @@ MixedElasticity::assemble_residual()
         const unsigned int n_ux_dofs = dof_indices_ux.size();
 
         fe_u->reinit (elem);
-        auto& dxdxi   = fe_u_map.get_dxyzdxi();
-        auto& dxdeta  = fe_u_map.get_dxyzdeta();
-        auto& dxdzeta  = fe_u_map.get_dxyzdzeta();
-
-        std::cout << "max element length  sqaured is: " << h*h << ", while the jacobian is " <<  dxdzeta.size() << std::endl;
-        h_jac.slice(0) = dxdxi[0];
-//        std::cout << "Slice 1 Done ... " << std::flush;
-        h_jac.slice(1) = dxdeta[0];
-//        std::cout << "Slice 2 Done ... " << std::flush;
-        //h_jac.slice(2) = dxdzeta[0];
-        h_jac *= 0.0;
-        h_jac(0,0) = 0.5;
-        h_jac(0,1) = 0.5;
-        h_jac(1,1) = 0.5;
-        h_jac(2,2) = 0.;
-        auto h2 = h_jac*h_jac;
-
-//        std::cout << "Slice 3 Done ... Printing" << std::endl;
-        h2.print(std::cout);
+//        auto& dxdxi   = fe_u_map.get_dxyzdxi();
+//        auto& dxdeta  = fe_u_map.get_dxyzdeta();
+//        auto& dxdzeta  = fe_u_map.get_dxyzdzeta();
+//
+//        std::cout << "max element length  sqaured is: " << h*h << ", while the jacobian is " <<  dxdzeta.size() << std::endl;
+//        h_jac.slice(0) = dxdxi[0];
+////        std::cout << "Slice 1 Done ... " << std::flush;
+//        h_jac.slice(1) = dxdeta[0];
+////        std::cout << "Slice 2 Done ... " << std::flush;
+//        //h_jac.slice(2) = dxdzeta[0];
+//        h_jac *= 0.0;
+//        h_jac(0,0) = 0.5;
+//        h_jac(0,1) = 0.5;
+//        h_jac(1,1) = 0.5;
+//        h_jac(2,2) = 0.;
+//
+////        std::cout << "Slice 3 Done ... Printing" << std::endl;
+//        h2.print(std::cout);
         dof_map.dof_indices (elem, dof_indices_p, p_var);
         fe_p->reinit (elem);
         Fe.resize (n_dofs);

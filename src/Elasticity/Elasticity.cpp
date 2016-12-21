@@ -359,8 +359,9 @@ Elasticity::assemble_residual()
     libMesh::FEType fe_disp= dof_map.variable_type(ux_var);
 
     UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp) );
+    auto order = fe_u->get_order();
 
-    libMesh::QGauss qrule_1(dim, libMesh::FIRST  );
+    libMesh::QGauss qrule_1(dim, order);
 
     fe_u->attach_quadrature_rule(&qrule_1);
 
@@ -647,7 +648,7 @@ Elasticity::project_pressure()
     const libMesh::DofMap & dof_map = system.get_dof_map();
     libMesh::FEType fe_type = dof_map.variable_type(0);
     libMesh::UniquePtr<libMesh::FEBase> fe (libMesh::FEBase::build(dim, fe_type));
-    libMesh::QGauss qrule (dim, libMesh::SECOND);
+    libMesh::QGauss qrule (dim, fe->get_order() );
     fe->attach_quadrature_rule (&qrule);
 
     const libMesh::DofMap & dof_map_p = system_p.get_dof_map();
@@ -715,7 +716,7 @@ Elasticity::project_pressure()
 
         system.current_local_solution->get(dof_indices, solution_k);
 
-           for (unsigned int qp = 0; qp < qrule_p.n_points(); qp++)
+           for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
            {
 //              std::cout << "* ELASTICITY: evaluate dUk ... " << std::endl;
 
@@ -777,19 +778,20 @@ Elasticity::newton()
 	    LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
 	    assemble_residual();
 	    auto res_norm = system.rhs->linfty_norm ();
-		double tol = M_newtonData.tol;
+	    // assume we ask for the same absolute and relative tolerances
+	    // tol = atol + rtol * res_norm
+		double tol = M_newtonData.tol * ( 1 + res_norm);
 		int max_iter = M_newtonData.max_iter;
 		int iter = 0;
 
-		std::cout << "* ELASTICITY: Performing Newton solve:  max iterations: " << max_iter << std::endl;
+		std::cout << "* ELASTICITY: Performing Newton solve:  max iterations: " << max_iter << ", target tolerance: " << tol << std::endl;
 		std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
-
  	    while(res_norm > tol && iter < max_iter)
  	    {
              iter++;
+
  	    	solve_system();
  	    	(*system.solution) += system.get_vector("step");
-
  	      	assemble_residual();
              res_norm = system.rhs->linfty_norm ();
 			std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;

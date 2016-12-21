@@ -1,6 +1,6 @@
 ## Here is an example for AthenaVMS datafile.
 ##
-syntax "pot" "\.(pot)$"
+syntax "pot" "\.(pot|beat)$"
 
 color brightmagenta start="\[" end="\]"
 color brightyellow "\["
