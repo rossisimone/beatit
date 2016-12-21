@@ -97,6 +97,8 @@
 #include "Electrophysiology/Monodomain/Monowave.hpp"
 #include "Util/SpiritFunction.hpp"
 
+#include "libmesh/discontinuity_measure.h"
+#include "libmesh/fe_interface.h"
 
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
 
@@ -142,6 +144,7 @@ Monowave::Monowave( libMesh::EquationSystems& es )
     , M_anisotropy(Anisotropy::Orthotropic)
 	, M_equationType(EquationType::ReactionDiffusion)
 	, M_artificialDiffusion(false)
+	, M_penalty(false)
 {
 
 }
@@ -182,6 +185,8 @@ void Monowave::setup(GetPot& data, std::string section)
     monodomain_system.add_matrix("stiffness");
 //    monodomain_system.add_vector("ionic_currents");
     M_monodomainExporterNames.insert("monodomain");
+
+//    monodomain_system.matrix->init();
     monodomain_system.init();
 
     // WAVE
@@ -840,7 +845,6 @@ Monowave::save_parameters()
 void
 Monowave::assemble_matrices()
 {
-
 //    std::cout << "* MONODOMAIN: Assembling matrices ... " << std::flush;
      using libMesh::UniquePtr;
 
@@ -856,6 +860,12 @@ Monowave::assemble_matrices()
      monodomain_system.get_matrix("high_order_mass").zero();
      monodomain_system.get_matrix("stiffness").zero();
      monodomain_system.get_vector("lumped_mass_vector").zero();
+
+
+
+//     MatSetOption( (dynamic_cast<libMesh::PetscMatrix<libMesh::Number> >(monodomain_system.get_matrix("stiffness"))).mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+//     MatSetOption( (dynamic_cast<libMesh::PetscMatrix<libMesh::Number> * >(monodomain_system.matrix))->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+
 
 
      ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
@@ -885,9 +895,9 @@ Monowave::assemble_matrices()
      UniquePtr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
 
      // A 5th order Gauss quadrature rule for numerical integration.
-     libMesh::QGauss qrule_stiffness(dim, libMesh::FIRST);
+     libMesh::QGauss qrule_stiffness(dim, libMesh::SECOND);
      // A 5th order Gauss quadrature rule for numerical integration.
-     libMesh::QGauss qrule_mass(dim, libMesh::SECOND);
+     libMesh::QGauss qrule_mass(dim, libMesh::THIRD);
 
      // Tell the finite element object to use our quadrature rule.
      fe_qp1->attach_quadrature_rule(&qrule_stiffness);
@@ -917,6 +927,10 @@ Monowave::assemble_matrices()
       const std::vector<std::vector<libMesh::Real> > & dphidx_qp1 = fe_qp1->get_dphidx();
       const std::vector<std::vector<libMesh::Real> > & dphidy_qp1 = fe_qp1->get_dphidy();
       const std::vector<std::vector<libMesh::Real> > & dphidz_qp1 = fe_qp1->get_dphidz();
+
+
+
+
      // Define data structures to contain the element matrix
      // and right-hand-side vector contribution.  Following
      // basic finite element terminology we will denote these
@@ -927,6 +941,34 @@ Monowave::assemble_matrices()
      libMesh::DenseMatrix<libMesh::Number> Me;
      libMesh::DenseMatrix<libMesh::Number> Mel;
      libMesh::DenseVector<libMesh::Number> Fe;
+
+
+
+     // for interior penalty
+     UniquePtr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
+     UniquePtr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
+     // Tell the finite element object to use our quadrature rule.
+     libMesh::QGauss qface(dim-1, fe_type_qp1.default_quadrature_order());
+
+     fe_elem_face->attach_quadrature_rule(&qface);
+     fe_neighbor_face->attach_quadrature_rule(&qface);
+     // Data for surface integrals on the element boundary
+     const std::vector<std::vector<libMesh::Real> > &  phi_face = fe_elem_face->get_phi();
+     const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_elem_face->get_dphi();
+     const std::vector<libMesh::Real> & JxW_face = fe_elem_face->get_JxW();
+     const std::vector<libMesh::Point> & qface_normals = fe_elem_face->get_normals();
+     const std::vector<libMesh::Point> & qface_points = fe_elem_face->get_xyz();
+     // Data for surface integrals on the neighbor boundary
+     const std::vector<std::vector<libMesh::Real> > &  phi_neighbor_face = fe_neighbor_face->get_phi();
+     const std::vector<std::vector<libMesh::RealGradient> > & dphi_neighbor_face = fe_neighbor_face->get_dphi();
+     // Data structures to contain the element and neighbor boundary matrix
+     // contribution. This matrices will do the coupling beetwen the dofs of
+     // the element and those of his neighbors.
+     // Ken: matrix coupling elem and neighbor dofs
+     libMesh::DenseMatrix<libMesh::Number> Kne;
+     libMesh::DenseMatrix<libMesh::Number> Ken;
+     libMesh::DenseMatrix<libMesh::Number> Kee;
+     libMesh::DenseMatrix<libMesh::Number> Knn;
 
      // This vector will hold the degree of freedom indices for
      // the element.  These define where in the global system
@@ -965,6 +1007,7 @@ Monowave::assemble_matrices()
      for (; el != end_el; ++el)
      {
          const libMesh::Elem * elem = *el;
+         const unsigned int elem_id = elem->id();
          dof_map_monodomain.dof_indices(elem, dof_indices);
          dof_map_fibers.dof_indices(elem, dof_indices_fibers);
 
@@ -985,10 +1028,11 @@ Monowave::assemble_matrices()
 
          // The  DenseMatrix::resize() and the  DenseVector::resize()
          // members will automatically zero out the matrix  and vector.
-         Ke.resize(dof_indices.size(), dof_indices.size());
-         Me.resize(dof_indices.size(), dof_indices.size());
-         Mel.resize(dof_indices.size(), dof_indices.size());
-         Fe.resize(dof_indices.size());
+         auto n_dofs = dof_indices.size();
+         Ke.resize(n_dofs, n_dofs);
+         Me.resize(n_dofs, n_dofs);
+         Mel.resize(n_dofs, n_dofs);
+         Fe.resize(n_dofs);
 
  //        std::cout << "Fibers" << std::endl;
          // fiber direction
@@ -1034,6 +1078,7 @@ Monowave::assemble_matrices()
         	 Dss += delta * hs * std::sqrt(Dff/Dss);
         	 Dnn += delta * hn * std::sqrt(Dff/Dnn);
          }
+
 		 switch(M_anisotropy)
 		 {
 			 case Anisotropy::Isotropic:
@@ -1126,6 +1171,179 @@ Monowave::assemble_matrices()
              }
          }
          monodomain_system.get_matrix("stiffness").add_matrix(Ke, dof_indices);
+
+
+		// If the element has no neighbor on a side then that
+		// side MUST live on a boundary of the domain.
+		for (unsigned int side=0; side<elem->n_sides(); side++)
+		{
+			double gamma = 1.0;
+			if ( elem->neighbor_ptr(side))
+			{
+	              // Store a pointer to the neighbor we are currently
+	              // working on.
+	              const libMesh::Elem * neighbor = elem->neighbor_ptr(side);
+	              // Get the global id of the element and the neighbor
+	              const unsigned int neighbor_id = neighbor->id();
+
+	              // WARNING!!!! NOTE!!!!
+	              // Here I should use some check for amr:
+	              // check libmesh test: miscellaneous_ex5
+	              if(false)
+	              {
+	                  // Pointer to the element side
+	                  UniquePtr<const libMesh::Elem> elem_side (elem->build_side_ptr(side));
+
+	                  // h dimension to compute the interior penalty penalty parameter
+	                  const unsigned int elem_b_order = static_cast<unsigned int>(fe_elem_face->get_order());
+	                  const unsigned int neighbor_b_order = static_cast<unsigned int>(fe_neighbor_face->get_order());
+	                  const double side_order = (elem_b_order + neighbor_b_order)/2.;
+	                  const double penalty = 0.5*gamma * elem_side->volume() * elem_side->volume();
+	                  const double h_elem = (elem->volume()/elem_side->volume())/std::pow(side_order,2.);
+
+	                  // The quadrature point locations on the neighbor side
+	                  std::vector<libMesh::Point> qface_neighbor_point;
+
+	                  // The quadrature point locations on the element side
+	                  std::vector<libMesh::Point > qface_point;
+
+	                  // Reinitialize shape functions on the element side
+	                  fe_elem_face->reinit(elem, side);
+
+	                  // Get the physical locations of the element quadrature points
+	                  qface_point = fe_elem_face->get_xyz();
+
+	                  // Find their locations on the neighbor
+	                  unsigned int side_neighbor = neighbor->which_neighbor_am_i(elem);
+	                  libMesh::FEInterface::inverse_map ( elem->dim(),
+	                		  	  	  	  	  	  	  	  fe_qp1->get_fe_type(),
+														  neighbor,
+														  qface_point,
+														  qface_neighbor_point);
+	                  // Calculate the neighbor element shape functions at those locations
+	                  fe_neighbor_face->reinit(neighbor, &qface_neighbor_point);
+	                  // Get the degree of freedom indices for the
+	                  // neighbor.  These define where in the global
+	                  // matrix this neighbor will contribute to.
+	                  std::vector<libMesh::dof_id_type> neighbor_dof_indices;
+	                  dof_map_monodomain.dof_indices (neighbor, neighbor_dof_indices);
+	                  const unsigned int n_neighbor_dofs = neighbor_dof_indices.size();
+	                  // Zero the element and neighbor side matrix before
+	                  // summing them.  We use the resize member here because
+	                  // the number of degrees of freedom might have changed from
+	                  // the last element or neighbor.
+	                  // Note that Kne and Ken are not square matrices if neighbor
+	                  // and element have a different p level
+	                  Kne.resize (n_neighbor_dofs, n_dofs);
+	                  Ken.resize (n_dofs, n_neighbor_dofs);
+	                  Kee.resize (n_dofs, n_dofs);
+	                  Knn.resize (n_neighbor_dofs, n_neighbor_dofs);
+
+
+	                  // Now we will build the element and neighbor
+	                  // boundary matrices.  This involves
+	                  // a double loop to integrate the test funcions
+	                  // (i) against the trial functions (j).
+	                  for (unsigned int qp=0; qp<qface.n_points(); qp++)
+	                    {
+	                      // Kee Matrix. Integrate the element test function i
+	                      // against the element test function j
+	                      for (unsigned int i=0; i<n_dofs; i++)
+	                        {
+	                          for (unsigned int j=0; j<n_dofs; j++)
+	                            {
+	                              // consistency
+	                              Kee(i,j) += penalty * JxW_face[qp] *
+										    ( qface_normals[qp]*dphi_face[i][qp] ) *
+											( qface_normals[qp]*dphi_face[j][qp] );
+	                              // stability
+	                              // Kee(i,j) += JxW_face[qp] * penalty/h_elem * phi_face[j][qp]*phi_face[i][qp];
+	                            }
+	                        }
+
+	                      // Knn Matrix. Integrate the neighbor test function i
+	                      // against the neighbor test function j
+	                      for (unsigned int i=0; i<n_neighbor_dofs; i++)
+	                        {
+	                          for (unsigned int j=0; j<n_neighbor_dofs; j++)
+	                            {
+	                              // consistency
+	                              Kee(i,j) += penalty * JxW_face[qp] *
+										    ( qface_normals[qp]*dphi_neighbor_face[i][qp] ) *
+											( qface_normals[qp]*dphi_neighbor_face[j][qp] );
+
+//	                              Knn(i,j) +=
+//	                            		  penalty * JxW_face[qp] *
+//	                                (phi_neighbor_face[j][qp]*(qface_normals[qp]*dphi_neighbor_face[i][qp]) +
+//	                                 phi_neighbor_face[i][qp]*(qface_normals[qp]*dphi_neighbor_face[j][qp]));
+
+	                              // stability
+	                              // Knn(i,j) +=
+	                                //JxW_face[qp] * penalty/h_elem * phi_neighbor_face[j][qp]*phi_neighbor_face[i][qp];
+	                            }
+	                        }
+
+	                      // Kne Matrix. Integrate the neighbor test function i
+	                      // against the element test function j
+	                      for (unsigned int i=0; i<n_neighbor_dofs; i++)
+	                        {
+	                          for (unsigned int j=0; j<n_dofs; j++)
+	                            {
+	                              Kee(i,j) -= penalty * JxW_face[qp] *
+										    ( qface_normals[qp]*dphi_neighbor_face[i][qp] ) *
+											( qface_normals[qp]*dphi_face[j][qp] );
+	                              // consistency
+//	                               Kne(i,j) +=
+//	                            		   penalty * JxW_face[qp] *
+//	                                (phi_neighbor_face[i][qp]*(qface_normals[qp]*dphi_face[j][qp]) -
+//	                                 phi_face[j][qp]*(qface_normals[qp]*dphi_neighbor_face[i][qp]));
+
+	                              // stability
+	                              //Kne(i,j) -= JxW_face[qp] * penalty/h_elem * phi_face[j][qp]*phi_neighbor_face[i][qp];
+	                            }
+	                        }
+
+	                      // Ken Matrix. Integrate the element test function i
+	                      // against the neighbor test function j
+	                      for (unsigned int i=0; i<n_dofs; i++)
+	                        {
+	                          for (unsigned int j=0; j<n_neighbor_dofs; j++)
+	                            {
+	                              // consistency
+	                              Kee(i,j) -= penalty * JxW_face[qp] *
+										    ( qface_normals[qp]*dphi_face[i][qp] ) *
+											( qface_normals[qp]*dphi_neighbor_face[j][qp] );
+//	                              Ken(i,j) +=
+//	                            		  penalty * JxW_face[qp] *
+//	                                (phi_neighbor_face[j][qp]*(qface_normals[qp]*dphi_face[i][qp]) -
+//	                                 phi_face[i][qp]*(qface_normals[qp]*dphi_neighbor_face[j][qp]));
+
+	                              // stability
+	                              //Ken(i,j) -= JxW_face[qp] * penalty/h_elem * phi_face[i][qp]*phi_neighbor_face[j][qp];
+	                            }
+	                        }
+	                    }
+
+	                  // The element and neighbor boundary matrix are now built
+	                  // for this side.  Add them to the global matrix
+	                  // The SparseMatrix::add_matrix() members do this for us.
+//	                  std::cout << "Assembling jump part: " << std::flush;
+//	                  std::cout << "part3,  " << std::flush;
+		              monodomain_system.get_matrix("stiffness").add_matrix(Kee, dof_indices);
+//	                  std::cout << "part4,  " << std::flush;
+		              monodomain_system.get_matrix("stiffness").add_matrix(Knn, neighbor_dof_indices);
+//	                  std::cout << "part1,  " << std::flush;
+		              monodomain_system.get_matrix("stiffness").add_matrix(Kne, neighbor_dof_indices, dof_indices);
+//	                  std::cout << "part2,  " << std::flush;
+		              monodomain_system.get_matrix("stiffness").add_matrix(Ken, dof_indices, neighbor_dof_indices);
+//	                  std::cout << "Done!\n " << std::flush;
+
+	              }
+
+
+			}
+		}
+
      }
      // closing matrices and vectors
      monodomain_system.get_matrix("mass").close();
@@ -1215,7 +1433,7 @@ Monowave::solve_reaction_step(double dt, double time, int step, bool useMidpoint
 }
 
 void
-Monowave::form_system_matrix(double dt, bool useMidpoint , const std::string& mass)
+Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::string& mass)
 {
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
 	    // WAVE

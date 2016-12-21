@@ -46,7 +46,16 @@
 /// Forward Declarations
 class GetPot;
 
+
 namespace BeatIt {
+
+namespace MaterialUtilities
+{
+void cross_product(const libMesh::TensorValue <double>& A, const libMesh::TensorValue <double>& B, libMesh::TensorValue <double>& C );
+void cof(const libMesh::TensorValue <double>& Fk, libMesh::TensorValue <double>& H );
+void dH(const libMesh::TensorValue <double>& dU, const libMesh::TensorValue <double>& Fk, libMesh::TensorValue <double>& dH );
+} // MaterialUtilities
+
 
 class Material {
 public:
@@ -55,34 +64,52 @@ public:
 	Material();
 	virtual ~Material();
 
+	void setup(GetPot& data, std::string section, int ndim);
 	virtual void setup(GetPot& data, std::string section) = 0;
+
+
 
 	virtual void evaluateVolumetricStress() = 0;
 	virtual void evaluateDeviatoricStress() = 0;
 	virtual void evaluateStress( ElasticSolverType solverType) = 0;
+	// Evaluate First Piola-Kirchhoff Stress Tensor from PK2
+	// Paperinik 1
 
+
+	/// This method is used only for mixed elasticy
     virtual void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) = 0;
+	/// This method is used only for mixed elasticy
 	virtual void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) = 0;
+	/// This method is used for primal elasticity
 	virtual void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) = 0;
 
 	virtual double evaluatePressure() = 0;
 	virtual double evaluatePressureResidual() = 0;
 	virtual double dpdF(const libMesh::TensorValue <double>&  dF) = 0;
+
+	//virtual double dU ( double J) = 0;
+    virtual double d2U( double J = 1.0) = 0;
+    virtual double d3U( double J = 1.0) = 0;
+    libMesh::TensorValue <double> H()  const { return M_Hk; }
+    virtual void dH(const libMesh::TensorValue <double>&  dU, libMesh::TensorValue <double> dcof)  const;
+
 	bool isIncompressible ()
 	{
 		return M_isIncompressible;
 	}
 
-   libMesh::TensorValue <double> M_total_stress;
-   libMesh::TensorValue <double> M_deviatoric_stress;
-   libMesh::TensorValue <double> M_volumetric_stress;
-   libMesh::TensorValue <double> M_total_jacobian;
+   libMesh::TensorValue <double> M_PK1;                         // First Piola-Kirchhoff Stress
+   libMesh::TensorValue <double> M_total_stress;	      //  Second Piola-Kirchhoff Stress
+   libMesh::TensorValue <double> M_deviatoric_stress;//  Second Deviatoric Piola-Kirchhoff Stress
+   libMesh::TensorValue <double> M_volumetric_stress;// Second Volumetric Piola-Kirchhoff Stress
+   libMesh::TensorValue <double> M_total_jacobian;       // Total Jacobian
    libMesh::TensorValue <double> M_deviatoric_jacobian;
    libMesh::TensorValue <double> M_volumetric_jacobian;
    libMesh::TensorValue <double> M_gradU;
    libMesh::TensorValue <double> M_strain;
    libMesh::TensorValue <double> M_strain_rate;
    libMesh::TensorValue <double> M_Fk;
+   libMesh::TensorValue <double> M_Hk;   // Cofactor of Fk
    libMesh::TensorValue <double> M_Ck;
    libMesh::TensorValue <double> M_Cinvk;
    double M_Jk;
@@ -91,6 +118,10 @@ public:
    std::vector<double>  M_parameters;
    std::vector<double>  M_fibers;
    bool M_isIncompressible;
+   int M_ndim;
+
+   double M_density;
+   double M_tau;
 
    const static libMesh::TensorValue <double> M_identity;
 

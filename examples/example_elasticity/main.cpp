@@ -70,7 +70,8 @@ int main (int argc, char ** argv)
 
   double nu = data("nu", 0.3);
   double E = data("E", 5e5);
-  int elX = data("elX", 4);
+  int elX = data("elX", 10);
+  int elY = data("elY", 2);
   std::string elTypeName = data("elType", "TRI6");
   std::map<std::string, ElemType> orderMap;
   orderMap["TRI3"] = TRI3;
@@ -79,7 +80,6 @@ int main (int argc, char ** argv)
   orderMap["QUAD9"] = QUAD9;
   auto elType = orderMap.find(elTypeName)->second;
   auto order = FIRST;
-  int elY = elX;
   if(elType == TRI6 || elType == QUAD9 ) order = SECOND;
   auto elType2 = TRI3;
   if( elType == QUAD9 ) elType2 = QUAD4;
@@ -87,23 +87,30 @@ int main (int argc, char ** argv)
   MeshTools::Generation::build_square (mesh,
                                        elX, elY,
                                        0., 1.,
-                                       0., 0.2,
+                                       0., 1.,
                                        elType);
 
+//  mesh.read("square.e");
   libMesh::EquationSystems es(mesh);
 
-//  BeatIt::Elasticity elas(es, "Elasticity");
-//  elas.setup(data,"elasticity");
-//  elas.init_exo_output("elas_primal.exo");
-//  elas.newton();
-//  elas.save_exo("elas_primal.exo", 1, 1.0);
-
+ std::string formulation = data("elasticity/formulation", "primal");
+ std::cout << "Creating " << formulation << std::endl;
+ if(formulation == "primal")
+ {
+	  BeatIt::Elasticity elas(es, "Elasticity");
+	  elas.setup(data,"elasticity");
+	  elas.init_exo_output("elas_primal.exo");
+	  elas.newton();
+	  elas.save_exo("elas_primal.exo", 1, 1.0);
+ }
+ else
+ {
   BeatIt::MixedElasticity elas(es, "Elasticity");
   elas.setup(data,"elasticity");
   elas.init_exo_output("elas_mixed.exo");
   elas.newton();
   elas.save_exo("elas_mixed.exo", 1, 1.0);
-
+ }
   return 0;
 }
 

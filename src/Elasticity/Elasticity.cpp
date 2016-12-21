@@ -155,24 +155,33 @@ Elasticity::setup(const GetPot& data, std::string section )
 	// ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Starts by creating the equation systems
-    // 1) ADR
+    // DISPLACEMENT PART
     std::cout << "* ELASTICITY: Creating new System for the ELASTICITY Solver" << std::endl;
     LinearSystem& system  =  M_equationSystems.add_system<LinearSystem>(M_myName);
 
     std::string disp_name = "displacement";
 
     int ord = M_datafile(section+"/order",  1);
+    std::cout << "* ELASTICITY: Reading displacement field - order: " << ord  << std::flush;
+    auto order_it =  BeatIt::libmesh_order_map.find(ord);
+    std::cout << " ... " << std::flush;
+    libMesh::Order  order  = ( order_it !=  BeatIt::libmesh_order_map.end() ) ? order_it->second : throw std::runtime_error("Order Explode!!!");
+    std::cout << "order found!" << std::endl;
+
     std::string fam = M_datafile(section+"/fefamily",  "lagrange");
+    std::cout << "* ELASTICITY: Reading displacement field - family: " << fam  << std::flush;
+   auto  fefamily_it  =BeatIt::libmesh_fefamily_map.find(fam);
+    std::cout << " ... " << std::flush;
+    libMesh::FEFamily  fefamily = ( fefamily_it !=  BeatIt::libmesh_fefamily_map.end() ) ? fefamily_it->second : throw std::runtime_error("FeFamily Explode!!!");
+    std::cout << "fefamily found!" << std::endl;
     std::cout << "* ELASTICITY: Setting up displacement field - order: " << ord << ", fefamily = " << fam  << std::endl;
-    libMesh::Order  order  = BeatIt::libmesh_order_map.find(ord)->second;
-    libMesh::FEFamily  fefamily  =BeatIt::libmesh_fefamily_map.find(fam)->second;
     system.add_variable(disp_name+"x", order, fefamily);
     if(dimension > 1) system.add_variable(disp_name+"y", order, fefamily);
     if(dimension > 2) system.add_variable(disp_name+"z", order, fefamily);
 
     // PRESSURE SYSTEM
     std::string formulation = M_datafile(section+"/formulation",  "primal");
-
+    std::cout << "* ELASTICITY: Using a " << formulation << " formulation" << std::endl;
     std::string pressure_name = "pressure";
 
     if(formulation == "mixed")
@@ -304,7 +313,9 @@ Elasticity::setup(const GetPot& data, std::string section )
     	unsigned int materialID = data(path+"/matID", 0);
     // Setup material
     	M_materialMap[materialID].reset( Material::MaterialFactory::Create(material));
-    	M_materialMap[materialID]->setup(M_datafile, path);
+
+
+    	M_materialMap[materialID]->setup(M_datafile, path, dimension);
     }
 
     M_newtonData.tol = data(section+"/newton/tolerance", 1e-9);
@@ -314,6 +325,9 @@ Elasticity::setup(const GetPot& data, std::string section )
 //    	std::cout << "Solver Type = PRIMAL" << std::endl;
 //    }
 //    else     	std::cout << "Solver Type = MIXED" << std::endl;
+
+    M_stabilize = data(section+"/stabilize",false);
+    std::cout << "* ELASTICITY: Using stabilization: " << M_stabilize << std::endl;
 
 
 }
@@ -346,7 +360,7 @@ Elasticity::assemble_residual()
 
     UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp) );
 
-    libMesh::QGauss qrule_1(dim, libMesh::FOURTH  );
+    libMesh::QGauss qrule_1(dim, libMesh::FIRST  );
 
     fe_u->attach_quadrature_rule(&qrule_1);
 
@@ -389,12 +403,13 @@ Elasticity::assemble_residual()
       const std::vector<libMesh::Point> & q_point = fe_u->get_xyz();
 	    // On the boundary
      libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_disp));
-     libMesh::QGauss qface(dim-1,  libMesh::FOURTH);
+     libMesh::QGauss qface(dim-1,  libMesh::FIRST);
      fe_face->attach_quadrature_rule (&qface);
 
      libMesh::MeshBase::const_element_iterator       el     = mesh.active_local_elements_begin();
 	 const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
 
+	    double rho;
 
 //	    std::cout << "* ELASTICITY:loop starts ... " << std::endl;
 
@@ -402,6 +417,8 @@ Elasticity::assemble_residual()
   for ( ; el != end_el; ++el)
   {
       const libMesh::Elem * elem = *el;
+      rho = M_materialMap[0]->M_density;
+      auto elID = elem->id();
 
       dof_map.dof_indices (elem, dof_indices);
 
@@ -463,7 +480,7 @@ Elasticity::assemble_residual()
 
     		M_materialMap[0]->M_gradU = dUk;
             M_materialMap[0]->evaluateStress( ElasticSolverType::Primal);
-            Sk = M_materialMap[0]->M_total_stress;
+            Sk = M_materialMap[0]->M_PK1;
     	  	  // Residual
     		const double x = q_point[qp](0);
             const double y = q_point[qp](1);
@@ -481,7 +498,7 @@ Elasticity::assemble_residual()
 						  dW(jdim, 2) = JxW_u[qp]* dphi_u[n][qp](2);
 						  // Compute  - \nabla \cdot \sigma + f
 						  Fe(n+jdim*n_ux_dofs) -= Sk.contract(dW);
-						  Fe(n+jdim*n_ux_dofs) += body_force[jdim] * phi_u[n][qp];
+						  Fe(n+jdim*n_ux_dofs) += rho * body_force[jdim] * phi_u[n][qp];
 					  }
     	  	  }
 
@@ -513,6 +530,10 @@ Elasticity::assemble_residual()
 
 							  M_materialMap[0]->evaluateJacobian(dU, 0.0);
 							  S = M_materialMap[0]->M_total_jacobian;
+							  auto int_1 = n+jdim*n_ux_dofs;
+                              auto int_2 = m+idim*n_ux_dofs;
+//	                            std::cout << int_1 << ", " << int_2 << ", SdW: " << S.contract(dW) << std::endl;
+
 							  Ke(n+jdim*n_ux_dofs,m+idim*n_ux_dofs) += S.contract(dW);
 						  }
 					   }
@@ -522,6 +543,7 @@ Elasticity::assemble_residual()
 
       apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs);
       dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
+
       system.matrix->add_matrix (Ke, dof_indices);
       system.rhs->add_vector    (Fe, dof_indices);
   }
@@ -598,11 +620,9 @@ Elasticity::solve_system()
     double max_iter = 2000;
 
     std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
-
     rval = M_linearSolver->solve (*system.matrix, nullptr,
 														system.get_vector("step"),
 														*system.rhs, tol, max_iter);
-
 
 }
 
@@ -723,7 +743,10 @@ Elasticity::project_pressure()
                    for (unsigned int j = 0; j < phi.size(); j++)
                    {
                        // mass term
-                       Ke(i, j) += JxW[qp] * phi[i][qp] * phi[j][qp];
+		       // 
+                       //Ke(i, j) += JxW[qp] * phi[i][qp] * phi[j][qp];
+                       //lumping
+                       Ke(i, i) += JxW[qp] * phi[i][qp] * phi[j][qp];
                    }
                }
            }
@@ -746,8 +769,6 @@ Elasticity::project_pressure()
     rval = M_projectionsLinearSolver->solve (*system_p.matrix, nullptr,
                                     *system_p.solution,
                                                         *system_p.rhs, tol, max_iter);
-
-
 }
 
 void
@@ -778,7 +799,7 @@ Elasticity::newton()
  	    {
  	        project_pressure();
  	    }
-		std::cout << "* ELASTICITY: Newton solve completed. " << std::endl;
+		std::cout << "* ELASTICITY: Newton solve completed in " << iter << " iterations. Final residual: " << res_norm << std::endl;
 
 }
 

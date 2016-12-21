@@ -1,4 +1,6 @@
 SET(TESTNAMEV example_leaflet_fibers)
+message("=== Adding Example : ${TESTNAMEV}")
+
 add_executable(${TESTNAMEV} main.cpp)
 
 set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_leaflet_fibers")

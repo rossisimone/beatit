@@ -1,4 +1,6 @@
 SET(TESTNAME example_fibers)
+message("=== Adding Example : ${TESTNAME}")
+
 add_executable(${TESTNAME} main.cpp)
 
 set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "example_fibers")

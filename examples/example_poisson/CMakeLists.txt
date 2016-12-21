@@ -1,4 +1,6 @@
 SET(TESTNAME example_poisson)
+message("=== Adding Example : ${TESTNAME}")
+
 add_executable(${TESTNAME} main.cpp)
 
 set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "example_poisson")
@@ -20,6 +22,8 @@ ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/poisson.pot  IS_NEWER_THAN ${GetPotFile} )
 
 
 SET(TESTNAME example_restart)
+message("=== Adding Example : ${TESTNAME}")
+
 add_executable(${TESTNAME} main_restart.cpp)
 
 set_target_properties(${TESTNAME} PROPERTIES  OUTPUT "example_restart")

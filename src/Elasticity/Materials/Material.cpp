@@ -37,13 +37,47 @@
 
 namespace BeatIt {
 
+namespace MaterialUtilities
+{
+
+void cross_product(const libMesh::TensorValue <double>& A, const libMesh::TensorValue <double>& B, libMesh::TensorValue <double>& C )
+{
+    C(0,0) = A(1,1) * B(2,2) - A(1,2) * B(2,1) - A(2,1) * B(1,2) + A(2,2) * B(1,1);
+    C(0,1) = A(1,2) * B(2,0) - A(2,2) * B(1,0) - A(1,0) * B(2,2) + A(2,0) * B(1,2);
+    C(0,2) = A(1,0) * B(2,1) - A(2,0) * B(1,1) - A(1,1) * B(2,0) + A(2,2) * B(1,0);
+
+    C(1,0) = A(2,1) * B(0,2) - A(0,1) * B(2,2) - A(2,2) * B(0,1) + A(0,2) * B(2,1);
+    C(1,1) = A(2,2) * B(0,0) - A(2,0) * B(0,2) - A(0,2) * B(2,0) + A(0,0) * B(2,2);
+    C(1,2) = A(2,0) * B(0,1) - A(0,0) * B(2,1) - A(2,1) * B(0,0) + A(0,1) * B(2,0);
+
+    C(2,0) = A(0,1) * B(1,2) - A(1,1) * B(0,2) - A(0,2) * B(1,1) + A(1,2) * B(0,1);
+    C(2,1) = A(0,2) * B(1,0) - A(1,2) * B(0,0) - A(0,0) * B(1,2) + A(1,0) * B(0,2);
+    C(2,2) = A(0,0) * B(1,1) - A(0,1) * B(1,0) - A(1,0) * B(0,1) + A(1,1) * B(0,0);
+
+}
+
+void cof(const libMesh::TensorValue <double>& Fk, libMesh::TensorValue <double>& H )
+{
+    cross_product(Fk, Fk, H);
+    H *= 0.5;
+}
+
+void dH(const libMesh::TensorValue <double>& dU, const libMesh::TensorValue <double>& Fk, libMesh::TensorValue <double>& dH )
+{
+    cross_product(Fk, dU, dH);
+}
+
+} // MaterialUtilities
+
+
 const libMesh::TensorValue <double>  Material::M_identity
 	= libMesh::TensorValue <double>( 1.0, 0.0, 0.0,
 																  0.0, 1.0, 0.0,
 																  0.0, 0.0, 1.0 );
 
 Material::Material()
-	: M_total_stress()
+	: M_PK1()
+	, M_total_stress()
 	, M_deviatoric_stress()
 	, M_volumetric_stress()
 	, M_total_jacobian()
@@ -53,6 +87,7 @@ Material::Material()
 	, M_strain()
 	, M_strain_rate()
 	, M_Fk()
+    , M_Hk()
 	, M_Ck()
 	, M_Cinvk()
 	, M_Jk(1.0)
@@ -60,6 +95,9 @@ Material::Material()
 	, M_parameters()
 	, M_fibers()
 	, M_isIncompressible(false)
+	, M_ndim(3)
+	, M_density(1.0)
+	, M_tau(0.0)
 {
 	// TODO Auto-generated constructor stub
 
@@ -68,5 +106,21 @@ Material::Material()
 Material::~Material() {
 	// TODO Auto-generated destructor stub
 }
+
+void
+Material::setup(GetPot& data, std::string section, int ndim)
+{
+	M_ndim = ndim;
+	setup(data, section);
+}
+
+
+
+void
+Material::dH(const libMesh::TensorValue <double>&  dU, libMesh::TensorValue <double> dcof)   const
+{
+    MaterialUtilities::cross_product(M_Fk, dU, dcof);
+}
+
 
 } /* namespace BeatIt */

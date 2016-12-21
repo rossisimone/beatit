@@ -5,6 +5,13 @@
 # License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
 #####################################################################
 
+
+elX = 8
+E = 300
+nu = 0.0
+elType = TRI6
+
+
 [mesh]
     # number of elements per side
      input_mesh_name = LA_T4_m1.e
@@ -16,77 +23,47 @@
 
 [elasticity]
     # Output Folder
-    output_folder = LA_Output
+    output_folder = test_primal_linear_TRI6
     rhs = '0.0, 0.0'
-    order = FIRST
+    order = 2
     fefamily = LAGRANGE
-    p_order = FIRST
+    p_order = 2
     p_fefamily = LAGRANGE
 
 
-    epi_angle = 0.0
-    endo_angle = 0.0
-    # rhs = 'exp(-0.01*((x-94.3516)^2+(y-114.702)^2+(z-100.077)^2))'
-    rhs = 0.0
+    materials = 'linear'
+    #materials = isotropic
+    [./materials]
+        [./linear]
+            matID = 0 
+            rho = 1.0
+            E   = 300.0
+            nu  = 0.4
+        [../]
+
+	[./isotropic]
+            matID = 0 
+            rho = 1.0
+            E   = 300.0
+            nu  = 0.4
+        [../]       
+    [../]
+
     [./BC]
-        #list = epi,endo
-        #list = epi,endo,rv,septum
         list = 'zero, one'
         [./zero]
-        flag = 900,1200,1300,600
+        flag = 3
         type = Dirichlet
         mode = Full
         component  = All
-        function = 0.0
+        function = '0.0, 0.0'
         [../]
         [./one]
-        flag = 100,1900,400,200
-        type = Dirichlet #NitscheSymmetric
+        flag = 1
+        type = Neumann #NitscheSymmetric
         mode = Full
         component  = All
-        function = 1.0
-        [../]
-        [./two]
-        flag = 312,322
-        type = Dirichlet
-        mode = Full
-        component  = All
-        function = 2.0
-        [../]
-        [./endo1]
-        flag = 1300
-        type = Dirichlet #NitscheSymmetric
-        mode = Full
-        component  = All
-        function = 0.0
-        [../]
-        [./epi2]
-        flag = 1200
-        type = Dirichlet
-        mode = Full
-        component  = All
-        function = 0.0
-        [../]
-        [./endo2]
-        flag = 1202
-        type = Dirichlet #NitscheSymmetric
-        mode = Full
-        component  = All
-        function = x
-        [../]
-        [./rv]
-        flag = 1101
-        type = NitscheSymmetric
-        mode = Full
-        component  = All
-        function = x
-        [../]
-        [./septum]
-        flag = 1001
-        type = NitscheUnsymmetric
-        mode = Full
-        component  = All
-        function = x
+        function = '0.0, -0.1'
         [../]
     [../]
 [../]

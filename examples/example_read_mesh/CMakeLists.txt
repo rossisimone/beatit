@@ -1,4 +1,5 @@
 add_executable(test_mesh main.cpp)
+message("=== Adding Example : test_mesh")
 
 set_target_properties(test_mesh PROPERTIES  OUTPUT "test_mesh.x")
 

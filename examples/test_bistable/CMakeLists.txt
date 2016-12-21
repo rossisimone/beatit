@@ -1,4 +1,6 @@
 SET(TESTNAMEV test_bistable)
+message("=== Adding Example : ${TESTNAMEV}")
+
 add_executable(${TESTNAMEV} main.cpp)
 
 set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_bistable.x")

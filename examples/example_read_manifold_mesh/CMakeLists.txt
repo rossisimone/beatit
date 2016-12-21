@@ -1,4 +1,6 @@
 SET(TESTNAMEV example_read_manifold_mesh)
+message("=== Adding Example : ${TESTNAMEV}")
+
 add_executable(${TESTNAMEV} main.cpp)
 
 set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_read_manifold_mesh.x")

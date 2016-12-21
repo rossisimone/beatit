@@ -6,9 +6,6 @@ project(BeatIt)
 set (BeatIt_VERSION_MAJOR 0)
 set (BeatIt_VERSION_MINOR 0)
 
-
-
-
 # REQUIRES C++11
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -57,7 +54,15 @@ include_directories ("${PROJECT_SOURCE_DIR}/src")
 enable_testing()
 
 # Include source directories
+message("-- Including src folder")
 add_subdirectory(src)
+message("-- Adding library")
+
+file(GLOB_RECURSE SOURCES src/*.cpp)
+file(GLOB_RECURSE HEADERS src/*.hpp)
+add_library( beatit  ${HEADERS} ${SOURCES})
+target_link_libraries (beatit ${LIBMESH_LIB})
+
 add_subdirectory(examples)
 add_subdirectory(testsuite)
 

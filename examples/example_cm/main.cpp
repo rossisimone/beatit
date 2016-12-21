@@ -491,7 +491,7 @@ void assemble_mass(EquationSystems & es,
                  for (unsigned int j = 0; j < phi.size(); j++)
                  {
                      // mass term
-                     Ke(i, j) += JxW[qp] * phi[i][qp] * phi[j][qp];
+                     Ke(i, i) += JxW[qp] * phi[i][qp] * phi[j][qp];
                  }
              }
          }

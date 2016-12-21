@@ -88,7 +88,7 @@ BCData::setup(const GetPot& data, const std::string& section )
 		if(fl >= 0 ) M_flag.push_back(  static_cast<unsigned int>(fl) );
 		else
 		{
-			std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
+			std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << ". BCData FLAG Error!" << std::endl;
 			throw std::runtime_error("BCData FLAG Error!");
 		}
 	}
@@ -98,7 +98,7 @@ BCData::setup(const GetPot& data, const std::string& section )
 	if(itc != S_componentMap.end() ) M_component = itc->second;
 	else
 	{
-		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
+		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << ". BCData COMPONENT Error!" << std::endl;
 		throw std::runtime_error("BCData COMPONENT Error!");
 	}
 
@@ -107,7 +107,7 @@ BCData::setup(const GetPot& data, const std::string& section )
 	if(itt != S_typeMap.end() ) M_type = itt->second;
 	else
 	{
-		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
+		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << ". BCData TYPE Error!" << std::endl;
 		throw std::runtime_error("BCData TYPE Error!");
 	}
 
@@ -116,7 +116,7 @@ BCData::setup(const GetPot& data, const std::string& section )
 	if(itm != S_modeMap.end() ) M_mode = itm->second;
 	else
 	{
-		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
+		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << ". BCData MODE Error!" << std::endl;
 		throw std::runtime_error("BCData MODE Error!");
 	}
 
@@ -127,7 +127,7 @@ BCData::setup(const GetPot& data, const std::string& section )
 	}
 	else
 	{
-		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << std::endl;
+		std::cout << "- Error -- BCData:: cannot read  the boundary conditions from " << section << ". BCData FUNCTION Error!" << std::endl;
 		throw std::runtime_error("BCData FUNCTION Error!");
 	}
 

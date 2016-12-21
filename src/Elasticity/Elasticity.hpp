@@ -118,6 +118,7 @@ public:
 
     ElasticSolverType M_solverType;
     NewtonData M_newtonData;
+    bool M_stabilize;
 
 protected:
     void apply_BC( const libMesh::Elem*& elem,

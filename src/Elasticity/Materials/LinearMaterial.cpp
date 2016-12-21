@@ -60,29 +60,10 @@ LinearMaterial::~LinearMaterial()
 	// TODO Auto-generated destructor stub
 }
 
-
-void
-LinearMaterial::setup(GetPot& data, std::string section)
-{
-	std::cout << "* LINEAR MATERIAL: Setup. Reading parameters from: " << section << std::endl;
-	M_parameters[0] = data(section+"/rho", 0.0); // rho
-	double E = data(section+"/E", 0.0);
-	double nu = data(section+"/nu", 0.0);
-	M_isIncompressible = data(section+"/incompressible", false);
-//	M_isIncompressible = false;
-	M_parameters[1] = E / ( 2.0 * ( 1 + nu ) );// mu
-
-	if(!M_isIncompressible) M_parameters[2] = E / ( 3.0 * ( 1 - 2 *  nu ) );// kappa
-	else M_parameters[2] = 1.0; // trick in order to use the same code as for the compressible case
-    std::cout << "\t density = " << M_parameters[0] << std::endl;
-    std::cout << "\t shear modulus = " << M_parameters[1] << std::endl;
-    std::cout << "\t bulk modulus = " << M_parameters[2] << std::endl;
-
-}
-
 void
 LinearMaterial::evaluateStress(ElasticSolverType solverType)
 {
+    //
     evaluateDeviatoricStress();
     M_total_stress = M_deviatoric_stress;
     switch(solverType)
@@ -100,6 +81,38 @@ LinearMaterial::evaluateStress(ElasticSolverType solverType)
             break;
         }
     }
+    	M_PK1 = M_total_stress;
+}
+
+void
+LinearMaterial::setup(GetPot& data, std::string section)
+{
+	std::cout << "* LINEAR MATERIAL: Setup. Reading parameters from: " << section << std::endl;
+	M_parameters[0] = data(section+"/rho", 0.0); // rho
+	double E = data(section+"/E", 0.0);
+	double nu = data(section+"/nu", 0.0);
+	M_isIncompressible = data(section+"/incompressible", false);
+//	M_isIncompressible = false;
+	M_parameters[1] = E / ( 2.0 * ( 1 + nu ) ); // mu
+
+	if( !M_isIncompressible && nu < 0.5) M_parameters[2] = E / ( 3.0 * ( 1 - 2 *  nu ) );// kappa
+	else
+    {
+	    M_isIncompressible = true;
+	    M_parameters[2] = 1.0; // trick in order to use the same code as for the compressible case
+    }
+    std::cout << "\t density = " << M_parameters[0] << std::endl;
+    std::cout << "\t shear modulus = " << M_parameters[1] << std::endl;
+    std::cout << "\t bulk modulus = " << M_parameters[2] << std::endl;
+    M_density = M_parameters[0];
+
+    M_tau = 0.5 /  M_parameters[1];
+
+    // Trick to be compatible with the nonlinear code
+    M_Hk = M_identity;
+    M_Jk = 1.0;
+
+
 }
 
 void
@@ -146,16 +159,12 @@ LinearMaterial::evaluatePressureResidual()
 //	double res = M_isIncompressible ? 0.0 : M_pressure;
 //	std::cout << "res:" <<  res << std::endl;
 //    return res -   M_parameters[2] * M_strain.tr();
-//    return M_pressure -   M_parameters[2] * M_strain.tr();
-    return -   M_parameters[2] * M_strain.tr();
+	if(M_isIncompressible) return -M_strain.tr();
+	else return - M_parameters[2] * M_strain.tr();
+//    return -   M_parameters[2] * M_strain.tr();
 }
 
 
-void
-LinearMaterial::evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q)
-{
-	M_volumetric_jacobian = q * M_identity;
-}
 void
 LinearMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q)
 {
@@ -169,13 +178,32 @@ LinearMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>
 
 }
 
+void
+LinearMaterial::evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q)
+{
+	M_volumetric_jacobian = q * M_identity;
+}
+
 double
 LinearMaterial::dpdF(const libMesh::TensorValue <double>&  dF)
 {
-    return -  M_parameters[2] *  dF.tr();
-//    return -  dF.tr();
+	if(M_isIncompressible) return -dF.tr();
+	else return - M_parameters[2] * dF.tr();
 }
 
+
+double
+LinearMaterial::d2U(double J)
+{
+    // return kappa
+    return M_parameters[2];
+}
+
+void
+LinearMaterial::dH(const libMesh::TensorValue <double>&  dU, libMesh::TensorValue <double> dcof)  const
+{
+    dcof *= 0.0;
+}
 
 
 } /* namespace BeatIt */

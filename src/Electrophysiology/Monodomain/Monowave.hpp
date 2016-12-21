@@ -152,6 +152,7 @@ public:
     std::string  M_systemMass;
 
     bool M_artificialDiffusion;
+    bool M_penalty;
 
     std::unique_ptr<PacingProtocol> M_pacing;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;

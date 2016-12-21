@@ -190,7 +190,7 @@ int main (int argc, char ** argv)
 
 
       BeatIt::TimeData datatime;
-      datatime.setup(data, "monodomain/");
+      datatime.setup(data, "monodomain");
       datatime.print();
 
       int save_iter = 0;

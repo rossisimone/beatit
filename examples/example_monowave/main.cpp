@@ -101,7 +101,6 @@ int main (int argc, char ** argv)
       std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
       GetPot data(datafile_name);
 
-
       bool do_restart = data("monodomain/restart/restart", false);
       ExodusII_IO importer(mesh) ;
       if(do_restart)
@@ -133,12 +132,20 @@ int main (int argc, char ** argv)
 		  double y_translation = data("mesh/y_translation", 0.0);
 		  double z_translation = data("mesh/z_translation", 0.0);
 
+		    std::map<std::string, ElemType> orderMap;
+		    orderMap["TRI3"] = TRI3;
+		    orderMap["QUAD4"] = QUAD4;
+		    orderMap["TRI6"] = TRI6;
+		    orderMap["QUAD9"] = QUAD9;
+		  std::string mesh_type = data("mesh/type", "TRI3");
+		   auto elType = orderMap.find(mesh_type)->second;
+
 	//      MeshTools::Generation::build_line ( mesh,
 	//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
 	//                                                                      0., maxX );
 		  MeshTools::Generation::build_square ( mesh,
 																		  numElementsX, numElementsY,
-																		  0., maxX, 0.0, maxY, TRI3 );
+																		  0., maxX, 0.0, maxY, elType );
 		  MeshTools::Modification::rotate(mesh, rotation);
 		  MeshTools::Modification::translate(mesh, x_translation, y_translation, z_translation);
       }

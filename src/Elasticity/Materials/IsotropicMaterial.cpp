@@ -65,11 +65,76 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
 	double E = data(section+"/E", 0.0);
 	double nu = data(section+"/nu", 0.0);
 	M_parameters[1] = E / ( 2.0 * ( 1 + nu ) );// mu
-	M_parameters[2] = E / ( 3.0 * ( 1 - 2 *  nu ) );// kappa
+
+	if( nu < 0.5)
+    {
+	    M_isIncompressible = false;
+	    M_parameters[2] = E / ( 3.0 * ( 1 - 2 *  nu ) );// kappa
+    }
+	else
+	{
+        M_isIncompressible = true;
+        // trick
+        M_parameters[2] = 1.0;// kappa
+
+	}
     std::cout << "\t density = " << M_parameters[0] << std::endl;
     std::cout << "\t shear modulus = " << M_parameters[1] << std::endl;
     std::cout << "\t bulk modulus = " << M_parameters[2] << std::endl;
+    M_density = M_parameters[0];
+
+
+    M_tau = 0.5 /  M_parameters[1];
 }
+
+
+void
+IsotropicMaterial::evaluateDeviatoricStress()
+{
+    /*
+     *  Consider the energy W(I1bar, I2bar) + U(J)
+     *
+     *  TODO: add the I2bar terms
+     *
+     *  Consider only W(I1bar), with Fbar = J^(-1/3) * F
+     *
+     *  Then
+     *
+     *  W1 = dW / dI1bar
+     *
+     *  Pdev = W1 * dI1bar / dF = 2 W1 J^(-2/3) ( F - I1 / 3 * F^-T )
+     *
+     *  P = F * S
+     *  Sdev = 2 * W1 * J^(-2/3) * ( I - I1 / 3 * C^-1)
+     */
+	double mu = M_parameters[1];
+	double W1 = mu / 2.0;
+
+	double Jm23 = std::pow(M_Jk, -2.0/3.0);
+
+	double I1 = M_Ck.tr();
+	M_deviatoric_stress = 2.0 * W1 * Jm23 * ( M_identity - I1 / 3.0 * M_Cinvk);
+}
+
+void
+IsotropicMaterial::evaluateVolumetricStress()
+{
+    /*
+     *  Consider the energy W(I1bar, I2bar) + U(J)
+     *
+     *  U = k * U(J)
+     *  Pvol = U'(J) * J * F^-T
+     *  p = U'(J)
+     *
+     *  P = F * S
+     *  Svol =  J p C^-1
+     */
+	double kappa = M_parameters[2];
+
+	double p = kappa * ( M_Jk - 1);
+	M_volumetric_stress = M_Jk * p * M_Cinvk;
+}
+
 
 void
 IsotropicMaterial::evaluateStress(ElasticSolverType solverType)
@@ -94,22 +159,123 @@ IsotropicMaterial::evaluateStress(ElasticSolverType solverType)
      *  P = F * S
      *  S = 2 * W1 * J^(-2/3) * ( I - I1 / 3 * C^-1) + J p C^-1
      */
+
+
+	M_Fk = M_identity + M_gradU;
+	MaterialUtilities::cof(M_Fk, M_Hk);
+	M_Ck = M_Fk.transpose() * M_Fk;
+	M_Cinvk = M_Ck.inverse();
+	M_Jk = M_Fk.det();
+
+
+	evaluateDeviatoricStress();
+    M_total_stress = M_deviatoric_stress;
+    switch(solverType)
+    {
+        case ElasticSolverType::Mixed:
+        {
+            M_total_stress += M_Jk * M_pressure * M_Cinvk;
+            break;
+        }
+        default:
+        case ElasticSolverType::Primal:
+        {
+            evaluateVolumetricStress();
+            M_total_stress += M_volumetric_stress;
+            break;
+        }
+    }
+	M_PK1 = M_Fk * M_total_stress;
+
+//	double mu = M_parameters[1];
+//	M_PK1 = mu * (M_Fk - M_identity) +  M_Jk * M_pressure * M_Cinvk;
+}
+
+
+void
+IsotropicMaterial::evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q)
+{
+	M_volumetric_jacobian = q *  M_Jk * M_Fk * M_Cinvk;
+}
+
+
+void
+IsotropicMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q )
+{
+    /*
+     *  Consider the energy W(I1bar, I2bar) + U(J)
+     *
+     *  TODO: add the I2bar terms
+     *
+     *  Consider only W(I1bar) + U(J), with Fbar = J^(-1/3) * F
+     *
+     *  Then
+     *
+     *  W1 = dW / dI1bar
+     *
+     *  p
+     *
+     *  S = 2 * W1 * J^(-2/3) * ( I - I1 / 3 * C^-1) + J p C^-1
+     *
+     *  dP = d(FS) = dF * S + F * dS
+     *
+     *  dS = dS1 + dS2 + dS3 + dS4
+     *
+     *  W11 = dW1 / dI1bar
+     *  dS1 = 2 * ( 2 * W11 * J^(-2/3) ( dC - I1 / 3 C^-1:dC ) ) * J^(-2/3) * ( I - I1 / 3 * C^-1)
+     *
+     *  dJ/dC  = 0.5 * J * C^-1 : dC
+     *  dJ^(-2/3)/dC = -2 / 3 * J^(-5/3) dJ/dC = - 1 / 3 * J^(-2/3) * C^-1 : dC
+     *  dS2 = - 2 * W1 * dJ^(-2/3)/dC * ( I - I1 / 3 * C^-1)
+     *
+     *  dI1 = I : dC
+     *  dS3 = - 2 * W1 * J^(-2/3) * ( I:dC ) / 3 * C^-1
+     *        + 2 * W1 * J^(-2/3) * I1 / 3 * C^-1 * dC * C^-1
+     *
+     *  dS4 = ( J p )' * dJ/dC * dC - J p C^-1 dC C^-1
+     *      =  0.5 * J * ( C^-1 : dC ) ( p ) * C^-1    -      J p C^-1 dC C^-1
+     */
 	double mu = M_parameters[1];
 	double kappa = M_parameters[2];
 	double W1 = mu / 2.0;
 
-	M_Fk = M_identity + M_gradU;
-	M_Ck = M_Fk.transpose() * M_Fk;
-	M_Cinvk = M_Ck.inverse();
-	M_Jk = M_Fk.det();
 	double Jm23 = std::pow(M_Jk, -2.0/3.0);
-	double I1 = M_Ck(0,0) + M_Ck(1,1) + M_Ck(2,2);
-	auto Sdev = 2.0 * W1 * Jm23 * ( M_identity - I1 / 3.0 * M_Cinvk);
-	double p = kappa * ( M_Jk - 1);
-	auto Svol = M_Jk * p * M_Cinvk;
-	M_total_stress = M_Fk * ( Sdev + Svol );
-}
+	auto  dF = dU;
+	auto  dC = M_Fk.transpose() * dF + dF.transpose() * M_Fk;
+	double I1 = M_Ck.tr();
+	/*
+     *  dS1 = 2 * ( 2 * W11 * J^(-2/3) ( dC - I1 / 3 C^-1:dC ) ) * J^(-2/3) * ( I - I1 / 3 * C^-1)
+     *
+     *  For the neohookean W11 = 0.0
+	 */
 
+    /*
+     *  dJ/dC  = 0.5 * J * C^-1 : dC
+     *  dJ^(-2/3)/dC = -2 / 3 * J^(-5/3) dJ/dC = - 1 / 3 * J^(-2/3) * C^-1 : dC
+     *  dS2 = 2 * W1 * dJ^(-2/3)/dC * ( I - I1 / 3 * C^-1)
+     */
+    auto dJm23dC = - Jm23 / 3.0 * M_Cinvk.contract(dC);
+	auto Jac = 2.0 * W1 * dJm23dC * ( M_identity - I1 / 3.0 * M_Cinvk);
+
+	/*
+     *  dS3 = - 2 * W1 * J^(-2/3) * ( I:dC ) / 3 * C^-1
+     *             + 2 * W1 * J^(-2/3) *  I1 / 3 * C^-1 * dC * C^-1
+     */
+	Jac -= 2.0 * W1 * Jm23 * dC.tr() / 3.0 * M_Cinvk;
+	Jac += 2.0 * W1 * Jm23 * I1 / 3.0 * M_Cinvk * dC * M_Cinvk;
+	M_deviatoric_jacobian = dU * M_deviatoric_stress + M_Fk * Jac;
+
+	/*
+    *  dS4 = ( J p )' * dJ/dC * dC
+    *             -   J p C^-1 dC C^-1
+    *         =  0.5 * J * ( C^-1 : dC ) ( p  ) * C^-1
+    *             -   J p C^-1 dC C^-1
+    */
+    double p = M_pressure;
+	Jac += 0.5 *  p * M_Jk * M_Cinvk.contract(dC) * M_Cinvk;
+	Jac -= M_Jk * p  * M_Cinvk * dC * M_Cinvk;
+	M_deviatoric_jacobian = dU * M_total_stress + M_Fk * Jac;
+}
 
 void
 IsotropicMaterial::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q)
@@ -154,7 +320,7 @@ IsotropicMaterial::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, 
 	double Jm23 = std::pow(M_Jk, -2.0/3.0);
 	auto  dF = dU;
 	auto  dC = M_Fk.transpose() * dF + dF.transpose() * M_Fk;
-	double I1 = M_Ck(0,0) + M_Ck(1,1) + M_Ck(2,2);
+	double I1 = M_Ck.tr();
 	/*
      *  dS1 = 2 * ( 2 * W11 * J^(-2/3) ( dC - I1 / 3 C^-1:dC ) ) * J^(-2/3) * ( I - I1 / 3 * C^-1)
      *
@@ -176,7 +342,6 @@ IsotropicMaterial::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, 
 	Jac -= 2.0 * W1 * Jm23 * M_identity.contract(dC) / 3.0 * M_Cinvk;
 	Jac += 2.0 * W1 * Jm23 * I1 / 3.0 * M_Cinvk * dC * M_Cinvk;
 
-
 	/*
     *  dS4 = ( J p )' * dJ/dC * dC - J p C^-1 dC C^-1
     *      =  0.5 * J * ( C^-1 : dC ) ( U'(J) + J U''(J) ) * C^-1 - J p C^-1 dC C^-1
@@ -186,6 +351,7 @@ IsotropicMaterial::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, 
 	Jac += 0.5 * dJp * M_Jk * M_Cinvk.contract(dC) * M_Cinvk;
 	Jac -= M_Jk * p  * M_Cinvk * dC * M_Cinvk;
 	M_total_jacobian = dU * M_total_stress + M_Fk * Jac;
+
 }
 
 
@@ -201,13 +367,60 @@ IsotropicMaterial::evaluatePressure()
 double
 IsotropicMaterial::evaluatePressureResidual()
 {
-    double kappa = M_parameters[2];
-    M_Fk = M_identity + M_gradU;
-    M_Jk = M_Fk.det();
-    double dU = kappa * ( M_Jk - 1);
-    return M_pressure - dU;
+	/*
+	 * 	Evaluate the RHS of the pressure equation with a minus, that is
+	 * 	p = RHS
+	 * 	p - RHS = 0
+	 * 	return -RHS
+	 */
+	double RHS;
+	if(M_isIncompressible)
+	{
+		RHS = ( M_Jk - 1);
+	}
+	else
+	{
+		double kappa = M_parameters[2];
+		double dU = kappa * ( M_Jk - 1);
+		RHS = dU;
+	}
+	return - RHS;
+
 }
 
+double
+IsotropicMaterial::dpdF(const libMesh::TensorValue <double>&  dF)
+{
+	/*
+	 * 	 p - k U'(J) = 0
+	 *
+	 * 	 dp / dF = k U''(J) dJ/DF = k U''(J) J F^-T
+	 *
+	 * 	dPvol/dp =
+	 */
+	auto cofF = M_Jk * M_Fk * M_Cinvk;
+	if(M_isIncompressible)
+	{
+		return - cofF.contract(dF);
+	}
+	else
+	{
+		double d2U = M_parameters[2] ;
+		return - d2U * cofF.contract(dF);
+	}
+}
+
+double
+IsotropicMaterial::d2U( double J)
+{
+    double kappa = M_parameters[2];
+    return kappa;
+}
+double
+IsotropicMaterial::d3U( double J)
+{
+    return 0.0;
+}
 
 
 
