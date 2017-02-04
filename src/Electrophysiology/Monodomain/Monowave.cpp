@@ -157,6 +157,9 @@ void Monowave::setup(GetPot& data, std::string section)
 {
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
+	evaluate_mesh_size();
+    std::cout << "* MONODOMAIN: max mesh size:" << M_meshSize << std::endl;
+
     // Read Input File
     M_datafile = data;
     //Read output folder from datafile
@@ -218,6 +221,7 @@ void Monowave::setup(GetPot& data, std::string section)
     // Add the applied current to this system
     IonicModelSystem& Iion_system = M_equationSystems.add_system<IonicModelSystem>("iion");
     Iion_system.add_variable( "iion", libMesh::FIRST);
+    Iion_system.add_vector( "diion");
     Iion_system.init();
     IonicModelSystem& istim_system = M_equationSystems.add_system<IonicModelSystem>("istim");
     istim_system.add_variable( "istim", libMesh::FIRST);
@@ -286,7 +290,13 @@ void Monowave::setup(GetPot& data, std::string section)
     aniso_map["orthotropic"] = Anisotropy::Orthotropic;
     aniso_map["isotropic"] = Anisotropy::Isotropic;
     aniso_map["transverse"] = Anisotropy::TransverselyIsotropic;
-
+    std::cout << "* MONODOMAIN: Parameters: " << std::endl;
+    std::cout << "              Chi = " << Chi << std::endl;
+    std::cout << "              Dff = " << Dff << std::endl;
+    std::cout << "              Dss = " << Dss << std::endl;
+    std::cout << "              Dnn = " << Dnn << std::endl;
+    std::cout << "              tau = " << alpha << std::endl;
+    std::cout << "              anisotropy = " << anisotropy << std::endl;
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -754,7 +764,7 @@ Monowave::init_exo_output()
 void
 Monowave::save_exo(int step, double time)
 {
-    std::cout << "* MONODOMAIN: EXODUSII::Exporting time "   << time << " in: "  << M_outputFolder << " ... " << std::flush;
+    std::cout << "* MONODOMAIN: EXODUSII::Exporting monodomain.exo at time "   << time << " in: "  << M_outputFolder << " ... " << std::flush;
     M_monodomainEXOExporter->write_timestep(  M_outputFolder+"monodomain.exo"
                                          , M_equationSystems
                                          , step, time );
@@ -764,7 +774,7 @@ Monowave::save_exo(int step, double time)
 void
 Monowave::save_potential(int step, double time)
 {
-    std::cout << "* MONODOMAIN: EXODUSII::Exporting potential at time "   << time << " in: "  << M_outputFolder << " ... " << std::flush;
+    std::cout << "* MONODOMAIN: EXODUSII::Exporting potential.exo at time "   << time << " in: "  << M_outputFolder << " ... " << std::flush;
     if(M_equationType == EquationType::Wave) std::cout << " wave solver ... " << std::flush;
     else std::cout << " adr solver ... " << std::flush;
 
@@ -841,7 +851,26 @@ Monowave::save_parameters()
     std::cout << "done " << std::endl;
 }
 
+void
+Monowave::evaluate_mesh_size()
+{
+     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+          libMesh::MeshBase::const_element_iterator el =
+             mesh.active_local_elements_begin();
+     const libMesh::MeshBase::const_element_iterator end_el =
+             mesh.active_local_elements_end();
 
+     double h = 0;
+     double h_max = 0;
+     for (; el != end_el; ++el)
+     {
+         const libMesh::Elem * elem = *el;
+         h = elem->hmax();
+         h_max = std::max(h_max, h);
+     }
+     mesh.comm().max(h_max);
+     M_meshSize = h_max;
+}
 void
 Monowave::assemble_matrices()
 {
@@ -1069,7 +1098,6 @@ Monowave::assemble_matrices()
             	 hsmin = std::min(hsmin, p1(0)*s0[0]+p1(1)*s0[1]+p1(2)*s0[2]);
             	 hnmax = std::max(hnmax, p1(0)*n0[0]+p1(1)*n0[1]+p1(2)*n0[2]);
             	 hnmin = std::min(hnmin, p1(0)*n0[0]+p1(1)*n0[1]+p1(2)*n0[2]);
-
              }
              hf = hfmax - hfmin;
              hs = hsmax - hsmin;
@@ -1372,10 +1400,20 @@ Monowave::advance()
 	*wave_system.old_local_solution    = *wave_system.solution;
     *wave_system.older_local_solution = *wave_system.solution;
 
+    IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
+    *iion_system.older_local_solution = *iion_system.old_local_solution;
+    *iion_system.old_local_solution   = *iion_system.solution;
+
+
 }
 
 void
-Monowave::solve_reaction_step(double dt, double time, int step, bool useMidpoint, const std::string& mass)
+Monowave::solve_reaction_step( double dt,
+                               double time,
+                               int    step,
+                               bool   useMidpoint,
+                               const  std::string& mass,
+                               libMesh::NumericVector<libMesh::Number>* I4f_ptr )
 {
     MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
@@ -1383,24 +1421,33 @@ Monowave::solve_reaction_step(double dt, double time, int step, bool useMidpoint
 	    // WAVE
 	IonicModelSystem& wave_system =  M_equationSystems.add_system<IonicModelSystem>("wave");
     IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
+    const libMesh::Real alpha = M_equationSystems.parameters.get<libMesh::Real> ("alpha"); // time constant
 
     monodomain_system.rhs->zero();
+    iion_system.solution->zero();
+    //iion_system.old_local_solution->zero();
+    iion_system.get_vector("diion").zero();
+
     double Cm = M_ionicModelPtr->membraneCapacitance();
 
     auto first_local_index = wave_system.solution->first_local_index();
     auto last_local_index = wave_system.solution->last_local_index();
     int num_vars = ionic_model_system.n_vars();
     double istim = 0.0;
+    double dIion = 0.0;
     std::vector<double> values(num_vars+1, 0.0);
     auto i = first_local_index;
     int var_index = 0;
+
     // Solve the first time
     for( ; i < last_local_index; )
     {
+        double Iion_old = 0.0;
 
 	   if(M_equationType == EquationType::Wave)
 	   {
 		   values[0] = (*wave_system.old_local_solution)(i);
+		   Iion_old = (*iion_system.old_local_solution)(i);
 	   }
 	   else
 	   {
@@ -1416,8 +1463,24 @@ Monowave::solve_reaction_step(double dt, double time, int step, bool useMidpoint
 
     	M_ionicModelPtr->updateVariables(values, istim, dt);
         double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
+        if(M_equationType == EquationType::Wave)
+        {
+//            dIion =  (Iion - Iion_old) / dt;
+            //std::cout << "Iion: " << Iion << ", Iion_old: " << Iion_old << ", dIion1: " << dIion << std::flush;
+            dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, istim, dt, M_meshSize);
+            //std::cout << ", dIion2: " << dIion << std::endl;
+        }
+        double Isac = 0.0;
+        if(I4f_ptr)
+        {
+            double I4f = (*I4f_ptr)(i);
+            Isac = M_ionicModelPtr->evaluateSAC(values[0], I4f);
+        }
+        Iion += Isac;
 //        monodomain_system.get_vector("ionic_currents").set(i,Iion);
         iion_system.solution->set(i,Iion);
+        //iion_system.old_local_solution->set(i,Iion);
+        iion_system.get_vector("diion").set(i,dIion);
         for(int nv = 0; nv < num_vars; ++nv)
         {
         	var_index =  i  * num_vars + nv;
@@ -1429,6 +1492,7 @@ Monowave::solve_reaction_step(double dt, double time, int step, bool useMidpoint
 //   monodomain_system.get_vector("ionic_currents").close();
 	iion_system.solution->close();
     ionic_model_system.solution->close();
+    iion_system.get_vector("diion").close();
 
 }
 
@@ -1451,18 +1515,23 @@ Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::string
     // Matrix part
     if(M_equationType == EquationType::Wave)
     {
-    	// S = alpha * M + dt * Chi * M + dt^2 * K
-    	//  alpha * M
-        monodomain_system.matrix->add(alpha, monodomain_system.get_matrix(mass) );
+    	// S = alpha * Chi * M + dt * Chi * M + dt^2 * K
+        // S = alpha * M + dt * M + dt^2/Chi * K
+    	//  alpha * Chi * M
+
         // dt * Chi * M
-        monodomain_system.matrix->add(dt*Chi, monodomain_system.get_matrix(mass) );
+        //monodomain_system.matrix->add(dt+alpha, monodomain_system.get_matrix(mass) );
+        //monodomain_system.matrix->add(dt*dt/Chi, monodomain_system.get_matrix("stiffness" ) );
+
+        monodomain_system.matrix->add(Chi*(dt+alpha+0.0*dt*alpha), monodomain_system.get_matrix(mass) );
+        monodomain_system.matrix->add(dt*dt, monodomain_system.get_matrix("stiffness" ) );
     	//  alpha * M
         // dt^2 * K
-        monodomain_system.matrix->add(dt*dt, monodomain_system.get_matrix("stiffness" ) );
     }
     else
     {
     	// S = Chi * M + dt * K
+        // S = M + dt K
         monodomain_system.matrix->add(Chi, monodomain_system.get_matrix(mass) );
         monodomain_system.matrix->add(dt, monodomain_system.get_matrix("stiffness" ) );
     }
@@ -1482,32 +1551,55 @@ Monowave::form_system_rhs(double dt, bool useMidpoint , const std::string& mass)
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real> ("Chi");
     double Cm = M_ionicModelPtr->membraneCapacitance();
 
-    const libMesh::Real alpha = M_equationSystems.parameters.get<libMesh::Real> ("alpha");
+    const libMesh::Real alpha = M_equationSystems.parameters.get<libMesh::Real> ("alpha"); // time constant
 
     monodomain_system.rhs->zero();
     monodomain_system.rhs->close();
     // RHS part:
-    // RHS WAVE = alpha * M * Q^n - dt K * V^n + dt * M * I^n
-    // RHS ADR  = Chi   * M * V^n + dt * M * I^n
-    // commmon part is: dt * M * I^n
-   iion_system.solution->scale(dt*Chi);
+    // RHS WAVE = alpha * M * Q^n - dt / Chi * K * V^n + dt * M * I^n + dt * M * dI^n
+    // RHS ADR  =   M * V^n + dt * M * I^n
+    // commmon part is: dt * Chi * M * I^n
+    //iion_system.solution->scale(dt*Chi);
    monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
                                                        *iion_system.solution );
+   monodomain_system.rhs->scale(dt*Chi);
    if(M_equationType == EquationType::Wave)
    {
-	   // + alpha * M * Q^n
-	   monodomain_system.older_local_solution->scale(alpha);
+       *monodomain_system.old_local_solution = *monodomain_system.older_local_solution;
+
+       // + alpha *Chi * M * Q^n
+       monodomain_system.older_local_solution->scale(alpha*Chi);
 	   monodomain_system.get_matrix(M_systemMass).vector_mult_add( *monodomain_system.rhs,
                                                            *monodomain_system.older_local_solution );
-	   // - dt K * V^n
+
+	   // - dt  * K * V^n
 	   wave_system.older_local_solution->scale(-dt);
 	   monodomain_system.get_matrix("stiffness").vector_mult_add( *monodomain_system.rhs,
                                                                   *wave_system.older_local_solution );
+//	   // - or + ?
+//	   iion_system.get_vector("diion").scale(dt);
+	   //    // + dt * Chi *  alpha * M * dI * Q^n
+       *monodomain_system.older_local_solution = *monodomain_system.old_local_solution;
+       monodomain_system.older_local_solution->scale(dt*alpha*Chi);
+//       monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
+//                                                           *monodomain_system.older_local_solution  );
+
+//       iion_system.get_vector("diion").scale(-dt*alpha*Chi);
+//       double norm = iion_system.get_vector("diion").linfty_norm();
+//       std::cout << "\n norm: " << norm << std::endl;
+////	   *monodomain_system.older_local_solution = iion_system.get_vector("diion");
+////	   iion_system.get_vector("diion").zero();
+       iion_system.get_vector("diion").pointwise_mult(*monodomain_system.older_local_solution, iion_system.get_vector("diion"));
+       monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
+                                                           iion_system.get_vector("diion") );
+       *monodomain_system.older_local_solution = *monodomain_system.old_local_solution;
+
+
    }
    else
    {
-	   // Chi   * M * V^n
-	   monodomain_system.older_local_solution->scale(Chi);
+	   //    Chi * M * V^n
+       monodomain_system.older_local_solution->scale(Chi);
 	   monodomain_system.get_matrix(M_systemMass).vector_mult_add( *monodomain_system.rhs,
 														   *monodomain_system.older_local_solution );
    }

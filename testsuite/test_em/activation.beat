@@ -1,0 +1,3 @@
+[activation]
+	output_folder = ctest_em_output
+[../]

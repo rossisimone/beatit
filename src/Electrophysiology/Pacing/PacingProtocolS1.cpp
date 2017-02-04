@@ -87,6 +87,7 @@ PacingProtocolS1::setup(const GetPot& data, std::string section)
     std::cout << "\t\t cycle_length: " << M_cycleLength << std::endl;
     std::cout << "\t\t radius: " << M_radius << std::endl;
     std::cout << "\t\t center: " << M_x0 << ", " << M_y0 << ", " << M_z0 << std::endl;
+    std::cout << "\t\t amplitude: " << M_amplitude << std::endl;
 
 	std::string type = data(section+"/distance", "l_2");
     if(type == "l_1")

@@ -104,7 +104,12 @@ public:
     void form_system_matrix(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");
     void form_system_rhs(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");
     void advance();
-    void solve_reaction_step( double dt, double time, int step = 0,  bool useMidpoint = true, const std::string& mass = "mass");
+    void solve_reaction_step( double dt,
+                              double time,
+                              int step = 0,
+                              bool useMidpoint = true,
+                              const std::string& mass = "mass",
+                              libMesh::NumericVector<libMesh::Number>* I4f_ptr = nullptr);
 
     void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass", bool reassemble = true);
 
@@ -126,7 +131,7 @@ public:
    get_xfibers();
     //protected:
 
-
+   void evaluate_mesh_size();
     /// input file
     GetPot                     M_datafile;
     /// Store pointer to the ionic model
@@ -159,6 +164,7 @@ public:
 
     Anisotropy M_anisotropy;
     EquationType M_equationType;
+    double M_meshSize;
 };
 
 } /* namespace BeatIt */

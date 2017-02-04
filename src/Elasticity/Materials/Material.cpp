@@ -93,11 +93,12 @@ Material::Material()
 	, M_Jk(1.0)
 	, M_pressure()
 	, M_parameters()
-	, M_fibers()
+	, M_f0()
 	, M_isIncompressible(false)
 	, M_ndim(3)
 	, M_density(1.0)
 	, M_tau(0.0)
+    , M_FA()
 {
 	// TODO Auto-generated constructor stub
 

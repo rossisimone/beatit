@@ -27,29 +27,33 @@
  */
 
 /*
- * MixedElasticity.hpp
+ * DynamicElasticity.hpp
  *
- *  Created on: Oct 24, 2016
+ *  Created on: Feb 1, 2017
  *      Author: srossi
  */
 
-#ifndef SRC_ELASTICITY_MIXEDELASTICITY_HPP_
-#define SRC_ELASTICITY_MIXEDELASTICITY_HPP_
+#ifndef SRC_ELASTICITY_DYNAMICELASTICITY_HPP_
+#define SRC_ELASTICITY_DYNAMICELASTICITY_HPP_
 
-#include "Elasticity/Elasticity.hpp"
+#include "Elasticity.hpp"
 
 namespace BeatIt {
 
-class MixedElasticity : public virtual Elasticity
-{
+class DynamicElasticity : public Elasticity {
 public:
-	MixedElasticity( libMesh::EquationSystems& es, std::string system_name );
-	virtual ~MixedElasticity();
+	typedef Elasticity super;
+	DynamicElasticity( libMesh::EquationSystems& es, std::string system_name );
 
-	void assemble_residual(libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
-    void assemble_jacobian(){}
+    virtual void setupSystem(std::string section = "elasticity" );
+
+	 void assemble_residual(double dt = 0.0, libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    void update_displacements(double dt = 0.0);
+    void advance();
+    void project_pressure();
+	virtual ~DynamicElasticity();
 };
 
 } /* namespace BeatIt */
 
-#endif /* SRC_ELASTICITY_MIXEDELASTICITY_HPP_ */
+#endif /* SRC_ELASTICITY_DYNAMICELASTICITY_HPP_ */

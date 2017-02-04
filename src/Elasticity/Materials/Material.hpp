@@ -38,6 +38,7 @@
 #define SRC_ELASTICITY_MATERIALS_MATERIAL_HPP_
 
 #include "libmesh/tensor_value.h"
+#include "libmesh/vector_value.h"
 #include "Util/Factory.hpp"
 #include <vector>
 #include "Elasticity/ElasticSolverType.hpp"
@@ -116,14 +117,19 @@ public:
    double M_pressure;
    double M_pressureResidual;
    std::vector<double>  M_parameters;
-   std::vector<double>  M_fibers;
+   libMesh::VectorValue <double> M_f0;
    bool M_isIncompressible;
    int M_ndim;
+   libMesh::TensorValue <double> M_FA;
+   libMesh::TensorValue <double> M_FAinv;
+   libMesh::TensorValue <double> M_CAinv;
 
    double M_density;
    double M_tau;
 
    const static libMesh::TensorValue <double> M_identity;
+
+   virtual void updateVariables() {}
 
 };
 

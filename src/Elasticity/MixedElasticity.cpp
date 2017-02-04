@@ -75,6 +75,7 @@
 
 //Materials
 #include "Elasticity/Materials/LinearMaterial.hpp"
+#include "Elasticity/Materials/Neohookean.hpp"
 #include "Elasticity/Materials/IsotropicMaterial.hpp"
 
 namespace BeatIt {
@@ -94,11 +95,11 @@ MixedElasticity::~MixedElasticity() {
 
 
 void
-MixedElasticity::assemble_residual()
+MixedElasticity::assemble_residual(libMesh::NumericVector<libMesh::Number>* activation_ptr)
 {
 	typedef libMesh::LinearImplicitSystem    LinearSystem;
 
-	std::cout << "* MIXED ELASTICITY: assembling ... " << std::endl;
+//	std::cout << "* MIXED ELASTICITY: assembling ... " << std::endl;
 
     using libMesh::UniquePtr;
 
@@ -107,6 +108,11 @@ MixedElasticity::assemble_residual()
     const unsigned int max_dim = 3;
     // Get a reference to the LinearImplicitSystem we are solving
     LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
+    ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
+    ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
+    ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
+    ParameterSystem& dummy_system       = M_equationSystems.get_system<ParameterSystem>("dumb");
+
     system.get_vector("residual").zero();
     system.rhs->zero();
     system.matrix->zero();
@@ -119,6 +125,9 @@ MixedElasticity::assemble_residual()
 	p_var =  system.variable_number ("pressure");
 
 	const libMesh::DofMap & dof_map = system.get_dof_map();
+    const libMesh::DofMap & dof_map_fibers= fiber_system.get_dof_map();
+    const libMesh::DofMap & dof_map_activation = dummy_system.get_dof_map();
+
     libMesh::FEType fe_disp= dof_map.variable_type(ux_var);
     libMesh::FEType fe_pr = dof_map.variable_type(p_var);
 
@@ -128,8 +137,10 @@ MixedElasticity::assemble_residual()
     auto order_u = fe_u->get_order();
     auto order_p = fe_u->get_order();
 
-    libMesh::QGauss qrule_1(dim,  libMesh::SECOND );
-    libMesh::QGauss qrule_2(dim,  libMesh::SECOND );
+//    libMesh::QGauss qrule_1(dim,  libMesh::SECOND );
+//    libMesh::QGauss qrule_2(dim,  libMesh::SECOND );
+    libMesh::QGauss qrule_1(dim,  libMesh::FIRST );
+    libMesh::QGauss qrule_2(dim,  libMesh::FIRST );
 
     fe_u->attach_quadrature_rule(&qrule_1);
     fe_p->attach_quadrature_rule(&qrule_2);
@@ -157,6 +168,7 @@ MixedElasticity::assemble_residual()
 	std::vector<libMesh::dof_id_type> dof_indices_uy;
 	std::vector<libMesh::dof_id_type> dof_indices_uz;
 	std::vector<libMesh::dof_id_type> dof_indices_p;
+    std::vector<libMesh::dof_id_type> dof_indices_activation;
 
 	// Grad U
 	std::vector<double> solution_k;
@@ -205,6 +217,19 @@ MixedElasticity::assemble_residual()
     double rho;
     // tau / h
     double tau;
+    // anisotropy
+    libMesh::RealGradient f0;
+    libMesh::RealGradient s0;
+    libMesh::RealGradient n0;
+    std::vector<libMesh::dof_id_type> dof_indices_fibers;
+
+    // Active Material
+    double gamma_f;
+    double gamma_s;
+    double gamma_n;
+    std::vector<double> gamma_f_k;
+    libMesh::TensorValue <libMesh::Number> FA;
+
 
     for ( ; el != end_el; ++el)
     {
@@ -216,6 +241,8 @@ MixedElasticity::assemble_residual()
         auto h2 = h*h;
 
         dof_map.dof_indices (elem, dof_indices);
+
+
 //        for(auto && v : dof_indices) std::cout << v << std::endl;
         dof_map.dof_indices (elem, dof_indices_ux, ux_var);
         if(dim>1)dof_map.dof_indices (elem, dof_indices_uy, uy_var);
@@ -225,21 +252,7 @@ MixedElasticity::assemble_residual()
         const unsigned int n_ux_dofs = dof_indices_ux.size();
 
         fe_u->reinit (elem);
-//        auto& dxdxi   = fe_u_map.get_dxyzdxi();
-//        auto& dxdeta  = fe_u_map.get_dxyzdeta();
-//        auto& dxdzeta  = fe_u_map.get_dxyzdzeta();
-//
-//        std::cout << "max element length  sqaured is: " << h*h << ", while the jacobian is " <<  dxdzeta.size() << std::endl;
-//        h_jac.slice(0) = dxdxi[0];
-////        std::cout << "Slice 1 Done ... " << std::flush;
-//        h_jac.slice(1) = dxdeta[0];
-////        std::cout << "Slice 2 Done ... " << std::flush;
-//        //h_jac.slice(2) = dxdzeta[0];
-//        h_jac *= 0.0;
-//        h_jac(0,0) = 0.5;
-//        h_jac(0,1) = 0.5;
-//        h_jac(1,1) = 0.5;
-//        h_jac(2,2) = 0.;
+
 //
 ////        std::cout << "Slice 3 Done ... Printing" << std::endl;
 //        h2.print(std::cout);
@@ -253,6 +266,29 @@ MixedElasticity::assemble_residual()
         //  	  for(auto && di : dof_indices)  std::cout << "dof id: " << di << std::endl;
 
         system.current_local_solution->get(dof_indices, solution_k);
+
+        if(activation_ptr)
+        {
+            dof_map_activation.dof_indices (elem, dof_indices_activation);
+            const unsigned int n_dofs_activation   = dof_indices_activation.size();
+            gamma_f_k.resize(n_dofs_activation);
+            activation_ptr->get(dof_indices_activation, gamma_f_k);
+        }
+
+        dof_map_fibers.dof_indices(elem, dof_indices_fibers);
+        // fiber direction
+        f0(0) = (*fiber_system.solution)(dof_indices_fibers[0]);
+        f0(1) = (*fiber_system.solution)(dof_indices_fibers[1]);
+        f0(2) = (*fiber_system.solution)(dof_indices_fibers[2]);
+        // sheet direction
+        s0(0) = (*sheets_system.solution)(dof_indices_fibers[0]);
+        s0(1) = (*sheets_system.solution)(dof_indices_fibers[1]);
+        s0(2) = (*sheets_system.solution)(dof_indices_fibers[2]);
+        // crossfiber direction
+        n0(0) = (*xfiber_system.solution)(dof_indices_fibers[0]);
+        n0(1) = (*xfiber_system.solution)(dof_indices_fibers[1]);
+        n0(2) = (*xfiber_system.solution)(dof_indices_fibers[2]);
+
         // local solution for a triangle contains
         /*
         *                        solution_k = [ ux1, ux2, ux3, uy1, uy2, uy3, uz1, uz2, uz3, p1, p2, p3];
@@ -296,6 +332,7 @@ MixedElasticity::assemble_residual()
             } // end grad Uk on qp
 
             M_materialMap[0]->M_gradU = dUk;
+            M_materialMap[0]->M_f0 = f0;
 
             const unsigned int n_phi_p = phi_p.size();
             for(unsigned int l = 0; l < n_phi_p; ++l )
@@ -305,8 +342,6 @@ MixedElasticity::assemble_residual()
             }// end grad pk on qp
 
             M_materialMap[0]->M_pressure = pk;
-            M_materialMap[0]->evaluateStress( ElasticSolverType::Mixed);
-            Sk = M_materialMap[0]->M_PK1;
 
             // Residual
             const double x = q_point[qp](0);
@@ -317,6 +352,47 @@ MixedElasticity::assemble_residual()
             {
                 body_force(idim) =M_rhsFunction(time,x,y,z,idim);
             }
+
+            if(activation_ptr)
+            {
+                FA = Material::M_identity;
+
+                gamma_f *= 0.0;
+                for(unsigned int l = 0; l < n_phi; ++l )
+                {
+                    gamma_f += phi_u[l][qp] * gamma_f_k[l];
+                }
+
+                if(dim == 3)
+                {
+                    gamma_s = 1.0 / std::sqrt(1.0+gamma_f) - 1.0;
+                    gamma_n = gamma_s;
+                }
+                else
+                {
+                    gamma_s = 1.0 / (1.0+gamma_f) - 1.0;
+                    gamma_n = 0.0;
+                }
+
+                for(int idim = 0; idim < dim; idim++)
+                {
+                    for(int jdim = 0; jdim < dim; jdim++)
+                    {
+                        FA(idim, jdim) += gamma_f * f0(idim) * f0(jdim)
+                                        + gamma_s * s0(idim) * s0(jdim)
+                                        + gamma_n * n0(idim) * n0(jdim);
+                    }
+                }
+                M_materialMap[0]->M_FA = FA;
+                M_materialMap[0]->M_FAinv = FA.inverse();
+                M_materialMap[0]->M_CAinv = M_materialMap[0]->M_FAinv  * M_materialMap[0]->M_FAinv;
+            }
+
+            M_materialMap[0]->updateVariables();
+            M_materialMap[0]->evaluateStress( ElasticSolverType::Mixed);
+            Sk = M_materialMap[0]->M_PK1;
+
+
 
             // the strog residual is
             // - div \sigma - \rho f

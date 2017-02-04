@@ -74,21 +74,27 @@ class Material;
 
 
 class Elasticity {
-    typedef libMesh::ExodusII_IO EXOExporter;
 public:
+    typedef libMesh::ExodusII_IO EXOExporter;
+    typedef libMesh::ExplicitSystem                     ParameterSystem;
+
 	Elasticity( libMesh::EquationSystems& es, std::string system_name );
-    void setup(const GetPot& data, std::string section = "elasticity" );
+    virtual void setup(const GetPot& data, std::string section = "elasticity" );
+    virtual void setupSystem(std::string section = "elasticity" );
+    virtual void setupParameters(std::string section = "elasticity" );
 	void save_exo(const std::string& output_filename = "elasticity.exo", int step = 0, double time = 1.0);
 	void write_equation_system(const std::string& es = "elasticity.dat");
     void read_equation_system(const std::string& es = "elasticity.dat");
 
     void deleteSystems();
-    virtual void assemble_residual();
+    virtual void assemble_residual(double dt = 0.0, libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
     virtual void assemble_jacobian() {}
-    void newton();
+    void newton(double dt = 0.0, libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    virtual void update_displacements(double /* dt */) {}
     void solve_system();
-    void project_pressure();
+    virtual void project_pressure();
 
+    virtual void advance() {}
     void init_exo_output(const std::string& output_filename);
     virtual ~Elasticity();
 
@@ -119,6 +125,8 @@ public:
     ElasticSolverType M_solverType;
     NewtonData M_newtonData;
     bool M_stabilize;
+
+    void evaluate_nodal_I4f();
 
 protected:
     void apply_BC( const libMesh::Elem*& elem,

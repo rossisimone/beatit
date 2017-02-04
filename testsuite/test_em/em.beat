@@ -1,0 +1,35 @@
+# FILE:    "em.beat"
+# PURPOSE: Example EM
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+electrophysiology = electrophysiology.beat
+elasticity = elasticity.beat
+activation = activation.beat
+
+
+[mesh]
+    # number of elements per side
+    elX = 32
+    elY = 32
+    elZ = 4
+
+    maxX = 4.0
+    maxY = 4.0
+    maxZ = 4.0
+[../]
+
+
+[./em]
+# Time Data
+    [./time]
+    use_midpoint = false        
+    dt = 0.01   
+    init_time = 0.0    
+    final_time= 5.0
+    max_iter  = 2000000
+    save_iter = 100
+    [../]
+[../]

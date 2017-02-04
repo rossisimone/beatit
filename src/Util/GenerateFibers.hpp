@@ -57,6 +57,7 @@ class GetPot;
 namespace libMesh
 {
 class MeshBase;
+class System;
 }
 namespace BeatIt
 {
@@ -68,6 +69,9 @@ const libMesh::UniquePtr< libMesh::NumericVector<libMesh::Number> >&
 generate_gradient_field( libMesh::MeshBase& mesh,
                          const GetPot& data,
                          const std::string& section = "rule_based_fibers");
+
+
+void project_function(std::string& function, libMesh::System& sys);
 
 }
 

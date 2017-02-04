@@ -1,0 +1,55 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+# Mesh Part
+elX = 8
+elY = 8
+elType = TRI3
+
+[elasticity]
+    # Output Folder
+    output_folder = ctest_nh_TRI3
+    rhs = '0.0, 0.0'
+    order = 1
+    fefamily = lagrange
+    p_order = 1
+    p_fefamily = lagrange
+
+    formulation = 'primal'
+    stabilize = true
+    materials = neohookean
+    [./materials]
+        [./neohookean]
+            matID = 0 
+            rho = 1.0
+            E   = 250.0
+            nu  = 0.4999
+        [../]       
+    [../]
+ 
+    [./newton]
+        max_iter = 10
+    [../]
+
+    [./BC]
+        list = 'zero, one'
+        [./zero]
+            flag = 3
+            type = Dirichlet
+            mode = Full
+            component  = All
+            function = '0.0, 0.0'
+        [../]
+        [./one]
+            flag = 1
+            type = Neumann
+            mode = Full
+            component  = All
+            function = '0.0, 6.25e-1'
+        [../]
+    [../]
+[../]

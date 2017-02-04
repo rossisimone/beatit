@@ -175,5 +175,20 @@ NashPanfilov::initializeSaveData(std::ostream& output)
 }
 
 
+double
+NashPanfilov::evaluateSAC(double v , double I4f)
+{
+    // From
+    // An electromechanical model of cardiac tissue: Constitutive issues and electrophysiological effects
+    // C. Cherubinia, S. Filippia, P. Nardinocchib, L. Teresi
+    double sac = 0.0;
+    double Gs = 5;
+    double delta = 60;
+    double l_ref = 1.1;
+    double l = std::sqrt(I4f);
+    double Vt = 0.56;
+    sac = Gs * (v - Vt) / ( 1  + std::exp(-delta * (l-l_ref) ) );
+    return sac;
+}
 
 } /* namespace BeatIt */

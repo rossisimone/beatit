@@ -271,7 +271,7 @@ Grandi11::initialize(std::vector<double>& variables)
     //Kio=120;
     variables[33] = 120;
     //Cajo=1.737475e-4;
-    variables[34] = 1.737475e-4;
+    variables[34] = 1.737475e-4; // Assume Cai diastolic
     //Caslo= 1.031812e-4;
     variables[35] = 1.031812e-4;
     //Caio=8.597401e-5;
@@ -895,8 +895,10 @@ Grandi11::updateVariables(std::vector<double>& variables, double appliedCurrent,
         + J_ca_slmyo/Vsl*(Cai-Casl)-J_CaB_sl );   // Ca_sl
     // ydot(36)=0;
     // ydot(37)=0;
+//    std::cout << "* Grandi11: Cai 1: " << Cai << std::flush;
     // ydot(38) = -J_serca*Vsr/Vmyo-J_CaB_cytosol;//+J_ca_slmyo/Vmyo*(Casl-Cai);    // [mM/msec]
     Cai += dt * ( -J_serca*Vsr/Vmyo-J_CaB_cytosol +J_ca_slmyo/Vmyo*(Casl-Cai) );
+//    std::cout << ", Cai 2: " << Cai << std::endl;
     // ydot(38)=0;
 
     I_Na_tot = I_Na_tot_junc + I_Na_tot_sl;          // [uA/uF]

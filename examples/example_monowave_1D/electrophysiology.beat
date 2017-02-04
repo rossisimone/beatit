@@ -1,0 +1,80 @@
+[mesh]
+    # number of elements per side
+    elX = 4
+    elY = 4
+    elZ = 4
+
+    maxX = 4.0
+    maxY = 4.0
+    maxZ = 4.0
+[../]
+
+[monodomain]
+    [./restart] 
+        restart = false
+        restart_file =  monodomain.exo 
+        step = 0
+    [../]
+
+    # Output Folder
+    output_folder = monodomain
+    artificial_diffusion = false
+    alpha = 1.0
+    # type = ADR
+    # If we want to impose an initial conditions on the potential
+    # we can use the parameter ic. For example
+    # ic = 'x + y * t'
+
+    # This can be made a function
+    Dff = 1.3342
+    Dss = 0.17606
+    Dnn = 0.17606
+    Chi = 1400.0
+
+    # Ionic Model
+    # For now: NashPanfilov or ORd
+    ionic_model = NashPanfilov
+
+    [./NashPanfilov]
+        mu = 0.07
+        #a = 0.025
+    [../]
+
+    # In reaction step: use mass or  lumped_mass
+    reaction_mass = mass
+    diffusion_mass = mass
+
+    # fiber fields
+    fibers  = 'sqrt(2.0)/2.0, -sqrt(2.0)/2.0, 0.0'
+    sheets  = 'sqrt(2.0)/2.0, sqrt(2.0)/2.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
+
+    # Applied Stimulus
+    [./pacing]
+        type = S1
+        cycle_length = 40.0
+        start_time = 0.0
+        function = '10.*(x<0.15)*(y<0.15)*(t<2.0)+10.*(x<0.15)*(y<0.15)*(t>49)*(t<50)+10.*(x<0.15)*(y<0.15)*(t>69)*(t<70)+10.*(x<0.15)*(y<0.15)*(t>89)*(t<90)+10.*(x<0.15)*(y<0.15)*(t>109)*(t<110)+10.*(x<0.15)*(y<0.15)*(t>129)*(t<130)+10.*(x<0.15)*(y<0.15)*(t>149)*(t<150)+10.*(x<0.15)*(y<0.15)*(t>169)*(t<170)++10.*(x<0.15)*(y<0.15)*(t>189)*(t<190)'
+        distance = l_1
+        x0 = 0.0
+        y0 = 0.0
+        radius = 0.5
+    [../]
+
+    # Time Data
+    [./time]
+        use_midpoint = false
+        dt = 0.01
+        init_time = 0.0
+        final_time= 1200.0
+        max_iter  = 2000000
+        save_iter = 100
+    [../]
+
+    # Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
+    [../]
+
+[../]

@@ -27,9 +27,9 @@
  */
 
 /**
- * \file NashPanfilov.hpp
+ * \file BistablePiecewiseLinear.hpp
  *
- * \class NashPanfilov
+ * \class BistablePiecewiseLinear
  *
  * \brief This class provides the implementation of the Nash Panfilov model
  *
@@ -50,8 +50,8 @@
  *
  */
 
-#ifndef SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_
-#define SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_
+#ifndef SRC_ELECTROPHYSIOLOGY_IONICMODELS_BistablePiecewiseLinear_HPP_
+#define SRC_ELECTROPHYSIOLOGY_IONICMODELS_BistablePiecewiseLinear_HPP_
 
 #include "Electrophysiology/IonicModels/IonicModel.hpp"
 
@@ -61,7 +61,7 @@ namespace BeatIt
 /*!
  *
  */
-class NashPanfilov: public IonicModel
+class BistablePiecewiseLinear: public IonicModel
 {
 public:
     /// Ionic Model
@@ -70,8 +70,8 @@ public:
     /*!
      *
      */
-    NashPanfilov();
-    ~NashPanfilov() {};
+    BistablePiecewiseLinear();
+    ~BistablePiecewiseLinear() {};
     //! Solve method
     /*!
      *  \param [in] variables Vector containing the local value of all variables (Variables  includes potential)
@@ -104,6 +104,7 @@ public:
      *  \param [in] dt        Timestep
      */
     double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt);
+    double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
     double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0);
 	//! Evaluate total ionic current for the computation of the potential
 	/*!
@@ -129,15 +130,16 @@ public:
 
     void setup(GetPot& data, std::string section = "monodomain");
 
-    double evaluateSAC(double v , double I4f);
-private:
+    double evaluateSAC(double v , double I4f) { return 0.0; }
 
-    double M_mu1;
-    double M_mu2;
-    double M_k;
-    double M_a;
-    double M_b;
-    double M_epsilon;
+    double Heaviside(double v)
+    {
+    	return ( v >= M_alpha  )  ? 1.0 : 0.0;
+    }
+
+    double M_alpha;
+    double M_v0;
+
 };
 
 
@@ -145,11 +147,11 @@ private:
  *
  *  @return IonicModel* pointer to a new ORd object
  */
-IonicModel* createNashPanfilov();
+IonicModel* createBistablePiecewiseLinear();
 
 namespace
 {
-    static bool register_NashPanfilov = IonicModel::IonicModelFactory::Register("NashPanfilov", &createNashPanfilov );
+    static bool register_BistablePiecewiseLinear = IonicModel::IonicModelFactory::Register("BistablePiecewiseLinear", &createBistablePiecewiseLinear );
 }
 
 

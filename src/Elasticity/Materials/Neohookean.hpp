@@ -33,29 +33,21 @@
  *      Author: srossi
  */
 
-#ifndef SRC_ELASTICITY_MATERIALS_ISOTROPICMATERIAL_HPP_
-#define SRC_ELASTICITY_MATERIALS_ISOTROPICMATERIAL_HPP_
+#ifndef SRC_ELASTICITY_MATERIALS_NEOHOOKEAN_HPP_
+#define SRC_ELASTICITY_MATERIALS_NEOHOOKEAN_HPP_
 
 #include "Elasticity/Materials/Material.hpp"
 
 namespace BeatIt {
 
-enum class IsotropicCL
-{
-    Neohookean,
-    MooneyRivlin,
-    Exponential
-};
-
-class IsotropicMaterial : public virtual Material
+class Neohookean : public virtual Material
 {
 public:
-	IsotropicMaterial();
-	virtual ~IsotropicMaterial();
+    Neohookean();
+	virtual ~Neohookean();
 
 
     void setup(GetPot& data, std::string section);
-
 	/// This method is used for primal elasticity
 	void evaluateVolumetricStress();
 	void evaluateDeviatoricStress();
@@ -75,40 +67,18 @@ public:
     double d3U( double J = 1.0);
 
 
-    double W1 (double I1, double I2, double J);
-    double W11(double I1, double I2, double J);
-    double W12(double I1, double I2, double J);
-    double W2 (double I1, double I2, double J);
-    double W21(double I1, double I2, double J);
-    double W22(double I1, double I2, double J);
 
-    double M_I1;
-    double M_I2;
-    double M_I3;
-    double M_J2;
-    double M_W1;
-    double M_W11;
-    double M_W12;
-    double M_W2;
-    double M_W21;
-    double M_W22;
-
-    bool M_active;
-
-    IsotropicCL M_cl;
-
-    virtual void updateVariables();
 
 
 };
 
 
 
-Material* createIsotropicMaterial();
+Material* createNeohookean();
 
 namespace
 {
-	static bool register_isotropic_material = BeatIt::Material::MaterialFactory::Register("isotropic", &createIsotropicMaterial);
+	static bool register_neohookean = BeatIt::Material::MaterialFactory::Register("neohookean", &createNeohookean);
 }
 
 

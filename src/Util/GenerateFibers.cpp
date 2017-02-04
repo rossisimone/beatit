@@ -52,6 +52,7 @@
 #include "libmesh/mesh.h"
 
 #include "libmesh/numeric_vector.h"
+#include "Util/GenerateFibers.hpp"
 namespace BeatIt
 {
 
@@ -76,6 +77,17 @@ generate_gradient_field( libMesh::MeshBase& mesh,
     const auto& grad_ptr = p.get_gradient();
     return grad_ptr;
 }
+
+
+void
+project_function(std::string& function, libMesh::System& sys)
+{
+    SpiritFunction func;
+    func.read(function );
+    sys.project_solution(&func);
+}
+
+
 
 } /* namespace Util */
 
