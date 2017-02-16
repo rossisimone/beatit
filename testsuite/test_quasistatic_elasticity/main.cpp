@@ -88,11 +88,14 @@ int main (int argc, char ** argv)
     if( elType == QUAD9 ) elType2 = QUAD4;
 
     std::cout << "Element type chosen:  " << elType << std::endl;
-    MeshTools::Generation::build_square ( mesh,
-                                          elX, elY,
-                                          0., 10.,
-                                          0., 2.,
-                                          elType );
+//    MeshTools::Generation::build_square ( mesh,
+//                                          elX, elY,
+//                                          0., 10.,
+//                                          0., 2.,
+//                                          elType );
+
+    std::string meshfile = data("mesh", "NOMESH");
+    mesh.read (&meshfile[0]);
 
     libMesh::EquationSystems es(mesh);
 

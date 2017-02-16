@@ -42,7 +42,7 @@
 #include "libmesh/linear_solver.h"
 
 #include <memory>
-
+#include "Util/SpiritFunction.hpp"
 // Forward Definition
 namespace libMesh
 {
@@ -100,6 +100,7 @@ public:
     void update_activation_time(double time, double threshold = 0.8);
 
 
+    void cut(double time, std::string f);
     void assemble_matrices();
     void form_system_matrix(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");
     void form_system_rhs(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");

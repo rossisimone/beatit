@@ -46,7 +46,6 @@
 #include "Util/SpiritFunction.hpp"
 #include "Elasticity/ElasticSolverType.hpp"
 
-
 namespace libMesh
 {
 class Mesh;
@@ -59,63 +58,85 @@ class ExplicitSystem;
 class LinearImplicitSystem;
 class PacingProtocol;
 class ErrorVector;
-class  MeshRefinement;
-template < class T > class DenseMatrix;
-template < class T > class DenseVector;
+class MeshRefinement;
+template<class T> class DenseMatrix;
+template<class T> class DenseVector;
 class QGauss;
 class MeshBase;
 }
 
-namespace BeatIt {
+namespace BeatIt
+{
 class BCHandler;
 class SpiritFunction;
 class Material;
 
-
-
-class Elasticity {
+class Elasticity
+{
 public:
     typedef libMesh::ExodusII_IO EXOExporter;
-    typedef libMesh::ExplicitSystem                     ParameterSystem;
+    typedef libMesh::VTKIO VTKExporter;
+    typedef libMesh::ExplicitSystem ParameterSystem;
+    typedef libMesh::GMVIO Exporter;
 
-	Elasticity( libMesh::EquationSystems& es, std::string system_name );
-    virtual void setup(const GetPot& data, std::string section = "elasticity" );
-    virtual void setupSystem(std::string section = "elasticity" );
-    virtual void setupParameters(std::string section = "elasticity" );
-	void save_exo(const std::string& output_filename = "elasticity.exo", int step = 0, double time = 1.0);
-	void write_equation_system(const std::string& es = "elasticity.dat");
+    Elasticity(libMesh::EquationSystems& es, std::string system_name);
+    virtual void setup(const GetPot& data, std::string section = "elasticity");
+    virtual void setupSystem(std::string section = "elasticity");
+    virtual void setupParameters(std::string section = "elasticity");
+    virtual void save_exo(
+            const std::string& output_filename = "elasticity.exo",
+            int step = 0,
+            double time = 1.0);
+    void write_equation_system(const std::string& es = "elasticity.dat");
     void read_equation_system(const std::string& es = "elasticity.dat");
 
     void deleteSystems();
-    virtual void assemble_residual(double dt = 0.0, libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
-    virtual void assemble_jacobian() {}
-    void newton(double dt = 0.0, libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
-    virtual void update_displacements(double /* dt */) {}
+    virtual void assemble_residual(
+            double dt = 0.0,
+            libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    virtual void assemble_jacobian()
+    {
+    }
+    void newton(
+            double dt = 0.0,
+            libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    virtual void update_displacements(double /* dt */)
+    {
+    }
     void solve_system();
     virtual void project_pressure();
 
-    virtual void advance() {}
-    void init_exo_output(const std::string& output_filename);
+    virtual void advance()
+    {
+    }
+    virtual void init_exo_output(const std::string& output_filename);
+    virtual void save(const std::string& output_filename, int step);
     virtual ~Elasticity();
-
 
     struct NewtonData
     {
-    	NewtonData() : tol(1e-9), max_iter(20), iter(0)  {}
-    	double tol;
-		int max_iter;
-		int iter;
+        NewtonData()
+                : tol(1e-9), max_iter(20), iter(0)
+        {
+        }
+        double tol;
+        int max_iter;
+        int iter;
     };
 
-    GetPot                     M_datafile;
-    libMesh::EquationSystems&  M_equationSystems;
+    void setTime(double time);
+
+    GetPot M_datafile;
+    libMesh::EquationSystems& M_equationSystems;
     BCHandler M_bch;
 
     std::set<std::string> M_parametersExporterNames;
     std::unique_ptr<EXOExporter> M_exporter;
+    std::unique_ptr<Exporter> M_GMVexporter;
+    std::unique_ptr<VTKExporter> M_VTKexporter;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_projectionsLinearSolver;
-    std::string  M_outputFolder;
+    std::string M_outputFolder;
     SpiritFunction M_rhsFunction;
     std::string M_myName;
 
@@ -129,12 +150,16 @@ public:
     void evaluate_nodal_I4f();
 
 protected:
-    void apply_BC( const libMesh::Elem*& elem,
+    void apply_BC(
+            const libMesh::Elem*& elem,
             libMesh::DenseMatrix<libMesh::Number>& Ke,
             libMesh::DenseVector<libMesh::Number>& Fe,
             libMesh::UniquePtr<libMesh::FEBase>& fe_face,
             libMesh::QGauss& qface,
-            const libMesh::MeshBase& mesh, int n_ux_dofs);
+            const libMesh::MeshBase& mesh,
+            int n_ux_dofs,
+            MaterialPtr mat = nullptr,
+            double dt = 0.0);
 };
 
 } /* namespace BeatIt */

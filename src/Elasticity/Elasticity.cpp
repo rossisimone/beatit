@@ -64,6 +64,8 @@
 #include "libmesh/dof_map.h"
 
 #include "libmesh/exodusII_io.h"
+#include "libmesh/gmv_io.h"
+#include "libmesh/vtk_io.h"
 
 #include "libmesh/perf_log.h"
 
@@ -78,7 +80,13 @@
 
 //Materials
 #include "Elasticity/Materials/LinearMaterial.hpp"
+#include "Elasticity/Materials/BenNeohookean.hpp"
 #include "Elasticity/Materials/IsotropicMaterial.hpp"
+
+namespace libMesh
+{
+class GMVIO;
+}
 
 namespace BeatIt {
 
@@ -124,11 +132,21 @@ Elasticity::init_exo_output(const std::string& output_filename)
     M_exporter->append(true);
 }
 
+void
+Elasticity::save(const std::string& output_filename, int step)
+{
+    M_GMVexporter->write_equation_systems ( M_outputFolder+output_filename+"."+std::to_string(step),
+                                                   M_equationSystems);
+}
 
 void
 Elasticity::save_exo(const std::string& output_filename, int step, double time)
 {
-    std::cout << "* ELASTICITY: EXODUSII::Exporting in: "  << M_outputFolder << " ... " << std::flush;
+    if(M_solverType == ElasticSolverType::Primal)
+    {
+        project_pressure();
+    }
+    std::cout << "* ELASTICITY: EXODUSII::Exporting  time " << time << " in: " << M_outputFolder << " ... " << std::flush;
     M_exporter->write_timestep (M_outputFolder+output_filename, M_equationSystems, step, time);
 //	M_exporter->write_element_data(M_equationSystems);
     std::cout << "done " << std::endl;
@@ -221,6 +239,76 @@ Elasticity::setupSystem(std::string section )
     std::cout << "* ELASTICITY: Adding residual and step"  << std::endl;
     system.add_vector("residual");
     system.add_vector("step");
+
+
+    std::cout << "* ELASTICITY: Reading BC ... " << std::endl;
+      M_bch.readBC(M_datafile, section);
+      M_bch.showMe();
+    std::cout << "* ELASTICITY: Setup Homogenuous Dirichlet BC ... " << std::endl;
+
+    for(auto&& bc_ptr : M_bch.M_bcs)
+    {
+        auto bc_type = bc_ptr->get_type();
+        if(bc_type == BCType::Dirichlet)
+        {
+            std::set< libMesh::boundary_id_type> dirichlet_boundary_ids;
+            auto bc_mode = bc_ptr->get_mode();
+            std::vector<unsigned int> variables;
+
+            switch(bc_mode)
+            {
+                default:
+                case BCMode::Full:
+                {
+                    for(unsigned int k = 0; k < dimension; ++k) variables.push_back(k);
+                    break;
+                }
+                case BCMode::Component:
+                {
+                    auto component = bc_ptr->get_component();
+                    switch(component)
+                    {
+                        case BCComponent::X:
+                        {
+                            variables.push_back(0);
+                            break;
+                        }
+                        case BCComponent::Y:
+                        {
+                            variables.push_back(1);
+                            break;
+                        }
+                        case BCComponent::Z:
+                        {
+                            variables.push_back(2);
+                            break;
+                        }
+                        default:
+                        {
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            for(auto&& flag : bc_ptr->M_flag)
+            {
+                // Create a ZeroFunction to initialize dirichlet_bc
+                dirichlet_boundary_ids.insert(flag);
+            }
+
+            libMesh::ZeroFunction<> zf;
+            libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids,
+                                                                                   variables,
+                                                                                   &zf);
+
+            system.get_dof_map().add_dirichlet_boundary(dirichlet_bc);
+
+        } // end if Dirichlet
+    } // end for loop on BC
+
+
     system.init();
 
 }
@@ -289,73 +377,6 @@ Elasticity::setupParameters(std::string section)
     I4f_system.add_vector( "nodal_fibersy");
     I4f_system.add_vector( "nodal_fibersz");
 
-  std::cout << "* ELASTICITY: Reading BC ... " << std::endl;
-    M_bch.readBC(M_datafile, section);
-    M_bch.showMe();
-  std::cout << "* ELASTICITY: Setup Homogenuous Dirichlet BC ... " << std::endl;
-
-  for(auto&& bc_ptr : M_bch.M_bcs)
-  {
-	  auto bc_type = bc_ptr->get_type();
-	  if(bc_type == BCType::Dirichlet)
-	  {
-		  std::set< libMesh::boundary_id_type> dirichlet_boundary_ids;
-		  auto bc_mode = bc_ptr->get_mode();
-		  std::vector<unsigned int> variables;
-
-		  switch(bc_mode)
-		  {
-		  	  default:
-			  case BCMode::Full:
-			  {
-				  for(unsigned int k = 0; k < dimension; ++k) variables.push_back(k);
-				  break;
-			  }
-			  case BCMode::Component:
-			  {
-				  auto component = bc_ptr->get_component();
-				  switch(component)
-				  {
-				  	  case BCComponent::X:
-					  {
-						  variables.push_back(0);
-						  break;
-					  }
-				  	  case BCComponent::Y:
-					  {
-						  variables.push_back(1);
-						  break;
-					  }
-				  	  case BCComponent::Z:
-					  {
-						  variables.push_back(2);
-						  break;
-					  }
-					  default:
-					  {
-						  break;
-					  }
-				  }
-				  break;
-			  }
-		  }
-
-		  for(auto&& flag : bc_ptr->M_flag)
-		  {
-			  // Create a ZeroFunction to initialize dirichlet_bc
-			  dirichlet_boundary_ids.insert(flag);
-		  }
-
-		  libMesh::ZeroFunction<> zf;
-		  libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids,
-																				 variables,
-																				 &zf);
-
-		  system.get_dof_map().add_dirichlet_boundary(dirichlet_bc);
-
-	  } // end if Dirichlet
-  } // end for loop on BC
-
     /// Init system
   std::cout << "* ELASTICITY: Init Systems ... " << std::endl;
     dummy_system.init();
@@ -389,7 +410,8 @@ Elasticity::setupParameters(std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // Setup Exporters
     M_exporter.reset( new EXOExporter(M_equationSystems.get_mesh() ) );
-
+    M_GMVexporter.reset( new Exporter(M_equationSystems.get_mesh() ) );
+    M_VTKexporter.reset( new VTKExporter(M_equationSystems.get_mesh() ) );
     std::string mats = M_datafile(section+"/materials", "NO_MATERIAL");
     std::vector<std::string> materials;
     BeatIt::readList(mats, materials);
@@ -415,6 +437,13 @@ Elasticity::setupParameters(std::string section)
 
     M_stabilize = M_datafile(section+"/stabilize",false);
     std::cout << "* ELASTICITY: Using stabilization: " << M_stabilize << std::endl;
+}
+
+void
+Elasticity::setTime(double time)
+{
+    LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
+    system.time = time;
 }
 
 
@@ -691,11 +720,11 @@ Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMesh::N
 
 void
 Elasticity::apply_BC( const libMesh::Elem*& elem,
-                   libMesh::DenseMatrix<libMesh::Number>& /* Ke */,
+                   libMesh::DenseMatrix<libMesh::Number>& Ke,
                    libMesh::DenseVector<libMesh::Number>& Fe,
                    libMesh::UniquePtr<libMesh::FEBase>& fe_face,
                    libMesh::QGauss& qface,
-                   const libMesh::MeshBase& mesh, int n_ux_dofs)
+                   const libMesh::MeshBase& mesh, int n_ux_dofs, MaterialPtr mat, double dt)
 {
 	const unsigned int dim = mesh.mesh_dimension();
 	for (unsigned int side=0; side<elem->n_sides(); side++)
@@ -709,22 +738,24 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
 
                 if(bc)
                 {
-					auto bc_type = bc->get_type();
+                    const std::vector<libMesh::Real> & JxW_face = fe_face->get_JxW();
+                    const std::vector<std::vector<libMesh::Real> > & phi_face = fe_face->get_phi();
+                    const std::vector<libMesh::Point> & qface_point = fe_face->get_xyz();
+                    const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_face->get_dphi();
+                    const std::vector<libMesh::Point>&  normals = fe_face->get_normals();
+                    fe_face->reinit(elem, side);
+
+                auto bc_type = bc->get_type();
                     switch(bc_type)
                     {
 						case BCType::Neumann:
 						{
-							const std::vector<libMesh::Real> & JxW_face = fe_face->get_JxW();
-							const std::vector<std::vector<libMesh::Real> > & phi_face = fe_face->get_phi();
-							const std::vector<libMesh::Point> & qface_point = fe_face->get_xyz();
-							const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_face->get_dphi();
-							const std::vector<libMesh::Point>&  normals = fe_face->get_normals();
-							fe_face->reinit(elem, side);
 						    for (unsigned int qp=0; qp<qface.n_points(); qp++)
 						    {
 								const double xq = qface_point[qp](0);
                                 const double yq = qface_point[qp](1);
                                 const double zq = qface_point[qp](2);
+//                                std::cout << "(xq, yq) = (" << xq << ", " << yq << ")" << std::endl;
 						    	for(int idim = 0; idim < dim; ++idim)
 						    	{
 									const double traction = bc->get_function()(0.0, xq, yq, zq, idim);
@@ -736,6 +767,7 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
 						    }
 							break;
 						}
+
 						default:
 						{
 							break;
@@ -754,7 +786,11 @@ Elasticity::solve_system()
 
     double tol = 1e-12;
     double max_iter = 2000;
-    //system.matrix->print(std::cout);
+//    system.matrix->print(std::cout);
+//    std::cout << "Matrix!\n" << std::endl;
+//    system.matrix->print(std::cout);
+//    std::cout << "\nRHS!" << std::endl;
+//    system.rhs->print(std::cout);
     std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
     rval = M_linearSolver->solve (*system.matrix, nullptr,
 														system.get_vector("step"),
@@ -912,6 +948,7 @@ Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activatio
 {
 	    LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
         update_displacements(dt);
+
 	    assemble_residual(dt, activation_ptr);
 	    auto res_norm = system.rhs->linfty_norm ();
 	    // assume we ask for the same absolute and relative tolerances
@@ -928,16 +965,15 @@ Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activatio
 
  	    	solve_system();
  	    	(*system.solution) += system.get_vector("step");
+
  	        update_displacements(dt);
  	      	assemble_residual(dt, activation_ptr);
              res_norm = system.rhs->linfty_norm ();
 			std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
  	    }
+// 	               std::cout << "Solution!\n" << std::endl;
+// 	               system.solution->print(std::cout);
 
- 	    if(M_solverType == ElasticSolverType::Primal)
- 	    {
- 	        project_pressure();
- 	    }
 		std::cout << "* ELASTICITY: Newton solve completed in " << iter << " iterations. Final residual: " << res_norm << std::endl;
 
 }

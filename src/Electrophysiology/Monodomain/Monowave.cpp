@@ -229,6 +229,9 @@ void Monowave::setup(GetPot& data, std::string section)
     M_ionicModelExporterNames.insert("ionic_model");
     M_ionicModelExporterNames.insert("iion");
     M_ionicModelExporterNames.insert("istim");
+    IonicModelSystem& cut_system = M_equationSystems.add_system<IonicModelSystem>("cut");
+    cut_system.add_variable( "cut", libMesh::FIRST);
+    cut_system.init();
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -488,6 +491,67 @@ Monowave::init(double time)
 
 }
 
+void
+Monowave::cut(double time, std::string f)
+{
+    std::cout << "* MONODOMAIN: Cutting potential" << std::endl;
+
+	SpiritFunction func;
+	func.read(f);
+    // Add the applied current to this system
+    IonicModelSystem& cut_system = M_equationSystems.get_system<IonicModelSystem>("cut");
+    cut_system.time = time;
+    cut_system.project_solution( &func );
+    cut_system.solution->close();
+//    cut_system.update();
+     IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
+    // WAVE
+	IonicModelSystem& wave_system =  M_equationSystems.add_system<IonicModelSystem>("wave");
+	MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+
+  	auto first = cut_system.solution->first_local_index();
+	auto last  = cut_system.solution->last_local_index();
+	int n_vars = ionic_model_system.n_vars();
+	std::vector<double> init_val(n_vars+1, 0.0);
+	double cut_value = 0.0;
+
+	M_ionicModelPtr->initialize(init_val);
+
+	ionic_model_system.solution->close();
+	wave_system.solution->close();
+	monodomain_system.solution->close();
+	    cut_system.solution->close();
+
+    for(int index = first; index < last; index++ )
+	{
+    	cut_value = (*cut_system.solution)(index);
+    	if(cut_value < 0.1)
+    	{
+    		if(M_equationType == EquationType::ReactionDiffusion)
+    		{
+    			wave_system.solution->set(index, init_val[0]);
+    			monodomain_system.solution->set(index, init_val[0]);
+    		}
+    		else
+    		{
+    			wave_system.solution->set(index, init_val[0]);
+    			monodomain_system.solution->set(index,0.0);
+    		}
+//       std::cout << "ion value" << std::endl;
+			for( int m = 0; m< n_vars; m++ )
+			{
+				int   var_index =  index  * n_vars + m;
+						ionic_model_system.solution->set(var_index, init_val[m+1]);
+			}
+    	}
+	}
+
+    	ionic_model_system.solution->close();
+		wave_system.solution->close();
+		monodomain_system.solution->close();
+	    cut_system.solution->close();
+
+}
 
 
 void

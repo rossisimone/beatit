@@ -190,6 +190,12 @@ int main (int argc, char ** argv)
 
       monodomain.form_system_matrix(datatime.M_dt,useMidpointMethod, system_mass);
 
+      bool cut = data("monodomain/cut", false);
+      double cut_time = -5.0;
+      if(cut) cut_time = data("monodomain/c/cut_time", -1.0);
+      std::string cut_function;
+      if(cut) cut_function = data("monodomain/c/function",  "NO_FUNCTION");
+      std::cout << "cut_time: " << cut_time << ", function: " << cut_function << std::endl;
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
 
@@ -216,7 +222,13 @@ int main (int argc, char ** argv)
           {
               std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
              monodomain.save_potential(save_iter++, datatime.M_time);
+             monodomain.save(save_iter);
           }
+		  if(cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)
+		  {
+			  monodomain.cut(datatime.M_time, cut_function);
+		  }
+
 
       }
 

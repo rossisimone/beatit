@@ -27,9 +27,9 @@
  */
 
 /**
- * \file NashPanfilov.hpp
+ * \file FentonKarma.hpp
  *
- * \class NashPanfilov
+ * \class FentonKarma
  *
  * \brief This class provides the implementation of the Nash Panfilov model
  *
@@ -50,8 +50,8 @@
  *
  */
 
-#ifndef SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_
-#define SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_
+#ifndef SRC_ELECTROPHYSIOLOGY_IONICMODELS_FentonKarma_HPP_
+#define SRC_ELECTROPHYSIOLOGY_IONICMODELS_FentonKarma_HPP_
 
 #include "Electrophysiology/IonicModels/IonicModel.hpp"
 
@@ -61,7 +61,7 @@ namespace BeatIt
 /*!
  *
  */
-class NashPanfilov: public IonicModel
+class FentonKarma: public IonicModel
 {
 public:
     /// Ionic Model
@@ -70,8 +70,8 @@ public:
     /*!
      *
      */
-    NashPanfilov();
-    ~NashPanfilov() {};
+    FentonKarma();
+    ~FentonKarma() {};
     //! Solve method
     /*!
      *  \param [in] variables Vector containing the local value of all variables (Variables  includes potential)
@@ -134,12 +134,22 @@ public:
     double evaluateSAC(double v , double I4f);
 private:
 
-    double M_mu1;
-    double M_mu2;
-    double M_k;
-    double M_a;
-    double M_b;
-    double M_epsilon;
+    double M_tau_v_p;
+    double M_tau_v1_m;
+    double M_tau_v2_m;
+    double M_tau_w_p;
+    double M_tau_w_m;
+    double M_tau_d;
+    double M_tau_0;
+    double M_tau_r;
+    double M_tau_si;
+    double M_kappa;
+    double M_V_c_si;
+    double M_V_c;
+    double M_V_v;
+
+    int p(double V) { return (V >= M_V_c ) ?  1 : 0; }
+    int q(double V) { return (V >= M_V_v ) ?  1 : 0; }
 };
 
 
@@ -147,15 +157,15 @@ private:
  *
  *  @return IonicModel* pointer to a new ORd object
  */
-IonicModel* createNashPanfilov();
+IonicModel* createFentonKarma();
 
 namespace
 {
-    static bool register_NashPanfilov = IonicModel::IonicModelFactory::Register("NashPanfilov", &createNashPanfilov );
+    static bool register_FentonKarma = IonicModel::IonicModelFactory::Register("FentonKarma", &createFentonKarma );
 }
 
 
 
 } /* namespace BeatIt */
 
-#endif /* SRC_ELECTROPHYSIOLOGY_IONICMODELS_NASHPANFILOV_HPP_ */
+#endif /* SRC_ELECTROPHYSIOLOGY_IONICMODELS_FentonKarma_HPP_ */

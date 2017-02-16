@@ -40,6 +40,8 @@
 
 namespace BeatIt {
 
+enum class DynamicTimeIntegratorType {Explicit, Implicit};
+
 class DynamicElasticity : public Elasticity {
 public:
 	typedef Elasticity super;
@@ -52,6 +54,18 @@ public:
     void advance();
     void project_pressure();
 	virtual ~DynamicElasticity();
+    void init_exo_output(const std::string& output_filename);
+    void save_exo(
+            const std::string& output_filename = "elasticity.exo",
+            int step = 0,
+            double time = 1.0);
+
+    void save(const std::string& output_filename, int step);
+
+
+	DynamicTimeIntegratorType M_timeIntegratorType;
+    bool M_usingDG;
+    int M_saveStep;
 };
 
 } /* namespace BeatIt */

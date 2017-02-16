@@ -157,6 +157,14 @@ NashPanfilov::evaluateIonicCurrent(double V, std::vector<double>& variables, dou
     return  - M_k * V * (V - 1.0) * (V - M_a) - r * V + appliedCurrent;
 }
 
+double
+NashPanfilov::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
+{
+    double V = variables[0];
+    double r = variables[1];
+    return  - M_k * ( (V - 1.0) * (V - M_a) +  V * (V - M_a) + V * (V - 1.0) ) - r;
+}
+
 
 void
 NashPanfilov::initialize(std::vector<double>& variables)

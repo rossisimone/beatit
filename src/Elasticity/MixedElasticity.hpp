@@ -46,7 +46,8 @@ public:
 	MixedElasticity( libMesh::EquationSystems& es, std::string system_name );
 	virtual ~MixedElasticity();
 
-	void assemble_residual(libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    void assemble_residual(double dt = 0.0, libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    //void assemble_residual(libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
     void assemble_jacobian(){}
 };
 

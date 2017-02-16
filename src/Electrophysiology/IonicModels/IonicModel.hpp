@@ -60,7 +60,11 @@ public:
 	 *  \param [in] dt        Timestep
 	 */
     virtual double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0) = 0;
-    virtual double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0) {}
+
+    virtual double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0)
+    {
+        return 0.0;
+    }
 
     virtual double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0)
     {

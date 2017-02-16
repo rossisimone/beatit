@@ -83,6 +83,7 @@ public:
     double M_x0;
     double M_y0;
     double M_z0;
+    double M_stopTime;
 };
 
 PacingProtocol* createPacingProtocolS1();

@@ -95,11 +95,11 @@ MixedElasticity::~MixedElasticity() {
 
 
 void
-MixedElasticity::assemble_residual(libMesh::NumericVector<libMesh::Number>* activation_ptr)
+MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::Number>* activation_ptr)
 {
 	typedef libMesh::LinearImplicitSystem    LinearSystem;
 
-//	std::cout << "* MIXED ELASTICITY: assembling ... " << std::endl;
+	std::cout << "* MIXED ELASTICITY: assembling ... " << std::endl;
 
     using libMesh::UniquePtr;
 
@@ -137,10 +137,10 @@ MixedElasticity::assemble_residual(libMesh::NumericVector<libMesh::Number>* acti
     auto order_u = fe_u->get_order();
     auto order_p = fe_u->get_order();
 
-//    libMesh::QGauss qrule_1(dim,  libMesh::SECOND );
-//    libMesh::QGauss qrule_2(dim,  libMesh::SECOND );
-    libMesh::QGauss qrule_1(dim,  libMesh::FIRST );
-    libMesh::QGauss qrule_2(dim,  libMesh::FIRST );
+    libMesh::QGauss qrule_1(dim,  libMesh::SECOND );
+    libMesh::QGauss qrule_2(dim,  libMesh::SECOND );
+//    libMesh::QGauss qrule_1(dim,  libMesh::FIRST );
+//    libMesh::QGauss qrule_2(dim,  libMesh::FIRST );
 
     fe_u->attach_quadrature_rule(&qrule_1);
     fe_p->attach_quadrature_rule(&qrule_2);
@@ -487,6 +487,8 @@ MixedElasticity::assemble_residual(libMesh::NumericVector<libMesh::Number>* acti
 
                             M_materialMap[0]->evaluateDeviatoricJacobian(dU, 0.0);
                             S = M_materialMap[0]->M_deviatoric_jacobian;
+                            dU.print(std::cout);
+
                             Ke(n+jdim*n_ux_dofs,m+idim*n_ux_dofs) += S.contract(dW);
                         }
                     }

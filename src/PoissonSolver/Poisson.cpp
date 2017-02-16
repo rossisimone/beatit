@@ -450,37 +450,46 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
                             }
                             break;
                         }
-                        case BCType::NitscheSymmetric:
+                    case BCType::NitscheSymmetric:
+                    {
+                        double hE = elem->side(side)->hmax();
+                        double beta = 1e4 / hE;
+
+                        for (unsigned int qp = 0; qp < qface.n_points(); qp++)
                         {
-                            double hE = elem->side(side)->hmax();
-                            double beta = 1e4 / hE;
-
-
-                            for (unsigned int qp=0; qp<qface.n_points(); qp++)
+                            // The location on the boundary of the current
+                            // face quadrature point.
+                            const double xf = qface_point[qp](0);
+                            const double yf = qface_point[qp](1);
+                            const double zf = qface_point[qp](2);
+                            const double value = bc->get_function()(0.0, xf, yf,
+                                    zf, 0);
+                            for (unsigned int i = 0; i < phi_face.size(); i++)
                             {
-                                // The location on the boundary of the current
-                                // face quadrature point.
-                                const double xf = qface_point[qp](0);
-                                const double yf = qface_point[qp](1);
-                                const double zf = qface_point[qp](2);
-                                const double value = bc->get_function()(0.0, xf, yf, zf, 0);
-                                for (unsigned int i=0; i<phi_face.size(); i++)
+                                double nabla_test_normal = normals[qp]
+                                        * dphi_face[i][qp];
+                                for (unsigned int j = 0; j < phi_face.size();
+                                        j++)
                                 {
-                                    double nabla_test_normal = normals[qp]* dphi_face[i][qp];
-                                    for (unsigned int j=0; j<phi_face.size(); j++)
-                                    {
-                                        double nabla_trial_normal = normals[qp] * dphi_face[j][qp];
-                                        Ke(i,j) += JxW_face[qp] * beta * phi_face[i][qp] * phi_face[j][qp];
-                                        Ke(i,j) -= JxW_face[qp] * nabla_test_normal      * phi_face[j][qp];
-                                        Ke(i,j) -= JxW_face[qp] * nabla_trial_normal     * phi_face[i][qp];
-                                    }
-                                    Fe(i) += JxW_face[qp] * beta * value * phi_face[i][qp];
-                                    Fe(i) -= JxW_face[qp]        * value * nabla_test_normal;
-
+                                    double nabla_trial_normal = normals[qp]
+                                            * dphi_face[j][qp];
+                                    Ke(i, j) += JxW_face[qp] * beta
+                                            * phi_face[i][qp] * phi_face[j][qp];
+                                    Ke(i, j) -= JxW_face[qp] * nabla_test_normal
+                                            * phi_face[j][qp];
+                                    Ke(i, j) -= JxW_face[qp]
+                                            * nabla_trial_normal
+                                            * phi_face[i][qp];
                                 }
+                                Fe(i) += JxW_face[qp] * beta * value
+                                        * phi_face[i][qp];
+                                Fe(i) -= JxW_face[qp] * value
+                                        * nabla_test_normal;
+
                             }
-                            break;
                         }
+                        break;
+                    }
                         case BCType::NitscheUnsymmetric:
                         {
                             const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_face->get_dphi();

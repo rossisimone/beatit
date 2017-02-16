@@ -56,6 +56,7 @@ static const std::map<std::string, libMesh::FEFamily> libmesh_fefamily_map =
 {
 		{ "lagrange", libMesh::LAGRANGE },
 		{ "monomial", libMesh::MONOMIAL },
+        { "dg", libMesh::L2_LAGRANGE },
 };
 
 } // BeatIt namespace

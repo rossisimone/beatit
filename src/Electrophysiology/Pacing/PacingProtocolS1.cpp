@@ -79,6 +79,7 @@ PacingProtocolS1::setup(const GetPot& data, std::string section)
     M_decrement = data( section+"/decrement", 0.0);
     M_decrementBeats = data( section+"/decrement_beats", 5);
     M_minCycleLength = data( section+"/cycle_length_min", 10.0);
+    M_stopTime = data( section+"/stop_time", -1.0);
     M_x0 = data( section+"/x0", 0.0);
     M_y0 = data( section+"/y0", 0.0);
     M_z0 = data( section+"/z0", 0.0);
@@ -136,6 +137,7 @@ PacingProtocolS1::clone () const
     pcopy-> M_x0 = M_x0;
     pcopy-> M_y0 = M_y0;
     pcopy-> M_z0 = M_z0;
+    pcopy-> M_stopTime = M_stopTime;
 
 	return libMesh::UniquePtr<libMesh::FunctionBase<double> >(pcopy);
 }
@@ -165,6 +167,8 @@ PacingProtocolS1::operator() (const Point & p,
 	{
 		if(M_isPacingOn) pacing = M_amplitude;
 	}
+
+	if(  M_stopTime > 0 && time > M_stopTime) pacing = 0.0;
 	return pacing;
 }
 void
