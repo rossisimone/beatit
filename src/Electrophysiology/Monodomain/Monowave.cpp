@@ -79,7 +79,7 @@
 #include "libmesh/dof_map.h"
 
 #include "libmesh/exodusII_io.h"
-#include "libmesh/exodusII_io_helper.h"
+//#include "libmesh/exodusII_io_helper.h"
 #include "libmesh/gmv_io.h"
 
 #include "libmesh/perf_log.h"
