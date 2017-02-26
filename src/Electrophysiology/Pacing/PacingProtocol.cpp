@@ -48,6 +48,8 @@
  */
 
 #include "Electrophysiology/Pacing/PacingProtocol.hpp"
+#include "libmesh/function_base.h"
+#include "libmesh/point.h"
 
 namespace BeatIt
 {
@@ -83,6 +85,17 @@ bool isPointInside(DistanceType type, double r, double x, double y ,  double z)
 
 PacingProtocol::PacingProtocol()
     : M_pacing(nullptr)
+    , M_isPacingOn(false)
+    , M_amplitude(10.0)
+    , M_stopTime(-1.0)
+    , M_startTime(0.0)
+    , M_endTime(2.0)
+    , M_radius(1.0)
+    , M_type(DistanceType::l_2)
+    , M_x0(0.0)
+    , M_y0(0.0)
+    , M_z0(0.0)
+    , M_duration(2.0)
 {
 }
 
@@ -91,6 +104,22 @@ PacingProtocol::~PacingProtocol()
 //    if(M_pacing) delete M_pacing;
 }
 
+
+
+double
+PacingProtocol::eval(const Point & p,
+                           const double time)
+{
+    double pacing = 0.0;
+    bool ispInside = BeatIt::isPointInside(M_type, M_radius, p(0)-M_x0, p(1)-M_y0, p(2)-M_z0);
+    if(ispInside)
+    {
+        if(M_isPacingOn) pacing = M_amplitude;
+    }
+
+    if(  M_stopTime > 0 && time > M_stopTime) pacing = 0.0;
+    return pacing;
+}
 
 
 } /* namespace BeatIt */

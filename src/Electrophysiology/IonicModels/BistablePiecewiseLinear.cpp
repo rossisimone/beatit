@@ -111,12 +111,32 @@ BistablePiecewiseLinear::evaluateIonicCurrent(std::vector<double>& variables, do
 }
 
 double
-BistablePiecewiseLinear::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
+BistablePiecewiseLinear::evaluateIonicCurrentH(std::vector<double>& variables, double appliedCurrent, double dt, double h)
 {
     double V = variables[0];
-//    return  - V + BistablePiecewiseLinear::Heaviside(V) + appliedCurrent;
-//    double t = std::cosh(100 *(V - M_alpha) );
-    return -1.0;
+    double H = 0.0;
+    double xi = V-M_alpha;
+    if(xi >= h ) H = 1.0;
+    else if( xi > -h && xi < h)
+    {
+    	H = 0.5 * (xi / h + 1);
+    }
+    return  - V + H + appliedCurrent;
+}
+
+
+double
+BistablePiecewiseLinear::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
+{
+//    double V = variables[0];
+//    double dH = 0.0;
+//    double xi = V-M_alpha;
+//    if( xi > -h && xi < h)
+//    {
+//    	dH = 0.5 / h;
+//    }
+//    return  -1 + dH;
+    return  -1.0;
 //    return  - 1 + 100 / t / t;
 }
 

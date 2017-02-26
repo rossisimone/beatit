@@ -27,14 +27,14 @@
  */
 
 /*
- * PacingProtocolS1.hpp
+ * PacingProtocolS1S2.hpp
  *
  *  Created on: Nov 2, 2016
  *      Author: srossi
  */
 
-#ifndef SRC_ELECTROPHYSIOLOGY_PACING_PACINGPROTOCOLS1_HPP_
-#define SRC_ELECTROPHYSIOLOGY_PACING_PACINGPROTOCOLS1_HPP_
+#ifndef SRC_ELECTROPHYSIOLOGY_PACING_PacingProtocolS1S2_HPP_
+#define SRC_ELECTROPHYSIOLOGY_PACING_PacingProtocolS1S2_HPP_
 
 #include "Electrophysiology/Pacing/PacingProtocol.hpp"
 #include "libmesh/function_base.h"
@@ -42,17 +42,16 @@
 namespace BeatIt {
 
 
-class PacingProtocolS1 : public virtual PacingProtocol,
+class PacingProtocolS1S2 : public virtual PacingProtocol,
 											public virtual libMesh::FunctionBase<libMesh::Number>
 {
 public:
 	 typedef libMesh::FunctionBase<libMesh::Number> super;
-	     typedef libMesh::Point Point;
-	PacingProtocolS1();
-	virtual ~PacingProtocolS1();
+	PacingProtocolS1S2();
+	virtual ~PacingProtocolS1S2();
 	void setup(const GetPot& data, std::string section = "monodomain/pacing");
 
-    void update(double time);
+	void update(double time);
 	    /**
      * Returns a new copy of the function.  The new copy should be as
      * ``deep'' as necessary to allow independent destruction and
@@ -67,24 +66,29 @@ public:
     double component(unsigned int i,
                     const Point & p,
                     double time = 0.0);
-     double operator() (const Point & p,
-                           const double time = 0.);
+    double operator() (const Point & p,
+                              const double time = 0.);
 
 
-    double M_cycleLength;
-    double M_minCycleLength;
-    double M_decrement;
+    double  M_S1cycleLength;
+    double  M_S2cycleLength;
+    int     M_numS1Stimuli;
+    int     M_numS2Stimuli;
+    int     M_S1S2Counter;
+    double  M_minCycleLength;
+    double M_S1Decrement;
+    double M_S2Decrement;
     unsigned int M_decrementBeats;
 };
 
-PacingProtocol* createPacingProtocolS1();
+PacingProtocol* createPacingProtocolS1S2();
 
 namespace
 {
-	static bool register_PacingProtocolS1 = BeatIt::PacingProtocol::PacingProtocolFactory::Register("S1", &createPacingProtocolS1);
+	static bool register_PacingProtocolS1S2 = BeatIt::PacingProtocol::PacingProtocolFactory::Register("S1S2", &createPacingProtocolS1S2);
 }
 
 
 } /* namespace BeatIt */
 
-#endif /* SRC_ELECTROPHYSIOLOGY_PACING_PACINGPROTOCOLS1_HPP_ */
+#endif /* SRC_ELECTROPHYSIOLOGY_PACING_PacingProtocolS1S2_HPP_ */

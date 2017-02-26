@@ -487,7 +487,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 
                             M_materialMap[0]->evaluateDeviatoricJacobian(dU, 0.0);
                             S = M_materialMap[0]->M_deviatoric_jacobian;
-                            dU.print(std::cout);
+                            //dU.print(std::cout);
 
                             Ke(n+jdim*n_ux_dofs,m+idim*n_ux_dofs) += S.contract(dW);
                         }

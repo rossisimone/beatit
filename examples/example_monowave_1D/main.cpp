@@ -134,8 +134,10 @@ int main (int argc, char ** argv)
       datatime.setup(data, "monodomain");
       datatime.print();
 
-      std::string system_mass = data("monodomain/system_mass", "mass");
-      std::string iion_mass = data("monodomain/iion_mass", "mass");
+//      std::string system_mass = data("monodomain/system_mass", "mass");
+//      std::string iion_mass = data("monodomain/iion_mass", "mass");
+            std::string system_mass = data("monodomain/diffusion_mass", "mass");
+      std::string iion_mass = data("monodomain/reaction_mass", "lumped_mass");
       bool useMidpointMethod = false;
       int step0 = 0;
       int step1 = 1;

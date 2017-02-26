@@ -76,6 +76,7 @@ public:
 
 		/// Create a factory
 	typedef Factory<PacingProtocol, std::string>     PacingProtocolFactory;
+    typedef libMesh::Point Point;
 
     PacingProtocol();
     virtual ~PacingProtocol();
@@ -86,10 +87,24 @@ public:
     }
 
     virtual void setup(const GetPot& data, std::string section = "monodomain/pacing") = 0;
+    virtual void update(double time) = 0;
 
     libMesh::FunctionBase<double>* M_pacing;
+    double eval  (const Point & p,
+                   const double time = 0.);
 
     static int S_beats;
+    bool M_isPacingOn;
+    double M_amplitude;
+    double M_stopTime;
+    double  M_startTime;
+    double  M_endTime;
+    double M_radius;
+    DistanceType M_type;
+    double M_x0;
+    double M_y0;
+    double M_z0;
+    double M_duration;
 };
 
 } /* namespace BeatIt */

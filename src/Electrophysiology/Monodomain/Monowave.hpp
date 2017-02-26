@@ -43,6 +43,8 @@
 
 #include <memory>
 #include "Util/SpiritFunction.hpp"
+#include "Util/Enums.hpp"
+
 // Forward Definition
 namespace libMesh
 {
@@ -86,6 +88,7 @@ public:
     ~Monowave();
     void setup(GetPot& data, std::string section = "monodomain" );
     void restart( EXOExporter& importer, int step = 0, bool restart = true );
+    void readFibers( EXOExporter& importer, int step = 0);
 
     void init(double time);
     void save(int step);
@@ -165,6 +168,8 @@ public:
 
     Anisotropy M_anisotropy;
     EquationType M_equationType;
+    DynamicTimeIntegratorType M_timeIntegratorType;
+
     double M_meshSize;
 };
 

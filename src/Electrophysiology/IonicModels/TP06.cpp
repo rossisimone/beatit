@@ -219,6 +219,12 @@ TP06::evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent
 
 }
 
+double
+TP06::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
+{
+ return -dItot;
+}
+
 void
 TP06::initializeSaveData(std::ostream& output)
 {
@@ -303,6 +309,71 @@ TP06::step(std::vector<double>& variables, double dt)
            IpK   +
            Istim;
 
+    //Compute currents derivatives
+    double dINa=GNa*sm*sm*sm*sh*sj;
+    double dICaL=(2.0*CaSS*F*F*F*GCaL*sd*sf*sf2*sfcass*std::exp((F*(2.0*svolt - 30.0))/(R*T))
+                * (svolt - 15.0))/(R*R*T*T*(std::exp((F*(2.0*svolt - 30.0))/(R*T)) - 1.0))
+                - (4.0*F*F*GCaL*sd*sf*sf2*sfcass
+                * (Cao - 0.25*CaSS*std::exp((F*(2.0*svolt - 30.0))/(R*T))))
+                / (R*T*(std::exp((F*(2.0*svolt - 30.0))/(R*T)) - 1.0))
+                + (8.0*F*F*F*GCaL*sd*sf*sf2*sfcass*std::exp((F*(2.0*svolt - 30.0))/(R*T))
+                * (svolt - 15.0) * (Cao - 0.25*CaSS*std::exp((F*(2.0*svolt - 30.0))/(R*T))))
+                /(R*R*T*T*(std::exp((F*(2.0*svolt - 30.0))/(R*T)) - 1.0)*(std::exp((F*(2.0*svolt - 30.0))/(R*T)) - 1.0));
+    double dIto=Gto*sr*ss;
+    double dIKr=Gkr*sqrt(Ko/5.4)*sxr1*sxr2;
+    double dIKs=Gks*sxs*sxs;
+
+    double dAk1= -(0.006*std::exp(0.06*svolt - 0.06*Ek - 12.0))
+               / (std::exp(0.06*svolt - 0.06*Ek - 12.0) + 1.0)
+               / (std::exp(0.06*svolt - 0.06*Ek - 12.0) + 1.0);
+    double dBk1= (0.0006*std::exp(0.0002*svolt - 0.0002*Ek + 0.02)
+               + 0.1*std::exp(0.1*svolt - 0.1*Ek - 1.0))
+               / ( std::exp(0.5*Ek - 0.5*svolt) + 1.0)
+               + (0.5*std::exp(0.5*Ek - 0.5*svolt)
+               * (3.0*std::exp(0.0002*svolt - 0.0002*Ek + 0.02)
+               + std::exp(0.1*svolt - 0.1*Ek - 1.0)))
+               / (std::exp(0.5*Ek - 0.5*svolt) + 1.0)
+               / (std::exp(0.5*Ek - 0.5*svolt) + 1.0);
+    double drec_iK1=dAk1/(Ak1+Bk1) - Ak1/(Ak1+Bk1)/(Ak1+Bk1)*(dAk1+dBk1);
+    double drec_iNaK= ((0.01245*F*std::exp(-(0.1*F*svolt)/(R*T)))/(R*T)
+                    + (0.0353*F*std::exp(-(1.0*F*svolt)/(R*T)))/(R*T))
+                    / (0.1245*std::exp(-(0.1*F*svolt)/(R*T))+0.0353*exp(-(1.0*F*svolt)/(R*T))+1.0)
+                    / (0.1245*std::exp(-(0.1*F*svolt)/(R*T))+0.0353*exp(-(1.0*F*svolt)/(R*T))+1.0);
+    double drec_ipK=  (std::exp((25-svolt)/5.98)) / 5.98
+                   / (1.+std::exp((25-svolt)/5.98))
+                   /(1.+std::exp((25-svolt)/5.98));
+
+    double dIK1=GK1*drec_iK1*(svolt-Ek)+GK1*rec_iK1;
+    double dINaCa=(1.0*knaca*((1.0*Cao*F*n*std::exp((F*n*svolt)/(R*T))*Nai*Nai*Nai)/(R*T)
+                 - (2.5*Cai*F*Nao*Nao*Nao*std::exp((F*svolt*(n - 1.0))/(R*T))*(n - 1.0))/(R*T)))
+                 / ((KmNai*KmNai*KmNai + Nao*Nao*Nao)
+                 * (ksat*std::exp((F*svolt*(n - 1.0))/(R*T)) + 1.0)*(Cao + KmCa))
+                 - (F*knaca*ksat*std::exp((F*svolt*(n - 1.0))/(R*T))*(n - 1.0)
+                 * (1.0*Cao*std::exp((F*n*svolt)/(R*T))*Nai*Nai*Nai
+                 - 2.5*Cai*std::exp((F*svolt*(n - 1.0))/(R*T))*Nao*Nao*Nao))
+                 / (R*T*(KmNai*KmNai*KmNai + Nao*Nao*Nao)
+                 * (ksat*std::exp((F*svolt*(n - 1.0))/(R*T)) + 1.0)
+                 * (ksat*std::exp((F*svolt*(n - 1.0))/(R*T)) + 1.0)*(Cao + KmCa));
+    double dINaK=knak*(Ko/(Ko+KmK))*(Nai/(Nai+KmNa))*drec_iNaK;
+    double dIpCa=0.0;
+    double dIpK=GpK*drec_ipK*(svolt-Ek)+GpK*rec_ipK;
+    double dIbNa=GbNa;
+    double dIbCa=GbCa;
+
+
+    //Determine total current
+    dItot = dIKr   +
+            dIKs   +
+            dIK1   +
+            dIto   +
+            dINa   +
+            dIbNa  +
+            dICaL  +
+            dIbCa  +
+            dINaK  +
+            dINaCa +
+            dIpCa  +
+            dIpK;
     //update concentrations
     kCaSR=maxsr-((maxsr-minsr)/(1+(EC/CaSR)*(EC/CaSR)));
     k1=k1_/kCaSR;

@@ -437,6 +437,7 @@ Monodomain::update_pacing(double time)
     // Add the applied current to this system
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
     istim_system.time = time;
+    M_pacing->update(time);
     istim_system.project_solution( &M_pacing->pacing() );
 }
 

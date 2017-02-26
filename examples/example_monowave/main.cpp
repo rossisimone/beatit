@@ -153,8 +153,10 @@ int main (int argc, char ** argv)
       std::cout << "Mesh done!" << std::endl;
 
      //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
-      std::string system_mass = data("monodomain/system_mass", "mass");
-      std::string iion_mass = data("monodomain/iion_mass", "lumped_mass");
+//      std::string system_mass = data("monodomain/system_mass", "mass");
+//      std::string iion_mass = data("monodomain/iion_mass", "lumped_mass");
+      std::string system_mass = data("monodomain/diffusion_mass", "mass");
+      std::string iion_mass = data("monodomain/reaction_mass", "lumped_mass");
       bool useMidpointMethod = false;
       int step0 = 0;
       int step1 = 1;
@@ -218,10 +220,14 @@ int main (int argc, char ** argv)
 
 		  monodomain.update_activation_time(datatime.M_time);
 
+          if( 0 == datatime.M_iter%8 )
+          {
+        	  std::cout << "Time: " << datatime.M_iter << std::endl;
+          }
           if( 0 == datatime.M_iter%datatime.M_saveIter )
           {
               std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
-             monodomain.save_potential(save_iter++, datatime.M_time);
+//             monodomain.save_potential(save_iter++, datatime.M_time);
              monodomain.save(save_iter);
           }
 		  if(cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)

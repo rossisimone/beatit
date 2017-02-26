@@ -64,7 +64,7 @@ public:
     PacingProtocolSpirit();
     virtual ~PacingProtocolSpirit();
     void setup(const GetPot& data, std::string section = "monodomain/pacing");
-
+    void update(double time) {}
 };
 
 PacingProtocol* createPacingProtocolSpirit();

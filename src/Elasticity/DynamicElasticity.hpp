@@ -36,11 +36,10 @@
 #ifndef SRC_ELASTICITY_DYNAMICELASTICITY_HPP_
 #define SRC_ELASTICITY_DYNAMICELASTICITY_HPP_
 
-#include "Elasticity.hpp"
+#include "Elasticity/Elasticity.hpp"
+#include "Util/Enums.hpp"
 
 namespace BeatIt {
-
-enum class DynamicTimeIntegratorType {Explicit, Implicit};
 
 class DynamicElasticity : public Elasticity {
 public:

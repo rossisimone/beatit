@@ -104,6 +104,8 @@ public:
      *  \param [in] dt        Timestep
      */
     double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt);
+        virtual double evaluateIonicCurrentH(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
+
     double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
     double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0);
 	//! Evaluate total ionic current for the computation of the potential
