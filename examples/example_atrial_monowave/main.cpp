@@ -102,7 +102,9 @@ int main (int argc, char ** argv)
       {
           if(meshfile != "Pippo.e")
           {
+              std::cout << "EXXXXXXX" << std::endl;
               mesh.read (&meshfile[0]);
+              std::cout << "EXXXXXXX" << std::endl;
           }
           else
           {
@@ -112,8 +114,11 @@ int main (int argc, char ** argv)
               throw std::runtime_error("WRONG MESH!");
           }
       }
+      std::cout << "\nConstructing es: ..." << std::flush;
       libMesh::EquationSystems es(mesh);
-      es.init();
+      std::cout << "\ninit es: ..." << std::flush;
+
+      //es.init();
 
 	  std::cout << "\nConstructing monodomain: ..." << std::flush;
       BeatIt::Monowave monodomain(es);

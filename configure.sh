@@ -19,9 +19,14 @@ MPICXX=mpicxx
 # TPL=~/TPL
 TPL=
 
+# petsc
+# Example: 
+# PETSC=$TPL/petsc/3.7.4/opt/
+PETSC=
+
 # LibMesh
-# Example: LIBMESH=$TPL
-# LIBMESH=$TPL/libmesh/1.0.0/
+# Example: 
+# LIBMESH=$TPL/libmesh/1.0.0/opt/
 LIBMESH=
 
 # VTK

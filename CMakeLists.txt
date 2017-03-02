@@ -49,6 +49,8 @@ include_directories ("${VTK_INCLUDE_DIRS}")
 endif("${VTK_INCLUDE_DIRS}" STREQUAL  "")
 
 include_directories ("${LIBMESH_DIR}/include")
+message("-- PETSC_INCLUDE_DIRS: ${PETSC_DIR}/include")
+include_directories ("${PETSC_DIR}/include")
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 
 enable_testing()

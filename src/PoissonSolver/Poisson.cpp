@@ -578,7 +578,7 @@ Poisson::compute_elemental_solution_gradient()
     libMesh::FEType p_fe_type = p_dof_map.variable_type(0);
     UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, p_fe_type));
     libMesh::QGauss qrule(dim, libMesh::FIRST);
-    if( qrule.n_points() > 1 )
+    if( qrule.get_order() != libMesh::FIRST )
     {
         std::cout << "\n- Error - computing gradients assumes single elemental value, a single quad point" << std::endl;;
         throw std::runtime_error("- Error - Poisson: wrong number of quadrature points!");
