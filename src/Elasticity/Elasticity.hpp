@@ -45,6 +45,7 @@
 #include "BoundaryConditions/BCHandler.hpp"
 #include "Util/SpiritFunction.hpp"
 #include "Elasticity/ElasticSolverType.hpp"
+#include "Elasticity/Materials/Material.hpp"
 
 namespace libMesh
 {
