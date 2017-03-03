@@ -159,7 +159,7 @@ protected:
             const libMesh::MeshBase& mesh,
             int n_ux_dofs,
             MaterialPtr mat = nullptr,
-            double dt = 0.0);
+            double dt = 0.0, double time = 1.0);
 };
 
 } /* namespace BeatIt */

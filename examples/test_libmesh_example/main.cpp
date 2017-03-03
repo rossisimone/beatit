@@ -88,7 +88,6 @@ int main (int argc, char ** argv)
 
   std::cout << "Exporting timestep 0 ... " << std::flush;
   ExodusII_IO exp(mesh);
-  exp._timestep = 1;
   exp.write_discontinuous_exodusII("dg.e-s.0000", equation_systems);
   VTKIO vtk0(mesh);
   vtk0.write_equation_systems("dg.0.vtk", equation_systems);
@@ -111,7 +110,6 @@ int main (int argc, char ** argv)
   equation_systems.get_system("DG").solution->close();
   std::cout << "Exporting timestep 1  ... " << std::flush;
   ExodusII_IO exp2(mesh);
-  exp2._timestep = 2;
   exp2.write_discontinuous_exodusII("dg.e-s.0001", equation_systems);
   vtk0.write_equation_systems("dg.1.vtk", equation_systems);
 
@@ -134,7 +132,6 @@ int main (int argc, char ** argv)
   equation_systems.get_system("DG").solution->close();
   std::cout << "Exporting timestep 2 ... " << std::flush;
   ExodusII_IO exp3(mesh);
-  exp3._timestep = 3;
   exp3.write_discontinuous_exodusII("dg.e-s.0002", equation_systems);
   vtk0.write_equation_systems("dg.2.vtk", equation_systems);
 

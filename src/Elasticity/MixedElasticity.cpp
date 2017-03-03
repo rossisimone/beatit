@@ -108,6 +108,8 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
     const unsigned int max_dim = 3;
     // Get a reference to the LinearImplicitSystem we are solving
     LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
+    double time = system.time;
+
     ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
     ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
     ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
@@ -601,7 +603,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
             }
         }
 
-        Elasticity::apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs);
+        Elasticity::apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0, time);
 //        Ke.print();
         dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
 //        Ke.print();

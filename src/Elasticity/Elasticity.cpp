@@ -459,6 +459,7 @@ Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMesh::N
     const unsigned int max_dim = 3;
     // Get a reference to the LinearImplicitSystem we are solving
     LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
+    double time = system.time;
     ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
     ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
     ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
@@ -706,7 +707,7 @@ Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMesh::N
     	  	  }
       }
 
-      apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs);
+      apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0, time);
       dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
 
       system.matrix->add_matrix (Ke, dof_indices);
@@ -720,11 +721,13 @@ Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMesh::N
 
 void
 Elasticity::apply_BC( const libMesh::Elem*& elem,
-                   libMesh::DenseMatrix<libMesh::Number>& Ke,
+                   libMesh::DenseMatrix<libMesh::Number>& /* Ke */,
                    libMesh::DenseVector<libMesh::Number>& Fe,
                    libMesh::UniquePtr<libMesh::FEBase>& fe_face,
                    libMesh::QGauss& qface,
-                   const libMesh::MeshBase& mesh, int n_ux_dofs, MaterialPtr mat, double dt)
+                   const libMesh::MeshBase& mesh, int n_ux_dofs,
+                   MaterialPtr /* mat */,
+                   double /* dt */, double time)
 {
 	const unsigned int dim = mesh.mesh_dimension();
 	for (unsigned int side=0; side<elem->n_sides(); side++)
@@ -758,7 +761,7 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
 //                                std::cout << "(xq, yq) = (" << xq << ", " << yq << ")" << std::endl;
 						    	for(int idim = 0; idim < dim; ++idim)
 						    	{
-									const double traction = bc->get_function()(0.0, xq, yq, zq, idim);
+									const double traction = bc->get_function()(time, xq, yq, zq, idim);
 									for (unsigned int i=0; i< n_ux_dofs; i++)
 									{
 										Fe(i+idim*n_ux_dofs) += JxW_face[qp] * traction * phi_face[i][qp];

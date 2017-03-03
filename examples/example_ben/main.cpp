@@ -52,8 +52,6 @@
 enum Formulation { Primal,  Mixed, Incompressible };
 enum CL { Linear,  NH };
 
-double reference_norm(Formulation f, CL cl);
-
 int main (int argc, char ** argv)
 {
     // Bring in everything from the libMesh namespace
@@ -90,12 +88,22 @@ int main (int argc, char ** argv)
     std::cout << "Element type chosen:  " << elType << std::endl;
     MeshTools::Generation::build_square ( mesh,
                                           elX, elY,
-                                          0., 10.,
-                                          0., 2.,
+                                          0., 1.,
+                                          0., 1.,
                                           elType );
 
-//    std::string meshfile = data("mesh", "NOMESH");
-//    mesh.read (&meshfile[0]);
+    {
+      //Map unit square onto cook's membrane
+      MeshBase::const_node_iterator nd = mesh.nodes_begin();
+      const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
+      for (; nd != end_nd; ++nd)
+      {
+        libMesh::Point s = **nd;
+        (**nd)(0) =  4.8 * s(0) + 2.6;
+        (**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
+      }
+
+    }
 
     libMesh::EquationSystems es(mesh);
 
@@ -139,90 +147,23 @@ int main (int argc, char ** argv)
     elas->setup(data,"elasticity");
     std::cout << "Initializing output ... " << std::endl;
     elas->init_exo_output("solution.exo");
-    std::cout << "Solving ... " << std::endl;
-    elas->newton();
-    elas->save_exo("solution.exo", 1, 1.0);
-    libMesh::LinearImplicitSystem& system  =  elas->M_equationSystems.get_system<libMesh::LinearImplicitSystem>(elas->M_myName);
-
-    auto norm = system.solution->linfty_norm ();
-    auto reference_value = reference_norm(f, cl);
-    std::cout << std::setprecision(20) << "norm is: " << norm << std::endl;
-
-    delete elas;
-    return BeatIt::CTest::check_test(norm, reference_value, 1e-10);
-}
-
-double reference_norm(Formulation f, CL cl)
-{
-    double norm;
-    switch(cl)
+    int save_iter = 1;
+    double ramp_dt = data("ramp/dt", 0.1);
+    double ramp_end_time = data("ramp/end_time", 0.9);
+    double time = 0.0;
+    while(time < ramp_end_time)
     {
-        case Linear:
-        {
-            switch(f)
-            {
-                case Primal:
-                {
-                    norm = 0.00264652492963676;
-                    break;
-                }
-                case Mixed:
-                {
-                    norm = 52700.36394633166492;
-                    break;
-                }
-                case Incompressible:
-                {
-                    norm = 52720.041272301452409;
-                    break;
-                }
-
-                default:
-                {
-                    std::cout << "Formulation not set correctly!" << std::endl;
-                    std::runtime_error("Formulation not set correctly!");
-                    break;
-                }
-            }
-            break;
-        }
-        case NH:
-        {
-            switch(f)
-            {
-                case Primal:
-                {
-                    norm = 0.18980564561565821391;
-                    break;
-                }
-                case Mixed:
-                {
-                    norm = 12.66071562539388573;
-                    break;
-                }
-                case Incompressible:
-                {
-                    norm = 12.66534007214748847;
-                    break;
-                }
-
-                default:
-                {
-                    std::cout << "Formulation not set correctly!" << std::endl;
-                    std::runtime_error("Formulation not set correctly!");
-                    break;
-                }
-            }
-            break;
-        }
-        default:
-        {
-            std::cout << "Constitutile law not set correctly!" << std::endl;
-            std::runtime_error("CL not set correctly!");
-            break;
-        }
+        std::cout << "Solving ... " << std::endl;
+        time+=ramp_dt;
+        elas->setTime(time);
+        std::cout << "Time: " << time << std::endl;
+        elas->newton();
+        elas->save_exo("solution.exo", save_iter, time);
+        save_iter++;
     }
 
-    return norm;
+    delete elas;
+    return 0;
 }
+
 
