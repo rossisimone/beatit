@@ -52,7 +52,7 @@ include_directories ("${LIBMESH_DIR}/include")
 message("-- PETSC_INCLUDE_DIRS: ${PETSC_DIR}/include")
 include_directories ("${PETSC_DIR}/include")
 include_directories ("${PROJECT_SOURCE_DIR}/src")
-
+message("-- MPI LIBRARIES: ${MPI_LIBRARIES}")
 enable_testing()
 
 # Include source directories
