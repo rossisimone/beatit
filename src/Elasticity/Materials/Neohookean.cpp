@@ -51,6 +51,7 @@ Neohookean::Neohookean()
 	 *  2: bulk modulus: kappa
 	 */
 	M_parameters.resize(3);
+	M_volumetricEnergy = U::Quadratic;
 }
 
 Neohookean::~Neohookean() {
@@ -70,6 +71,12 @@ Neohookean::setup(GetPot& data, std::string section)
     {
 	    M_isIncompressible = false;
 	    M_parameters[2] = E / ( 3.0 * ( 1 - 2 *  nu ) );// kappa
+	    std::string u = data(section+"/U", "quadratic"); // rho
+	    if(u == "liu")
+	    {
+	        M_volumetricEnergy = U::Liu;
+	    }
+
     }
 	else
 	{
@@ -81,6 +88,14 @@ Neohookean::setup(GetPot& data, std::string section)
     std::cout << "\t density = " << M_parameters[0] << std::endl;
     std::cout << "\t shear modulus = " << M_parameters[1] << std::endl;
     std::cout << "\t bulk modulus = " << M_parameters[2] << std::endl;
+    if( M_volumetricEnergy == U::Liu )
+    {
+        std::cout << "\t using Liu volumetric energy " << std::endl;
+    }
+    else
+    {
+        std::cout << "\t using Quadratic volumetric energy  = " << M_parameters[2] << std::endl;
+    }
     M_density = M_parameters[0];
 
 
@@ -129,9 +144,7 @@ Neohookean::evaluateVolumetricStress()
      *  P = F * S
      *  Svol =  J p C^-1
      */
-	double kappa = M_parameters[2];
-
-	double p = kappa * ( M_Jk - 1);
+    double p = evaluatePressure();
 	M_volumetric_stress = M_Jk * p * M_Cinvk;
 }
 
@@ -346,8 +359,8 @@ Neohookean::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double 
     *  dS4 = ( J p )' * dJ/dC * dC - J p C^-1 dC C^-1
     *      =  0.5 * J * ( C^-1 : dC ) ( U'(J) + J U''(J) ) * C^-1 - J p C^-1 dC C^-1
     */
-    double p = kappa * ( M_Jk - 1);
-    double dJp = p + M_Jk * kappa;
+    double p = evaluatePressure();
+    double dJp = p + M_Jk * d2U(M_Jk);
 	Jac += 0.5 * dJp * M_Jk * M_Cinvk.contract(dC) * M_Cinvk;
 	Jac -= M_Jk * p  * M_Cinvk * dC * M_Cinvk;
 	M_total_jacobian = dU * M_total_stress + M_Fk * Jac;
@@ -361,7 +374,22 @@ Neohookean::evaluatePressure()
     double kappa = M_parameters[2];
     M_Fk = M_identity + M_gradU;
     M_Jk = M_Fk.det();
-    return kappa * ( M_Jk - 1);
+    double dU = 0.0;
+    switch(M_volumetricEnergy)
+    {
+        case U::Liu:
+        {
+            dU = std::log(M_Jk);
+            break;
+        }
+        case U::Quadratic:
+        default:
+        {
+            dU = ( M_Jk - 1);
+            break;
+        }
+    }
+    return kappa * dU;
 }
 
 double
@@ -380,9 +408,7 @@ Neohookean::evaluatePressureResidual()
 	}
 	else
 	{
-		double kappa = M_parameters[2];
-		double dU = kappa * ( M_Jk - 1);
-		RHS = dU;
+		RHS = evaluatePressure();
 	}
 	return - RHS;
 
@@ -405,8 +431,7 @@ Neohookean::dpdF(const libMesh::TensorValue <double>&  dF)
 	}
 	else
 	{
-		double d2U = M_parameters[2] ;
-		return - d2U * cofF.contract(dF);
+		return - d2U(M_Jk) * cofF.contract(dF);
 	}
 }
 
@@ -414,12 +439,42 @@ double
 Neohookean::d2U( double J)
 {
     double kappa = M_parameters[2];
-    return kappa;
+    double d2U = 0.0;
+    switch(M_volumetricEnergy)
+    {
+        case U::Liu:
+        {
+            d2U = 1.0 / M_Jk;
+            break;
+        }
+        case U::Quadratic:
+        default:
+        {
+            d2U = 1.0;
+            break;
+        }
+    }
+    return kappa * d2U;
 }
 double
 Neohookean::d3U( double J)
 {
-    return 0.0;
+    double kappa = M_parameters[2];
+    double d3U = 0.0;
+    switch(M_volumetricEnergy)
+    {
+        case U::Liu:
+        {
+            d3U =-0.0 / M_Jk  / M_Jk;
+            break;
+        }
+        case U::Quadratic:
+        default:
+        {
+            break;
+        }
+    }
+    return kappa * d3U;
 }
 
 

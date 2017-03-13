@@ -228,6 +228,7 @@ int main (int argc, char ** argv)
           {
               std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
 //             monodomain.save_potential(save_iter++, datatime.M_time);
+              save_iter++;
              monodomain.save(save_iter);
           }
 		  if(cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)
