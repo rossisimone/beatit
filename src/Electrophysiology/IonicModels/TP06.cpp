@@ -225,6 +225,90 @@ TP06::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurren
  return -dItot;
 }
 
+double
+TP06::evaluatedIonicCurrent( std::vector<double>& variables,
+                                     std::vector<double>& old_variables,
+                                     double dt,
+                                     double h )
+{
+    double svolt = variables[0];
+    double Q = old_variables[0];
+    double dIdV = -dItot;
+
+    double Cai   = variables[1];
+    double CaSR  = variables[2];
+    double CaSS  = variables[3];
+    double Nai   = variables[4];
+    double Ki    = variables[5];
+    double sm    = variables[6];
+    double sh    = variables[7];
+    double sj    = variables[8];
+    double sxr1  = variables[9];
+    double sxr2  = variables[10];
+    double sxs   = variables[11];
+    double ss    = variables[12];
+    double sr    = variables[13];
+    double sd    = variables[14];
+    double sf    = variables[15];
+    double sf2   = variables[16];
+    double sfcass= variables[17];
+    double dCai   = (variables[1]- old_variables[1])/dt;
+    double dCaSR  = (variables[2]- old_variables[2])/dt;
+    double dCaSS  = (variables[3]- old_variables[3])/dt;
+    double dNai   = (variables[4]- old_variables[4])/dt;
+    double dKi    = (variables[5]- old_variables[5])/dt;
+    double dsm    = (variables[6]- old_variables[6])/dt;
+    double dsh    = (variables[7]- old_variables[7])/dt;
+    double dsj    = (variables[8]- old_variables[8])/dt;
+    double dsxr1  = (variables[9]- old_variables[9])/dt;
+    double dsxr2  = (variables[10]- old_variables[10])/dt;
+    double dsxs   = (variables[11]- old_variables[11])/dt;
+    double dss    = (variables[12]- old_variables[12])/dt;
+    double dsr    = (variables[13]- old_variables[13])/dt;
+    double dsd    = (variables[14]- old_variables[14])/dt;
+    double dsf    = (variables[15]- old_variables[15])/dt;
+    double dsf2   = (variables[16]- old_variables[16])/dt;
+    double dsfcass= (variables[17]- old_variables[17])/dt;
+
+
+    //Compute currents
+    double dINa=3*GNa*sm*sm*dsm*sh*sj*(svolt-Ena)
+               +GNa*sm*sm*sm*dsh*sj*(svolt-Ena)
+               +GNa*sm*sm*sm*sh*dsj*(svolt-Ena);
+    double aux1_dICaL = (std::exp(2*(svolt-15)*F/(R*T))-1.); // denominator
+    double dICaL=GCaL*sd*sf*sf2*sfcass*4*(svolt-15)*(F*F/(R*T))*
+      (0.25*std::exp(2*(svolt-15)*F/(R*T))*dCaSS)/ aux1_dICaL // dCaSS
+      + GCaL*dsd*sf*sf2*sfcass*4*(svolt-15)*(F*F/(R*T))*
+      (0.25*std::exp(2*(svolt-15)*F/(R*T))*CaSS-Cao)/ aux1_dICaL// dsd
+    + GCaL*sd*dsf*sf2*sfcass*4*(svolt-15)*(F*F/(R*T))*
+    (0.25*std::exp(2*(svolt-15)*F/(R*T))*CaSS-Cao)/ aux1_dICaL// dsf
+    + GCaL*sd*sf*dsf2*sfcass*4*(svolt-15)*(F*F/(R*T))*
+    (0.25*std::exp(2*(svolt-15)*F/(R*T))*CaSS-Cao)/ aux1_dICaL//dsf2
+      + GCaL*sd*sf*sf2*dsfcass*4*(svolt-15)*(F*F/(R*T))*
+      (0.25*std::exp(2*(svolt-15)*F/(R*T))*CaSS-Cao)/ aux1_dICaL; //dsfcass
+    double dIto=Gto*dsr*ss*(svolt-Ek)
+               +Gto*sr*dss*(svolt-Ek);
+    double dIKr=Gkr*sqrt(Ko/5.4)*dsxr1*sxr2*(svolt-Ek)
+               +Gkr*sqrt(Ko/5.4)*sxr1*dsxr2*(svolt-Ek);
+    double dIKs=2*Gks*sxs*dsxs*(svolt-Eks);
+
+    double dINaCa=knaca*(1./(KmNai*KmNai*KmNai+Nao*Nao*Nao))*(1./(KmCa+Cao))*
+      (1./(1+ksat*std::exp((n-1)*svolt*F/(R*T))))*
+      (std::exp(n*svolt*F/(R*T))*3*Nai*Nai*dNai*Cao-
+       std::exp((n-1)*svolt*F/(R*T))*Nao*Nao*Nao*dCai*2.5);
+    //INaK=knak*(Ko/(Ko+KmK))*(Nai/(Nai+KmNa))*rec_iNaK;
+    double aux_dINak = dNai/(Nai+KmNa) - Nai/(Nai+KmNa) /(Nai+KmNa) * dNai;
+    double dINaK=knak*(Ko/(Ko+KmK))*aux_dINak*rec_iNaK;
+    //IpCa=GpCa*Cai/(KpCa+Cai);
+    double dIpCa=GpCa*(dCai/(KpCa+Cai)-Cai/(KpCa+Cai)/(KpCa+Cai)*dCai);
+    //IpK=GpK*rec_ipK*(svolt-Ek);
+    //IbNa=GbNa*(svolt-Ena);
+    //IbCa=GbCa*(svolt-Eca);
+    double dI =dIdV * Q - dINa - dICaL - dIto - dIKr - dIKs - dINaCa - dINaK - dIpCa;
+    return dI;
+
+}
+
 void
 TP06::initializeSaveData(std::ostream& output)
 {

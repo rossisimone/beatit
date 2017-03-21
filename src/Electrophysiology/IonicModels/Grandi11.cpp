@@ -694,7 +694,464 @@ Grandi11::evaluatedIonicCurrent(std::vector<double>& variables, double /*applied
     return -dI_tot;
 }
 
+double
+Grandi11::evaluatedIonicCurrent( std::vector<double>& variables,
+                                     std::vector<double>& old_variables,
+                                     double dt,
+                                     double dx )
+{
+    // Membrane Currents
+    double v = variables[0];
+    double Q = old_variables[0];
 
+    double m = variables[1];
+    double h = variables[2];
+    double j = variables[3];
+    double d = variables[4];
+    double f = variables[5];
+    double fcaBj  = variables[6];
+    double fcaBsl = variables[7];
+    double xtof   = variables[8];
+    double ytof   = variables[9];
+    double xkr   = variables[10];
+    double xks  = variables[11];
+    double RyRr = variables[12];
+    double RyRo = variables[13];
+    double RyRi = variables[14];
+    double NaBj = variables[15];
+    double NaBsl  = variables[16];
+    double TnCL   = variables[17];
+    double TnCHc  = variables[18];
+    double TnCHm  = variables[19];
+    double CaM    = variables[20];
+    double Myoc   = variables[21];
+    double Myom   = variables[22];
+    double SRB    = variables[23];
+    double SLLj   = variables[24];
+    double SLLsl  = variables[25];
+    double SLHj   = variables[26];
+    double SLHsl  = variables[27];
+    double Csqnb  = variables[28];
+    double Ca_sr  = variables[29];
+    double Naj    = variables[30];
+    double Nasl   = variables[31];
+    double Nai    = variables[32];
+    double Ki     = variables[33];
+    double Caj    = variables[34];
+    double Casl   = variables[35];
+    double Cai    = variables[36];
+    double C1     = variables[37];
+    double C2     = variables[38];
+    double C3     = variables[39];
+    double C4     = variables[40];
+    double C5     = variables[41];
+    double C6     = variables[42];
+    double C7     = variables[43];
+    double C8     = variables[44];
+    double C9     = variables[45];
+    double C10    = variables[46];
+    double C11    = variables[47];
+    double C12    = variables[48];
+    double C13    = variables[49];
+    double C14    = variables[50];
+    double C15    = variables[51];
+    double O1     = variables[52];
+    double rkur   = variables[53];
+    double skur   = variables[54];
+    double Inal1  = variables[55];
+    double Inal2  = variables[56];
+
+    double dm = (variables[1]-old_variables[1])/dt;
+    double dh = (variables[2]-old_variables[2])/dt;
+    double dj = (variables[3]-old_variables[3])/dt;
+    double dd = (variables[4]-old_variables[4])/dt;
+    double df = (variables[5]-old_variables[5])/dt;
+    double dfcaBj  = (variables[6]-old_variables[6])/dt;
+    double dfcaBsl = (variables[7]-old_variables[7])/dt;
+    double dxtof   = (variables[8]-old_variables[8])/dt;
+    double dytof   = (variables[9]-old_variables[9])/dt;
+    double dxkr   = (variables[10]-old_variables[10])/dt;
+    double dxks  = (variables[11]-old_variables[11])/dt;
+    double dRyRr = (variables[12]-old_variables[12])/dt;
+    double dRyRo = (variables[13]-old_variables[13])/dt;
+    double dRyRi = (variables[14]-old_variables[14])/dt;
+    double dNaBj = (variables[15]-old_variables[15])/dt;
+    double dNaBsl  = (variables[16]-old_variables[16])/dt;
+    double dTnCL   = (variables[17]-old_variables[17])/dt;
+    double dTnCHc  = (variables[18]-old_variables[18])/dt;
+    double dTnCHm  = (variables[19]-old_variables[19])/dt;
+    double dCaM    = (variables[20]-old_variables[20])/dt;
+    double dMyoc   = (variables[21]-old_variables[21])/dt;
+    double dMyom   = (variables[22]-old_variables[22])/dt;
+    double dSRB    = (variables[23]-old_variables[23])/dt;
+    double dSLLj   = (variables[24]-old_variables[24])/dt;
+    double dSLLsl  = (variables[25]-old_variables[25])/dt;
+    double dSLHj   = (variables[26]-old_variables[26])/dt;
+    double dSLHsl  = (variables[27]-old_variables[27])/dt;
+    double dCsqnb  = (variables[28]-old_variables[28])/dt;
+    double dCa_sr  = (variables[29]-old_variables[29])/dt;
+    double dNaj    = (variables[30]-old_variables[30])/dt;
+    double dNasl   = (variables[31]-old_variables[31])/dt;
+    double dNai    = (variables[32]-old_variables[32])/dt;
+    double dKi     = (variables[33]-old_variables[33])/dt;
+    double dCaj    = (variables[34]-old_variables[34])/dt;
+    double dCasl   = (variables[35]-old_variables[35])/dt;
+    double dCai    = (variables[36]-old_variables[36])/dt;
+    double dC1     = (variables[37]-old_variables[37])/dt;
+    double dC2     = (variables[38]-old_variables[38])/dt;
+    double dC3     = (variables[39]-old_variables[39])/dt;
+    double dC4     = (variables[40]-old_variables[40])/dt;
+    double dC5     = (variables[41]-old_variables[41])/dt;
+    double dC6     = (variables[42]-old_variables[42])/dt;
+    double dC7     = (variables[43]-old_variables[43])/dt;
+    double dC8     = (variables[44]-old_variables[44])/dt;
+    double dC9     = (variables[45]-old_variables[45])/dt;
+    double dC10    = (variables[46]-old_variables[46])/dt;
+    double dC11    = (variables[47]-old_variables[47])/dt;
+    double dC12    = (variables[48]-old_variables[48])/dt;
+    double dC13    = (variables[49]-old_variables[49])/dt;
+    double dC14    = (variables[50]-old_variables[50])/dt;
+    double dC15    = (variables[51]-old_variables[51])/dt;
+    double dO1     = (variables[52]-old_variables[52])/dt;
+    double drkur   = (variables[53]-old_variables[53])/dt;
+    double dskur   = (variables[54]-old_variables[54])/dt;
+    double dInal1  = (variables[55]-old_variables[55])/dt;
+    double dInal2  = (variables[56]-old_variables[56])/dt;
+
+    double aux = 0.0;
+    // INa
+    double dI_Na_junc = Fjunc*GNa*m*m*m*h*j*Q
+                      + Fjunc*GNa*3*m*m*dm*h*j*(v-ena_junc)
+                      + Fjunc*GNa*m*m*m*dh*j*(v-ena_junc)
+                      + Fjunc*GNa*m*m*m*h*dj*(v-ena_junc);
+
+    double dI_Na_sl = Fsl*GNa*m*m*m*h*j*Q
+                    + Fsl*GNa*3*m*m*dm*h*j*(v-ena_sl)
+                    + Fsl*GNa*m*m*m*dh*j*(v-ena_sl)
+                    + Fsl*GNa*m*m*m*h*dj*(v-ena_sl);
+    double dI_Na = dI_Na_junc+dI_Na_sl;
+
+    double dI_NaL_junc = Fjunc*GNaL*Inal1*Inal1*Inal1*Inal2*Q
+                       + Fjunc*GNaL*3*Inal1*Inal1*dInal1*Inal2*(v-ena_junc)
+                       + Fjunc*GNaL*Inal1*Inal1*Inal1*dInal2*(v-ena_junc);
+
+    double dI_NaL_sl = Fsl*GNaL*Inal1*Inal1*Inal1*Inal2*Q
+                     + Fsl*GNaL*3*Inal1*Inal1*dInal1*Inal2*(v-ena_sl)
+                     + Fsl*GNaL*Inal1*Inal1*Inal1*dInal2*(v-ena_sl);
+    double dI_NaL = dI_NaL_junc + dI_NaL_sl;
+
+    // I_nabk: Na Background Current
+    double dI_nabk_junc = Fjunc*GNaB*Q;
+    double dI_nabk_sl = Fsl*GNaB*Q;
+    double dI_nabk = dI_nabk_junc+dI_nabk_sl;
+
+    // I_nak: Na/K Pump Current
+    double sigma = (std::exp(Nao/67.3)-1)/7.0;
+    double fnak = 1.0 / (1.0 + 0.1245*std::exp(-0.1*v*FoRT)+0.0365*sigma*std::exp(-v*FoRT));
+    double dfnak = - fnak * fnak * (-0.1*FoRT*0.1245*std::exp(-0.1*v*FoRT)-FoRT*0.0365*sigma*std::exp(-v*FoRT));
+    aux = KmNaip / Naj;
+    double daux_Naj = - KmNaip / Naj / Naj * dNaj;
+
+    double dI_nak_junc = Fjunc * IbarNaK * dfnak * Ko / ( 1.0 + aux * aux * aux * aux ) / ( Ko + KmKo ) * Q
+                     + Fjunc * IbarNaK * fnak * Ko / ( 1.0 + aux * aux * aux * aux ) / ( 1.0 + aux * aux * aux * aux )
+                     / ( Ko + KmKo ) * 4 * aux * aux * aux * daux_Naj;
+
+    aux = KmNaip / Nasl;
+    double daux_Nasl = - KmNaip / Nasl / Nasl * dNasl;
+    double dI_nak_sl = Fsl * IbarNaK * dfnak * Ko / ( 1.0 + aux * aux * aux * aux ) / ( Ko + KmKo ) * Q
+                     + Fsl * IbarNaK * fnak * Ko / ( 1.0 + aux * aux * aux * aux )  / ( 1.0 + aux * aux * aux * aux )
+                     / ( Ko + KmKo ) * 4 * aux * aux * aux * daux_Nasl;
+
+    double dI_nak = dI_nak_junc+dI_nak_sl;
+
+    // I_kr: Rapidly Activating K Current
+    double gkr =0.035*std::sqrt(Ko/5.4);
+    double rkr = 1.0 / ( 1.0 + std::exp((v+74.0)/24.0));
+    double drkr = -rkr * rkr  *  std::exp((v+74.0)/24.0) / 24.0;
+    double dI_kr = (gkr*xkr*drkr*(v-ek) + gkr*xkr*rkr)*Q;
+
+    // I_ks: Slowly Activating K Current
+    bool markov_iks=false;
+
+    double eks = (1/FoRT)*std::log((Ko+pNaK*Nao)/(Ki+pNaK*Nai));
+    double deks = (1/FoRT)*( - (dKi+pNaK*dNai) ) / (Ki+pNaK*Nai);
+
+    double dI_ks = 0.0;
+    if ( !markov_iks )
+    {
+        double gks_junc=1.0*(1.0+1.0*AF+2.0*ISO)*0.0035*1.0;
+        double gks_sl=1.0*(1.0+1.0*AF+2.0*ISO)*0.0035*1.0; // Fra
+
+        double dI_ks_junc = Fjunc*gks_junc*xks*xks * (Q-deks)
+                          + Fjunc*gks_junc*2*xks*dxks*(v-eks);
+        double dI_ks_sl = Fsl*gks_sl*xks*xks * (Q-deks)
+                        + Fsl*gks_sl*2*xks*dxks*(v-eks);
+        dI_ks = dI_ks_junc+dI_ks_sl;
+    }
+    else
+    {
+        double gks_junc=1*0.0065;
+        double gks_sl=1*0.0065; //FRA
+        double alpha=3.98e-4*std::exp(3.61e-1*v*FoRT);
+        double beta=5.74e-5*std::exp(-9.23e-2*v*FoRT);
+        double gamma=3.41e-3*std::exp(8.68e-1*v*FoRT);
+        double delta=1.2e-3*std::exp(-3.3e-1*v*FoRT);
+        double teta=6.47e-3;
+        double eta=1.25e-2*std::exp(-4.81e-1*v*FoRT);
+        double psi=6.33e-3*std::exp(1.27*v*FoRT);
+        double omega=4.91e-3*std::exp(-6.79e-1*v*FoRT);
+
+
+        double O2=1-(C1+C2+C3+C4+C5+C6+C8+C7+C9+C10+C11+C12+C13+C14+C15+O1);
+        double dO2=-(dC1+dC2+dC3+dC4+dC5+dC6+dC8+dC7+dC9+dC10+dC11+dC12+dC13+dC14+dC15+dO1);
+
+        double dI_ks_junc = Fjunc*gks_junc*(O1+O2)*(Q-deks)
+                          + Fjunc*gks_junc*(dO1+dO2)*(v-eks);
+        double dI_ks_sl = Fsl*gks_sl*(O1+O2)*(Q-deks)
+                        + Fsl*gks_sl*(dO1+dO2)*(v-eks);
+        dI_ks = dI_ks_junc+dI_ks_sl;
+    }
+
+    // I_kp: Plateau K current
+    double kp_kp = 1.0/(1.0+std::exp(7.488-v/5.98));
+    double dkp_kp = - kp_kp * kp_kp * (std::exp(7.488-v/5.98)/(-5.98));
+    double dI_kp_junc = Fjunc*gkp*dkp_kp*(v-ek) + Fjunc*gkp*kp_kp;
+    double dI_kp_sl = Fsl*gkp*dkp_kp*(v-ek)+Fsl*gkp*kp_kp;
+    double dI_kp = (dI_kp_junc+dI_kp_sl)*Q;
+
+    // I_to: Transient Outward K Current (slow and fast components)
+
+    //ytof += dt *( ytoss - ytof )  / tauytof;
+    double dI_tof = GtoFast*xtof*ytof*Q
+                  + GtoFast*dxtof*ytof*(v-ek)
+                  + GtoFast*xtof*dytof*(v-ek);
+    double dI_to = dI_tof;
+
+    // I_kur: Ultra rapid delayed rectifier Outward K Current
+    // Equation for IKur; from Maleckar et al. 2009 - EG
+    // atrium
+    // equations for activation;
+    double RA = 0; // Right Atrium
+    double Gkur = 1*(1.0-0.5*AF)*(1+2*ISO)* 0.045*(1+0.2*RA); // nS/pF maleckar 0.045
+
+    double dI_kur = Gkur*rkur*skur*Q
+                  + Gkur*drkur*skur*(v-ek)
+                  + Gkur*rkur*dskur*(v-ek);
+
+
+    ///
+    // I_ki: Time-Independent K Current
+    double aki = 1.02/(1+std::exp(0.2385*(v-ek-59.215)));
+    double daki = - aki * aki / 1.02 * (0.2385*std::exp(0.2385*(v-ek-59.215)));
+    double bki =(0.49124*std::exp(0.08032*(v+5.476-ek)) + std::exp(0.06175*(v-ek-594.31))) /(1.0 + std::exp(-0.5143*(v-ek+4.753)));
+    double dbki= (0.06175*std::exp(0.06175*v - 0.06175*ek - 36.6986425) + 0.0394563968*std::exp(0.08032*v - 0.08032*ek + 0.43983232))/(std::exp(0.5143*ek - 0.5143*v - 2.4444679) + 1.0) + (0.5143*std::exp(0.5143*ek - 0.5143*v - 2.4444679)*(std::exp(0.06175*v - 0.06175*ek - 36.6986425) + 0.49124*std::exp(0.08032*v - 0.08032*ek + 0.43983232)))/(std::exp(0.5143*ek - 0.5143*v - 2.4444679) + 1.0)/(std::exp(0.5143*ek - 0.5143*v - 2.4444679) + 1.0);
+    double kiss = aki/(aki+bki);
+    double dkiss = daki/(aki+bki) - aki/(aki+bki)/(aki+bki)*(daki+dbki);
+
+    // I_ki =1* 0.35*sqrt(Ko/5.4)*kiss*(v-ek);
+    // SVP 11/11/09
+    // multiplieD IK1 by 0.15 to scale it to single cell isolated atrial cell
+    // resting potential
+    double dI_ki =(1.0+1.0*AF)*0.0525*std::sqrt(Ko/5.4)*dkiss*(v-ek)+(1.0+1.0*AF)*0.0525*std::sqrt(Ko/5.4)*kiss;
+    dI_ki *= Q;
+
+    // I_ClCa: Ca-activated Cl Current, I_Clbk: background Cl Current
+    double dI_ClCa_junc = Fjunc*GClCa/(1+KdClCa/Caj)*Q
+                        + Fjunc*GClCa/(1+KdClCa/Caj)/(1+KdClCa/Caj)*(-KdClCa/Caj/Caj*dCaj)*(v-ecl);
+    double dI_ClCa_sl = Fsl*GClCa/(1+KdClCa/Casl)*Q
+                      + Fsl*GClCa/(1+KdClCa/Casl)/(1+KdClCa/Casl)*(-KdClCa/Casl/Casl*dCasl)*(v-ecl);
+    double dI_ClCa = dI_ClCa_junc+dI_ClCa_sl;
+    double dI_Clbk = GClB*Q;
+
+    double GClCFTR=0; // 4.9e-3*ISO;     // [mS/uF]
+    double dI_ClCFTR = GClCFTR;
+
+
+    // I_Ca: L-type Calcium Current
+    double dss = 1.0 /(1.0 +std::exp(-(v+3*ISO+9)/6)); //in Maleckar v1/2=-9 S=6 (mV); Courtemanche v1/2=-9 S=5.8 (mV)
+    double taud = 1.0 * dss*(1-std::exp(-(v+3*ISO+9)/6))/(0.035*(v+3*ISO+9));
+    double fss = 1.0 /(1.0+std::exp((v+3*ISO+30)/7))+0.2/(1+std::exp((50-v-3*ISO)/20)); // in Maleckar v1/2=-27.4 S=7.1 (mV); Courtemanche v1/2=-28 S=6.9 (mV)
+    double tauf = 1.0 / (0.0197*std::exp( -(0.0337*(v+3*ISO+25))*(0.0337*(v+3*ISO+25)) )+0.02);
+
+
+    // ////////////////////////////////////////////////////////
+    // ////////////////////////////////////////////////////////
+    double fcaCaMSL= 0.1/(1.0+(0.01/Casl));
+    double dfcaCaMSL= -0.1/(1.0+(0.01/Casl))/(1.0+(0.01/Casl))*(-0.01/Casl/Casl*dCasl);
+    double fcaCaj= 0.1/(1.0+(0.01/Caj));
+    double dfcaCaj= -0.1/(1.0+(0.01/Caj))/(1.0+(0.01/Caj))*(-0.01/Caj/Caj*dCaj);
+    fcaCaMSL=0.0;
+    fcaCaj= 0.0;
+    double ibarca_j = pCa*4*(v*Frdy*FoRT) * (0.341*Caj*std::exp(2*v*FoRT)-0.341*Cao) /(std::exp(2*v*FoRT)-1.0);
+    double dibarca_j = (2.728*Caj*FoRT*FoRT*Frdy*pCa*v*exp(2.0*FoRT*v))/(std::exp(2.0*FoRT*v) - 1.0)
+                     - (4.0*FoRT*Frdy*pCa*(0.341*Cao - 0.341*Caj*std::exp(2.0*FoRT*v)))
+                     /(std::exp(2.0*FoRT*v) - 1.0)
+                     + (8.0*FoRT*FoRT*Frdy*pCa*v*std::exp(2.0*FoRT*v)
+                     * (0.341*Cao - 0.341*Caj*std::exp(2.0*FoRT*v)))
+                     /(std::exp(2.0*FoRT*v) - 1.0)/(std::exp(2.0*FoRT*v) - 1.0);
+    dibarca_j *= Q;
+    dibarca_j += pCa*4*(v*Frdy*FoRT) * (0.341*dCaj*std::exp(2*v*FoRT)) /(std::exp(2*v*FoRT)-1.0);
+
+    double ibarca_sl = pCa*4*(v*Frdy*FoRT) * (0.341*Casl*std::exp(2*v*FoRT)-0.341*Cao) /(std::exp(2*v*FoRT)-1.0);
+    double dibarca_sl = (2.728*Casl*FoRT*FoRT*Frdy*pCa*v*std::exp(2.0*FoRT*v))
+                      / (exp(2.0*FoRT*v) - 1.0)
+                      - (4.0*FoRT*Frdy*pCa*(0.341*Cao - 0.341*Casl*std::exp(2.0*FoRT*v)))
+                      /(std::exp(2.0*FoRT*v) - 1.0)
+                      + (8.0*FoRT*FoRT*Frdy*pCa*v*std::exp(2.0*FoRT*v)
+                      * (0.341*Cao - 0.341*Casl*std::exp(2.0*FoRT*v)))
+                      / (std::exp(2.0*FoRT*v) - 1.0) / (std::exp(2.0*FoRT*v) - 1.0);
+    dibarca_sl *= Q;
+    dibarca_sl += pCa*4*(v*Frdy*FoRT) * (0.341*dCasl*std::exp(2*v*FoRT)) /(std::exp(2*v*FoRT)-1.0);
+
+    double ibark = pK*(v*Frdy*FoRT)*(0.75*Ki*std::exp(v*FoRT)-0.75*Ko) /(std::exp(v*FoRT)-1.0);
+    double dibark = (FoRT*FoRT*Frdy*pK*v*std::exp(FoRT*v)*(0.75*Ko - 0.75*Ki*std::exp(FoRT*v)))
+                    / (std::exp(FoRT*v) - 1.0) / (std::exp(FoRT*v) - 1.0)
+                    - (1.0*FoRT*Frdy*pK*(0.75*Ko - 0.75*Ki*std::exp(FoRT*v)))
+                    /(std::exp(FoRT*v) - 1.0)
+                    + (0.75*FoRT*FoRT*Frdy*Ki*pK*v*exp(FoRT*v))/(std::exp(FoRT*v) - 1.0);
+    dibark *= Q;
+    dibark += pK*(v*Frdy*FoRT)*(0.75*dKi*std::exp(v*FoRT)) /(std::exp(v*FoRT)-1.0);
+
+    double ibarna_j = pNa*(v*Frdy*FoRT) *(0.75*Naj*std::exp(v*FoRT)-0.75*Nao)  /(std::exp(v*FoRT)-1.0);
+    double dibarna_j = (0.75*FoRT*FoRT*Frdy*Naj*pNa*v*std::exp(FoRT*v))
+                    / (std::exp(FoRT*v) - 1.0)
+                    - (1.0*FoRT*Frdy*pNa*(0.75*Nao - 0.75*Naj*std::exp(FoRT*v)))
+                    / (std::exp(FoRT*v) - 1.0)
+                    + (FoRT*FoRT*Frdy*pNa*v*std::exp(FoRT*v)*(0.75*Nao - 0.75*Naj*std::exp(FoRT*v)))
+                    /(std::exp(FoRT*v) - 1.0) /(std::exp(FoRT*v) - 1.0);
+    dibarna_j *= Q;
+    dibarna_j += pNa*(v*Frdy*FoRT) *(0.75*dNaj*std::exp(v*FoRT))  /(std::exp(v*FoRT)-1.0);
+
+
+    double ibarna_sl = pNa*(v*Frdy*FoRT) *(0.75*Nasl*std::exp(v*FoRT)-0.75*Nao)  /(std::exp(v*FoRT)-1.0);
+    double dibarna_sl = (0.75*FoRT*FoRT*Frdy*Nasl*pNa*v*std::exp(FoRT*v))
+                      / (std::exp(FoRT*v) - 1.0)
+                      - (1.0*FoRT*Frdy*pNa*(0.75*Nao - 0.75*Nasl*std::exp(FoRT*v)))
+                      / (std::exp(FoRT*v) - 1.0)
+                      + (FoRT*FoRT*Frdy*pNa*v*std::exp(FoRT*v)*(0.75*Nao - 0.75*Nasl*std::exp(FoRT*v)))
+                      / (std::exp(FoRT*v) - 1.0) / (std::exp(FoRT*v) - 1.0);
+    dibarna_sl *= Q;
+    dibarna_sl += pNa*(v*Frdy*FoRT) *(0.75*dNasl*std::exp(v*FoRT))  /(std::exp(v*FoRT)-1.0);
+
+
+    aux = std::pow(Q10CaL,Qpow);
+
+
+    double dI_Ca_junc = (Fjunc_CaL*dibarca_j*d*f*((1-fcaBj)+fcaCaj)*aux )*0.45
+                      + (Fjunc_CaL*ibarca_j*dd*f*((1-fcaBj)+fcaCaj)*aux )*0.45
+                      + (Fjunc_CaL*ibarca_j*d*df*((1-fcaBj)+fcaCaj)*aux )*0.45
+                      + (Fjunc_CaL*ibarca_j*d*f*(-dfcaBj+dfcaCaj)*aux )*0.45;
+
+    double dI_Ca_sl = (Fsl_CaL*dibarca_sl*d*f*((1-fcaBsl)+fcaCaMSL)*aux )*0.45
+                    + (Fsl_CaL*ibarca_sl*dd*f*((1-fcaBsl)+fcaCaMSL)*aux )*0.45
+                    + (Fsl_CaL*ibarca_sl*d*df*((1-fcaBsl)+fcaCaMSL)*aux )*0.45
+                    + (Fsl_CaL*ibarca_sl*d*f*(-dfcaBsl+dfcaCaMSL)*aux )*0.45;
+
+    double dI_Ca = dI_Ca_junc+dI_Ca_sl;
+
+    double dI_CaK = (dibark*d*f*(Fjunc_CaL*(fcaCaj+(1-fcaBj))+Fsl_CaL*(fcaCaMSL+(1-fcaBsl)))*aux)*0.45
+                  + (ibark*dd*f*(Fjunc_CaL*(fcaCaj+(1-fcaBj))+Fsl_CaL*(fcaCaMSL+(1-fcaBsl)))*aux)*0.45
+                  + (ibark*d*df*(Fjunc_CaL*(fcaCaj+(1-fcaBj))+Fsl_CaL*(fcaCaMSL+(1-fcaBsl)))*aux)*0.45
+                  + (ibark*d*f*(Fjunc_CaL*(dfcaCaj+(0-dfcaBj))+Fsl_CaL*(dfcaCaMSL+(0-dfcaBsl)))*aux)*0.45;
+    double dI_CaNa_junc = (Fjunc_CaL*dibarna_j*d*f*((1-fcaBj)+fcaCaj)*aux )*0.45
+                        + (Fjunc_CaL*ibarna_j*dd*f*((1-fcaBj)+fcaCaj)*aux )*0.45
+                        + (Fjunc_CaL*ibarna_j*d*df*((1-fcaBj)+fcaCaj)*aux )*0.45
+                        + (Fjunc_CaL*ibarna_j*d*f*((0-dfcaBj)+dfcaCaj)*aux )*0.45;
+    double dI_CaNa_sl = (Fsl_CaL*dibarna_sl*d*f*((1-fcaBsl)+fcaCaMSL)*aux )*.45
+                      + (Fsl_CaL*ibarna_sl*dd*f*((1-fcaBsl)+fcaCaMSL)*aux )*.45
+                      + (Fsl_CaL*ibarna_sl*d*df*((1-fcaBsl)+fcaCaMSL)*aux )*.45
+                      + (Fsl_CaL*ibarna_sl*d*f*((0-dfcaBsl)+dfcaCaMSL)*aux )*.45;
+    double dI_CaNa = dI_CaNa_junc+dI_CaNa_sl;
+    double dI_Catot = dI_Ca+dI_CaK+dI_CaNa;
+
+
+    // I_ncx: Na/Ca Exchanger flux
+    double Ka_junc = 1.0/(1.0+(Kdact/Caj)*(Kdact/Caj));
+    double dKa_junc = -1.0/(1.0+(Kdact/Caj)*(Kdact/Caj))/(1.0+(Kdact/Caj)*(Kdact/Caj))*( -2.0*(Kdact/Caj)*(Kdact/Caj)/Caj*dCaj);
+    double Ka_sl = 1.0/(1.0+(Kdact/Casl)*(Kdact/Casl));
+    double dKa_sl = 1.0/(1.0+(Kdact/Casl)*(Kdact/Casl))/(1.0+(Kdact/Casl)*(Kdact/Casl))*(-2.0*(Kdact/Casl)*(Kdact/Casl)/Casl*dCasl);
+    double s1_junc = std::exp(nu*v*FoRT)*Naj*Naj*Naj*Cao;
+    double ds1_junc = (nu*FoRT)*s1_junc*Q + std::exp(nu*v*FoRT)*3*Naj*Naj*dNaj*Cao;
+    double s1_sl = std::exp(nu*v*FoRT)*Nasl*Nasl*Nasl*Cao;
+    double ds1_sl = (nu*FoRT)*s1_sl*Q+ std::exp(nu*v*FoRT)*2*Nasl*Nasl*dNasl*Cao;
+    double s2_junc = std::exp((nu-1)*v*FoRT)*Nao*Nao*Nao*Caj;
+    double ds2_junc = ((nu-1)*FoRT)*s2_junc*Q + std::exp((nu-1)*v*FoRT)*Nao*Nao*Nao*dCaj;
+    double s2_sl = std::exp((nu-1)*v*FoRT)*Nao*Nao*Nao*Casl;
+    double ds2_sl = ((nu-1)*FoRT)*s2_sl*Q + std::exp((nu-1)*v*FoRT)*Nao*Nao*Nao*dCasl;
+
+    double s3_junc = KmCai*Nao*Nao*Nao*(1+(Naj/KmNai)*(Naj/KmNai)*(Naj/KmNai))
+                   + KmNao*KmNao*KmNao*Caj*(1+Caj/KmCai)+KmCao*Naj*Naj*Naj+Naj*Naj*Naj*Cao+Nao*Nao*Nao*Caj;
+    double ds3_junc = KmCai*Nao*Nao*Nao*(1+3*(Naj/KmNai)*(Naj/KmNai)*(dNaj/KmNai))
+                   + KmNao*KmNao*KmNao*(dCaj+2.*Caj*dCaj/KmCai)
+                   +KmCao*3*Naj*Naj*dNaj+3*Naj*Naj*dNaj*Cao+Nao*Nao*Nao*dCaj;
+    double s3_sl = KmCai*Nao*Nao*Nao*(1+(Nasl/KmNai)*(Nasl/KmNai)*(Nasl/KmNai)) + KmNao*KmNao*KmNao*Casl*(1+Casl/KmCai)
+                 + KmCao*Nasl*Nasl*Nasl+Nasl*Nasl*Nasl*Cao+Nao*Nao*Nao*Casl;
+    double ds3_sl = KmCai*Nao*Nao*Nao*(1+3*(Nasl/KmNai)*(Nasl/KmNai)*(dNasl/KmNai))
+                  + KmNao*KmNao*KmNao*(dCasl+2*Casl*dCasl/KmCai)
+                  + KmCao*3*Nasl*Nasl*dNasl+3*Nasl*Nasl*dNasl*Cao+Nao*Nao*Nao*dCasl;
+
+
+    aux = std::pow(Q10NCX,Qpow);
+
+    double dI_ncx_junc = Fjunc*IbarNCX*aux*dKa_junc*(s1_junc-s2_junc)/s3_junc/(1.0+ksat*std::exp((nu-1)*v*FoRT))
+                       + Fjunc*IbarNCX*aux*Ka_junc*(ds1_junc-ds2_junc)/s3_junc/(1.0+ksat*std::exp((nu-1)*v*FoRT))
+                       - Fjunc*IbarNCX*aux*Ka_junc*(s1_junc-s2_junc)/s3_junc/s3_junc*ds3_junc/(1.0+ksat*std::exp((nu-1)*v*FoRT));
+                       - Q * Fjunc*IbarNCX*aux*Ka_junc*(s1_junc-s2_junc)/s3_junc
+                           * (ksat*((nu-1)*FoRT)*std::exp((nu-1)*v*FoRT))
+                           / (1.0+ksat*std::exp((nu-1)*v*FoRT)) /(1.0+ksat*std::exp((nu-1)*v*FoRT));
+
+    double dI_ncx_sl = Fsl*IbarNCX*aux*dKa_sl*(s1_sl-s2_sl)/s3_sl/(1+ksat*std::exp((nu-1)*v*FoRT))
+                     + Fsl*IbarNCX*aux*Ka_sl*(ds1_sl-ds2_sl)/s3_sl/(1+ksat*std::exp((nu-1)*v*FoRT))
+                     - Fsl*IbarNCX*aux*Ka_sl*(s1_sl-s2_sl)/s3_sl/s3_sl*ds3_sl/(1+ksat*std::exp((nu-1)*v*FoRT))
+                     - Q * Fsl*IbarNCX*aux*Ka_sl*(s1_sl-s2_sl)/s3_sl
+                         * (ksat*((nu-1)*FoRT)*std::exp((nu-1)*v*FoRT))
+                         / (1+ksat*std::exp((nu-1)*v*FoRT)) /(1+ksat*std::exp((nu-1)*v*FoRT));
+
+    double dI_ncx = dI_ncx_junc+dI_ncx_sl;
+
+    // I_pca: Sarcolemmal Ca Pump Current
+    aux = std::pow(Q10SLCaP,Qpow);
+
+    double dI_pca_junc = Fjunc*aux*IbarSLCaP*(1.6*std::pow(Caj, 0.6))/(std::pow(KmPCa, 1.6)+std::pow(Caj,1.6) )
+                       - Fjunc*aux*IbarSLCaP*std::pow(Caj, 1.6)
+                         / (std::pow(KmPCa, 1.6)+std::pow(Caj,1.6) )
+                         / (std::pow(KmPCa, 1.6)+std::pow(Caj,1.6) )
+                         * (1.6*std::pow(Caj,0.6) );
+    dI_pca_junc *= dCaj;
+
+    double dI_pca_sl = Fsl*aux*IbarSLCaP*(1.6*std::pow(Casl,0.6))/(std::pow(KmPCa, 1.6)+std::pow(Casl, 1.6) )
+                     - Fsl*aux*IbarSLCaP*std::pow(Casl,1.6)
+                       / (std::pow(KmPCa, 1.6)+std::pow(Casl, 1.6) )
+                       / (std::pow(KmPCa, 1.6)+std::pow(Casl, 1.6) )
+                       * (1.6*std::pow(Casl, 0.6) );
+    dI_pca_sl *= dCasl;
+    double dI_pca = dI_pca_junc + dI_pca_sl;
+    // I_cabk: Ca Background Current
+    double dI_cabk_junc = Fjunc*GCaB*Q;
+    double dI_cabk_sl = Fsl*GCaB*Q;
+    double dI_cabk = dI_cabk_junc+dI_cabk_sl;
+
+    // Sodium Concentrations
+    double dI_Na_tot_junc = dI_Na_junc+dI_nabk_junc+3*dI_ncx_junc+3*dI_nak_junc+dI_CaNa_junc+dI_NaL_junc;   // [uA/uF]
+    double dI_Na_tot_sl = dI_Na_sl+dI_nabk_sl+3*dI_ncx_sl+3*dI_nak_sl+dI_CaNa_sl+dI_NaL_sl;   // [uA/uF]
+    double dI_Na_tot_sl2 = 3*dI_ncx_sl+3*dI_nak_sl+dI_CaNa_sl;   // [uA/uF]
+    double dI_Na_tot_junc2 = 3*dI_ncx_junc+3*dI_nak_junc+dI_CaNa_junc;   // [uA/uF]
+
+
+    // Potassium Concentration
+    double dI_K_tot = dI_to+dI_kr+dI_ks+dI_ki-2*dI_nak+dI_CaK+dI_kp+dI_kur;     // [uA/uF] //SVP: added IKur
+
+    // Calcium Concentrations
+    double dI_Ca_tot_junc = dI_Ca_junc+dI_cabk_junc+dI_pca_junc-2*dI_ncx_junc;                   // [uA/uF]
+    double dI_Ca_tot_sl = dI_Ca_sl+dI_cabk_sl+dI_pca_sl-2*dI_ncx_sl;            // [uA/uF]
+
+    double dI_Na_tot = dI_Na_tot_junc + dI_Na_tot_sl;          // [uA/uF]
+    double dI_Cl_tot = dI_ClCa+dI_Clbk+dI_ClCFTR;                        // [uA/uF]
+    double dI_Ca_tot = dI_Ca_tot_junc+dI_Ca_tot_sl;
+    double dI_tot = dI_Na_tot+dI_Cl_tot+dI_Ca_tot+dI_K_tot;
+
+    return -dI_tot;
+}
 
 void
 Grandi11::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)

@@ -362,6 +362,31 @@ FentonKarma::evaluatedIonicCurrent(std::vector<double>& variables, double applie
     return  - (dIfi + dIso + dIsi);
 }
 
+double
+FentonKarma::evaluatedIonicCurrent( std::vector<double>& variables,
+                                     std::vector<double>& old_variables,
+                                     double dt,
+                                     double h )
+{
+    double V = variables[0];
+    double v = variables[1];
+    double w = variables[2];
+    double Q = old_variables[0];
+    double dv = (v-old_variables[1])/dt;
+    double dw = (w-old_variables[2])/dt;
+
+    double dIfi = - v * p(V) * (1-V) / M_tau_d + v * p(V) * (V- M_V_c) / M_tau_d;
+    double dIso = ( 1 - p(V) ) / M_tau_0;
+    double tan = std::tanh(M_kappa * ( V - M_V_c_si ) );
+    double dIsi = M_kappa*w*(tan * tan - 1.0)/(2*M_tau_si);
+
+    double dIdV =  - (dIfi + dIso + dIsi);
+
+    double dIfidv = - p(V) * (V- M_V_c) * (1-V) / M_tau_d;
+    double dIsidw = - ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;
+    return dIdV * Q + dIfidv * dv + dIsidw * dw;
+
+}
 
 void
 FentonKarma::initialize(std::vector<double>& variables)
@@ -395,7 +420,7 @@ FentonKarma::evaluateSAC(double v , double I4f)
     double l = std::sqrt(I4f);
     double Vt = 0.56;
     sac = Gs * (v - Vt) / ( 1  + std::exp(-delta * (l-l_ref) ) );
-    return sac;
+    return 0.0;
 }
 
 } /* namespace BeatIt */

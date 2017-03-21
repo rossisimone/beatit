@@ -82,6 +82,8 @@
 #include "Elasticity/Materials/LinearMaterial.hpp"
 #include "Elasticity/Materials/BenNeohookean.hpp"
 #include "Elasticity/Materials/IsotropicMaterial.hpp"
+#include "Util/Timer.hpp"
+
 
 namespace libMesh
 {
@@ -102,6 +104,7 @@ Elasticity::Elasticity( libMesh::EquationSystems& es, std::string system_name )
     , M_bch()
     , M_rhsFunction()
     , M_myName(system_name)
+    , M_JacIsAssembled(false)
 {
 	// TODO Auto-generated constructor stub
 
@@ -732,7 +735,7 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
 	const unsigned int dim = mesh.mesh_dimension();
 	for (unsigned int side=0; side<elem->n_sides(); side++)
 	{
-		  if (elem->neighbor(side) == libmesh_nullptr)
+		  if (elem->neighbor_ptr(side) == libmesh_nullptr)
     	  {
     			  const unsigned int boundary_id =
                 mesh.boundary_info->boundary_id (elem, side);
@@ -743,12 +746,14 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
                 {
                     const std::vector<libMesh::Real> & JxW_face = fe_face->get_JxW();
                     const std::vector<std::vector<libMesh::Real> > & phi_face = fe_face->get_phi();
+                    int n_phi = phi_face.size();
+
                     const std::vector<libMesh::Point> & qface_point = fe_face->get_xyz();
                     const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_face->get_dphi();
                     const std::vector<libMesh::Point>&  normals = fe_face->get_normals();
                     fe_face->reinit(elem, side);
 
-                auto bc_type = bc->get_type();
+                    auto bc_type = bc->get_type();
                     switch(bc_type)
                     {
 						case BCType::Neumann:
@@ -770,7 +775,6 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
 						    }
 							break;
 						}
-
 						default:
 						{
 							break;
@@ -949,9 +953,12 @@ Elasticity::project_pressure()
 void
 Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activation_ptr )
 {
+        Timer timer;
+        timer.start();
 	    LinearSystem& system  =  M_equationSystems.get_system<LinearSystem>(M_myName);
         update_displacements(dt);
 
+        M_currentNewtonIter = 0;
 	    assemble_residual(dt, activation_ptr);
 	    auto res_norm = system.rhs->linfty_norm ();
 	    // assume we ask for the same absolute and relative tolerances
@@ -962,9 +969,9 @@ Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activatio
 
 		std::cout << "* ELASTICITY: Performing Newton solve:  max iterations: " << max_iter << ", target tolerance: " << tol << std::endl;
 		std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
- 	    while(res_norm > tol && iter < max_iter)
+ 	    while(res_norm > tol && M_currentNewtonIter < max_iter)
  	    {
-             iter++;
+ 	       M_currentNewtonIter++;
 
  	    	solve_system();
  	    	(*system.solution) += system.get_vector("step");
@@ -972,13 +979,14 @@ Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activatio
  	        update_displacements(dt);
  	      	assemble_residual(dt, activation_ptr);
              res_norm = system.rhs->linfty_norm ();
-			std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
+			std::cout << "\t\t\t  iter: " << M_currentNewtonIter << ", residual: " << res_norm << std::endl;
  	    }
 // 	               std::cout << "Solution!\n" << std::endl;
 // 	               system.solution->print(std::cout);
 
 		std::cout << "* ELASTICITY: Newton solve completed in " << iter << " iterations. Final residual: " << res_norm << std::endl;
-
+		timer.stop();
+        timer.print(std::cout);
 }
 
 

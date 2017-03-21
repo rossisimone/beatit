@@ -157,7 +157,8 @@ int main (int argc, char ** argv)
 
       std::cout << "Time loop ..." << std::endl;
 
-      int mech_iter = 1.0 / datatime.M_dt;
+      double mech_dt = data("em/mech_dt", 1.0);
+      int mech_iter =  static_cast<int>(mech_dt / datatime.M_dt);
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
           datatime.advance();
@@ -185,7 +186,7 @@ int main (int argc, char ** argv)
           {
              //em.M_monowave->save_potential(save_iter+1, datatime.M_time);
              save_iter++;
-             em.save_exo(save_iter, datatime.M_time);
+             em.save_gmv(save_iter, datatime.M_time);
           }
 
       }

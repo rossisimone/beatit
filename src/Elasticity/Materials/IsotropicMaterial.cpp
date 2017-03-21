@@ -116,6 +116,8 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             std::cout << "\t density = " << M_parameters[0] << std::endl;
             std::cout << "\t c1 = " << M_parameters[1] << std::endl;
             std::cout << "\t c2 = " << M_parameters[2] << std::endl;
+            M_tau = 0.5 / (c1 + c2 );
+
             break;
         }
         case IsotropicCL::Exponential:
@@ -128,6 +130,8 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             std::cout << "\t density = " << M_parameters[0] << std::endl;
             std::cout << "\t a = " << M_parameters[1] << std::endl;
             std::cout << "\t b = " << M_parameters[2] << std::endl;
+            M_tau = 0.5 /  a;
+
             break;
         }
         default:
@@ -136,6 +140,9 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
         }
     }
     M_density = M_parameters[0];
+    double tau_coeff = data(section+"/tau", 1.0); // stabilization coefficient
+    M_tau *= tau_coeff; // rho
+
 }
 
 

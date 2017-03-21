@@ -107,6 +107,7 @@ public:
      */
      double evaluateIonicCurrent(double V, std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0){ return 0.0;}
      double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
+     double evaluatedIonicCurrent(std::vector<double>& variables, std::vector<double>& old_variables, double dt = 0.0, double h = 0.0);
 
     //! Initialize the values of the variables
     /*!

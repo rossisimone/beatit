@@ -94,6 +94,14 @@ public:
     virtual void assemble_residual(
             double dt = 0.0,
             libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+//    virtual void assemble_residual(
+//            double dt,
+//            const ParameterSystem& activation_system)
+//    {
+//        throw std::runtime_error("wrong assemble_residual function");
+//    }
+
+
     virtual void assemble_jacobian()
     {
     }
@@ -146,6 +154,8 @@ public:
     ElasticSolverType M_solverType;
     NewtonData M_newtonData;
     bool M_stabilize;
+    int M_currentNewtonIter;
+    bool M_JacIsAssembled;
 
     void evaluate_nodal_I4f();
 

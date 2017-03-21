@@ -92,6 +92,9 @@ class Monowave;
 class Electromechanics
 {
 public:
+    typedef libMesh::GMVIO Exporter;
+
+
     Electromechanics( libMesh::EquationSystems& es,
                       std::string system_name );
     ~Electromechanics( );
@@ -115,7 +118,12 @@ public:
 
     typedef libMesh::ExodusII_IO EXOExporter;
     std::unique_ptr<EXOExporter> M_exporter;
+    std::unique_ptr<Exporter> M_gmvExporter;
+    std::set<std::string> M_gmvExporterNames;
+
+
     void save_exo(int step, double time);
+    void save_gmv(int step, double time);
 
     void solve_mechanics();
 

@@ -72,6 +72,7 @@
 #include "Util/GenerateFibers.hpp"
 
 #include <iomanip>
+#include "Util/Timer.hpp"
 
 
 int main (int argc, char ** argv)
@@ -146,6 +147,8 @@ int main (int argc, char ** argv)
       monodomain.form_system_matrix(datatime.M_dt,false, system_mass);
 
       std::cout << "Time loop ..." << std::endl;
+      BeatIt::Timer timer;
+      timer.start();
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
           datatime.advance();
@@ -169,6 +172,8 @@ int main (int argc, char ** argv)
           }
 
       }
+      timer.stop();
+      timer.print(std::cout);
 
       std::cout << "Saving monodomain parameters ..." << std::endl;
       monodomain.save_parameters();

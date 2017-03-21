@@ -164,6 +164,21 @@ NashPanfilov::evaluatedIonicCurrent(std::vector<double>& variables, double appli
     double r = variables[1];
     return  - M_k * ( (V - 1.0) * (V - M_a) +  V * (V - M_a) + V * (V - 1.0) ) - r;
 }
+double
+NashPanfilov::evaluatedIonicCurrent( std::vector<double>& variables,
+                                     std::vector<double>& old_variables,
+                                     double dt,
+                                     double h )
+{
+    double V = variables[0];
+    double r = variables[1];
+    double dIdV =  - M_k * ( (V - 1.0) * (V - M_a) +  V * (V - M_a) + V * (V - 1.0) ) - r;
+    double dIdr =  - V;
+    double Q = old_variables[0];
+    double dr = (r - old_variables[1]) / dt;
+    return dIdV * Q + dIdr * dr;
+}
+
 
 
 void

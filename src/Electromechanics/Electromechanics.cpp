@@ -53,6 +53,8 @@
 #include "Util/IO/io.hpp"
 #include "libmesh/numeric_vector.h"
 #include "libmesh/exodusII_io.h"
+#include "libmesh/gmv_io.h"
+
 #include "Electrophysiology/IonicModels/IonicModel.hpp"
 
 namespace BeatIt
@@ -119,7 +121,7 @@ Electromechanics::setup( GetPot& data,
     activation_system.add_variable( "gammaf", libMesh::FIRST);
     activation_system.init();
 
-    if(ionic_model_name != "NashPanfilov")
+    if(ionic_model_name != "NashPanfilov" && ionic_model_name != "FentonKarma")
     {
 		ActivationSystem& NL06_system = M_equationSystems.add_system<ActivationSystem>("NL06");
 		NL06_system.add_variable( "TCa", libMesh::FIRST);
@@ -138,6 +140,13 @@ Electromechanics::setup( GetPot& data,
     M_exporter->write_equation_systems (M_outputFolder+"em.exo", M_equationSystems);
     M_exporter->append(true);
 
+    M_gmvExporter.reset(new Exporter( M_equationSystems.get_mesh() ) );
+
+    M_gmvExporterNames.insert("monodomain");
+    M_gmvExporterNames.insert("wave");
+    M_gmvExporterNames.insert(M_elasticity->M_myName);
+    M_gmvExporterNames.insert("I4f");
+    M_gmvExporterNames.insert("activation");
 }
 
 void
@@ -163,8 +172,13 @@ Electromechanics::compute_activation(double dt)
 
     double mu_a = 5.0;
 
-    if(ionic_model_name == "NashPanfilov")
+    //       d gammaf
+    //  mu_a --------  = -0.1 * V - gammaf;
+    //          d t
+    if(ionic_model_name == "NashPanfilov" || ionic_model_name == "FentonKarma")
     {
+        if(ionic_model_name == "FentonKarma") mu_a =25.0;
+
         typedef libMesh::TransientExplicitSystem           WaveSystem;
         WaveSystem& wave_system =  M_equationSystems.get_system<WaveSystem>("wave");
 
@@ -317,11 +331,24 @@ Electromechanics::save_exo(int step, double time)
 }
 
 void
+Electromechanics::save_gmv(int step, double time)
+{
+    std::cout << "* ELECTROMECHANICS: GMVIO::Exporting em.gmv at time "   << time << " in: "  << M_outputFolder << " ... " << std::flush;
+    M_gmvExporter->write_equation_systems ( M_outputFolder+"em.gmv."+std::to_string(step),
+                                            M_equationSystems,
+                                           &M_gmvExporterNames);
+    std::cout << "done " << std::endl;
+
+}
+
+
+void
 Electromechanics::solve_mechanics()
 {
     ActivationSystem& activation_system = M_equationSystems.add_system<ActivationSystem>("activation");
+    activation_system.update();
     double dt = 0.0;
-    M_elasticity->newton(dt, activation_system.solution.get());
+    M_elasticity->newton(dt, activation_system.current_local_solution.get());
     M_elasticity->evaluate_nodal_I4f();
 }
 
