@@ -73,6 +73,9 @@
 #include <iomanip>
 //#include "libmesh/vtk_io.h"
 #include "libmesh/exodusII_io.h"
+#include "Util/Timer.hpp"
+
+
 enum class TestCase
 {
 	NP,                      // Nash Panfilov model
@@ -198,6 +201,10 @@ int main (int argc, char ** argv)
       std::string cut_function;
       if(cut) cut_function = data("monodomain/c/function",  "NO_FUNCTION");
       std::cout << "cut_time: " << cut_time << ", function: " << cut_function << std::endl;
+
+      BeatIt::Timer timer;
+      timer.start();
+
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
 
@@ -238,12 +245,15 @@ int main (int argc, char ** argv)
 
 
       }
+      timer.stop();
+      timer.print(std::cout);
+
 
       monodomain.save_parameters();
       monodomain.save_exo(1, datatime.M_time);
-      double last_activation_time = monodomain.last_activation_time();
-      double potential_norm = monodomain.potential_norm();
-      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
+//      double last_activation_time = monodomain.last_activation_time();
+//      double potential_norm = monodomain.potential_norm();
+//      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
       return 0;
 }
 

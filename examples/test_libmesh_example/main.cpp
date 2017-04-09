@@ -52,90 +52,70 @@ int main (int argc, char ** argv)
   // Create an equation systems object.
   EquationSystems equation_systems (mesh);
   // Initialize the data structures for the equation system.
-  equation_systems.add_system<LinearImplicitSystem> ("DG");
+  equation_systems.add_system<LinearImplicitSystem> ("sys");
 
   // Adds the variable "u" to "DG".  "u"
   // will be approximated using first-order approximation.
-  equation_systems.get_system("DG").add_variable("u", FIRST, L2_LAGRANGE);
-  equation_systems.init();
+  equation_systems.get_system("sys").add_variable("u", FIRST);
+  equation_systems.get_system("sys").add_variable("v", FIRST);
+  equation_systems.get_system("sys").add_variable("p", FIRST);
+
+  equation_systems.add_system<LinearImplicitSystem> ("disp");
+  equation_systems.get_system("disp").add_variable("uu", FIRST);
+  equation_systems.get_system("disp").add_variable("vv", FIRST);
+
   // Prints information about the system to the screen.
+  equation_systems.init();
   equation_systems.print_info();
 
-  //INITIALIZE u VECTOR:
-  libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
-  const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
-  std::vector<libMesh::dof_id_type> dof_indices;
-  libMesh::DenseVector<libMesh::Number> Fe;
-  const libMesh::DofMap & dof_map = equation_systems.get_system("DG").get_dof_map();
-  libMesh::FEType fe_disp = dof_map.variable_type(0);
-  const unsigned int dim = mesh.mesh_dimension();
-
-  for (; el != end_el; ++el)
+  equation_systems.get_system("sys").solution->print(std::cout);
+  auto it = mesh.active_nodes_begin();
+  auto it_end = mesh.active_nodes_end();
+  auto sys_num = equation_systems.get_system("sys").number();
+  for (; it != it_end; it++)
   {
-      const libMesh::Elem * elem = *el;
-      auto elID = elem->id();
-
-      dof_map.dof_indices(elem, dof_indices);
-      Fe.resize( dof_indices.size() );
-      Fe(0) = dof_indices[0];
-      Fe(1) = dof_indices[1];
-      Fe(2) = dof_indices[2];
-
-      equation_systems.get_system("DG").solution->insert(Fe, dof_indices);
+      auto * node = *it;
+      auto n_vars = node->n_vars(sys_num);
+      unsigned int c = 0;
+      for(auto v = 0; v != n_vars; ++v)
+      {
+          auto dof_id = node -> dof_number (sys_num, v, c);
+          double value = v+1;
+          equation_systems.get_system("sys").solution->set(dof_id, value);
+      }
   }
-  equation_systems.get_system("DG").solution->close();
-  equation_systems.get_system("DG").solution->print(std::cout);
+  equation_systems.get_system("sys").solution->close();
+  equation_systems.get_system("sys").solution->print(std::cout);
 
-  std::cout << "Exporting timestep 0 ... " << std::flush;
-  ExodusII_IO exp(mesh);
-  exp.write_discontinuous_exodusII("dg.e-s.0000", equation_systems);
-  VTKIO vtk0(mesh);
-  vtk0.write_equation_systems("dg.0.vtk", equation_systems);
-  std::cout << " done. " << std::endl;
+  equation_systems.get_system("disp").solution->print(std::cout);
 
-  el = mesh.active_local_elements_begin();
-  for (; el != end_el; ++el)
+
+  it = mesh.active_nodes_begin();
+  auto disp_sys_num = equation_systems.get_system("disp").number();
+  for (; it != it_end; it++)
   {
-      const libMesh::Elem * elem = *el;
-      auto elID = elem->id();
-
-      dof_map.dof_indices(elem, dof_indices);
-      Fe.resize( dof_indices.size() );
-      Fe(0) = dof_indices[0]+1;
-      Fe(1) = dof_indices[1]+1;
-      Fe(2) = dof_indices[2]+1;
-
-      equation_systems.get_system("DG").solution->insert(Fe, dof_indices);
+      auto * node = *it;
+      auto n_vars = node->n_vars(sys_num);
+      auto disp_n_vars = node->n_vars(disp_sys_num);
+      //std::cout << "n_vars: " << n_vars << ", disp_n_vars: " << disp_n_vars << std::endl;
+      for(auto v = 0; v != disp_n_vars; ++v)
+      {
+          auto nc_disp = node->n_comp(disp_sys_num, v);
+          auto nc = node->n_comp(sys_num, v);
+          //std::cout << "nc disp: " << nc_disp << ", nc: " << nc << std::endl;
+          for(auto c = 0; c != nc_disp; ++c)
+          {
+              auto dof_id_disp = node -> dof_number (disp_sys_num, v, c);
+              auto dof_id = node -> dof_number (sys_num, v, c);
+              //std::cout << "dof_id_disp: " << dof_id_disp << ", dof_id: " << dof_id << std::endl;
+              double value = (*equation_systems.get_system("sys").solution)(dof_id);
+              //std::cout << "value: " << value << std::endl;
+              equation_systems.get_system("disp").solution->set(dof_id_disp, value);
+          }
+      }
   }
-  equation_systems.get_system("DG").solution->close();
-  std::cout << "Exporting timestep 1  ... " << std::flush;
-  ExodusII_IO exp2(mesh);
-  exp2.write_discontinuous_exodusII("dg.e-s.0001", equation_systems);
-  vtk0.write_equation_systems("dg.1.vtk", equation_systems);
+  equation_systems.get_system("disp").solution->print(std::cout);
 
-  std::cout << " done. " << std::endl;
-
-  el = mesh.active_local_elements_begin();
-  for (; el != end_el; ++el)
-  {
-      const libMesh::Elem * elem = *el;
-      auto elID = elem->id();
-
-      dof_map.dof_indices(elem, dof_indices);
-      Fe.resize( dof_indices.size() );
-      Fe(0) = dof_indices[0]+2;
-      Fe(1) = dof_indices[1]+2;
-      Fe(2) = dof_indices[2]+2;
-
-      equation_systems.get_system("DG").solution->insert(Fe, dof_indices);
-  }
-  equation_systems.get_system("DG").solution->close();
-  std::cout << "Exporting timestep 2 ... " << std::flush;
-  ExodusII_IO exp3(mesh);
-  exp3.write_discontinuous_exodusII("dg.e-s.0002", equation_systems);
-  vtk0.write_equation_systems("dg.2.vtk", equation_systems);
-
-  std::cout << " done. " << std::endl;
   return 0;
 }
 

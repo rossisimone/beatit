@@ -54,7 +54,9 @@
 // Define useful datatypes for finite element
 // matrix and vector components.
 #include "libmesh/sparse_matrix.h"
+#include "libmesh/petsc_matrix.h"
 #include "libmesh/numeric_vector.h"
+#include "libmesh/petsc_vector.h"
 #include "libmesh/dense_matrix.h"
 #include "libmesh/dense_vector.h"
 #include "libmesh/elem.h"
@@ -208,12 +210,13 @@ Elasticity::setupSystem(std::string section )
     std::cout << " ... " << std::flush;
     libMesh::FEFamily  fefamily = ( fefamily_it !=  BeatIt::libmesh_fefamily_map.end() ) ? fefamily_it->second : throw std::runtime_error("FeFamily Explode!!!");
     std::cout << "fefamily found!" << std::endl;
-    std::cout << "* ELASTICITY: Setting up displacement field - order: " << ord << ", fefamily = " << fam  << std::endl;
+    std::cout << "* ELASTICITY: Setting up displacement field - order: " << ord << ", fefamily = " << fam  << std::flush;
     std::cout << "Adding variable_x!" << std::endl;
     system.add_variable(disp_name+"x", order, fefamily);
     std::cout << "Adding variable_y!" << std::endl;
     if(dimension > 1) system.add_variable(disp_name+"y", order, fefamily);
     if(dimension > 2) system.add_variable(disp_name+"z", order, fefamily);
+    std::cout << " ... done " << std::endl;
 
     // PRESSURE SYSTEM
     std::string formulation = M_datafile(section+"/formulation",  "primal");
@@ -225,29 +228,36 @@ Elasticity::setupSystem(std::string section )
         M_solverType = ElasticSolverType::Mixed;
 		ord = M_datafile(section+"/p_order",  1);
 		fam = M_datafile(section+"/p_fefamily",  "lagrange");
-	    std::cout << "* ELASTICITY: Setting up pressure  field - order: " << ord << ", fefamily = " << fam  << std::endl;
+	    std::cout << "* ELASTICITY: Setting up pressure  field - order: " << ord << ", fefamily = " << fam  << std::flush;
 	    libMesh::Order  p_order  = BeatIt::libmesh_order_map.find(ord)->second;
 	    libMesh::FEFamily  p_fefamily   = BeatIt::libmesh_fefamily_map.find(fam)->second;
 	    system.add_variable(pressure_name, p_order, p_fefamily);
+	    std::cout << " ... done " << std::endl;
+
     }
     else
     {
         M_solverType = ElasticSolverType::Primal;
-        std::cout << "* ELASTICITY: Setting up pressure  field "  << std::endl;
+        std::cout << "* ELASTICITY: Setting up pressure  field ... "  << std::flush;
         LinearSystem& p_system  =  M_equationSystems.add_system<LinearSystem>("Pressure_Projection");
         p_system.add_variable(pressure_name, libMesh::FIRST, libMesh::LAGRANGE);
         p_system.init();
+        std::cout << " done " << std::endl;
+
     }
 
-    std::cout << "* ELASTICITY: Adding residual and step"  << std::endl;
+    std::cout << "* ELASTICITY: Adding residual and step"  << std::flush;
     system.add_vector("residual");
     system.add_vector("step");
+    std::cout << " done " << std::endl;
 
 
-    std::cout << "* ELASTICITY: Reading BC ... " << std::endl;
+    std::cout << "* ELASTICITY: Reading BC ... " << std::flush;
       M_bch.readBC(M_datafile, section);
       M_bch.showMe();
-    std::cout << "* ELASTICITY: Setup Homogenuous Dirichlet BC ... " << std::endl;
+      std::cout << " done " << std::endl;
+
+    std::cout << "* ELASTICITY: Setup Homogenuous Dirichlet BC ... " << std::flush;
 
     for(auto&& bc_ptr : M_bch.M_bcs)
     {
@@ -310,9 +320,48 @@ Elasticity::setupSystem(std::string section )
 
         } // end if Dirichlet
     } // end for loop on BC
+    std::cout << " done " << std::endl;
 
 
+    // Add position X
+    system.add_vector("X");
     system.init();
+
+
+    // FILL VECTOR X
+    std::cout << "* ELASTICITY: Filling position vector ... " << std::flush;
+    auto it = M_equationSystems.get_mesh().active_nodes_begin();
+    auto it_end = M_equationSystems.get_mesh().active_nodes_end();
+    auto sys_num = system.number();
+    for (; it != it_end; it++)
+    {
+        auto * node = *it;
+        auto n_vars = node->n_vars(sys_num);
+        for(auto v = 0; v != n_vars; ++v)
+        {
+            double value = 0.0;
+            if(v < 3) value = (*node)(v);
+
+            auto nc = node->n_comp(sys_num, v);
+            for(auto c = 0; c != nc; ++c)
+            {
+                auto dof_id = node -> dof_number (sys_num, v, c);
+                system.get_vector("X").set(dof_id, value);
+            }
+
+//            std::cout << "cc:  " << cc << std::endl;
+//             std::cout << "Setting: " << value << " for dof_id " << dof_id << std::endl;
+        }
+    }
+//    {
+//        auto petscVecPtr = dynamic_cast<libMesh::PetscVector<libMesh::Number> *>(system.request_vector("X"));
+//        VecSetBlockSize(petscVecPtr->vec(),3);
+//        int m = petscVecPtr->size();
+//        VecSetSizes(petscVecPtr->vec(),m,PETSC_DECIDE);
+//    }
+    system.get_vector("X").close();
+    std::cout << " done " << std::endl;
+
 
 }
 
@@ -798,10 +847,38 @@ Elasticity::solve_system()
 //    system.matrix->print(std::cout);
 //    std::cout << "\nRHS!" << std::endl;
 //    system.rhs->print(std::cout);
+
+    // set near null space
+    {
+//        auto petscMatrixPtr = dynamic_cast<libMesh::PetscMatrix<libMesh::Number> *>(system.matrix);
+//        auto petscVecPtr = dynamic_cast<libMesh::PetscVector<libMesh::Number> *>(system.request_vector("X"));
+//        MatNullSpace matnull;
+//        Vec          vec_coords;
+//        PetscScalar  *c;
+
+//        VecCreate(MPI_COMM_WORLD,&vec_coords);
+//        VecSetBlockSize(vec_coords,3);
+//        VecSetSizes(vec_coords,m,PETSC_DECIDE);
+//        VecSetUp(vec_coords);
+//        VecGetArray(vec_coords,&c);
+//        for (i=0; i<m; i++) c[i] = coords[i]; /* Copy since Scalar type might be Complex */
+//        VecRestoreArray(vec_coords,&c);
+//        MatNullSpaceCreateRigidBody(petscVecPtr->vec(),&matnull);
+//        MatSetNearNullSpace(petscMatrixPtr->mat(),matnull);
+//        MatNullSpaceDestroy(&matnull);
+
+    }
+
+
     std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
     rval = M_linearSolver->solve (*system.matrix, nullptr,
 														system.get_vector("step"),
 														*system.rhs, tol, max_iter);
+
+    std::cout << "num it: " << rval.first << ", res: " <<  rval.second << std::endl;
+//    system.matrix->print(std::cout);
+//    system.rhs->print(std::cout);
+//    system.get_vector("step").print(std::cout);
 
 }
 
@@ -969,22 +1046,49 @@ Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activatio
 
 		std::cout << "* ELASTICITY: Performing Newton solve:  max iterations: " << max_iter << ", target tolerance: " << tol << std::endl;
 		std::cout << "\t\t\t  iter: " << iter << ", residual: " << res_norm << std::endl;
+
+        double linear_tol = 1e-12;
+        double linear_max_iter = 2000;
+
  	    while(res_norm > tol && M_currentNewtonIter < max_iter)
  	    {
  	       M_currentNewtonIter++;
 
- 	    	solve_system();
+        //solve_system();
+
+
+ 	      std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
+ 	      rval = M_linearSolver->solve (*system.matrix, nullptr,
+ 	                                                          system.get_vector("step"),
+ 	                                                          *system.rhs, linear_tol, linear_max_iter);
+//          std::cout << "RHS!\n" << std::endl;
+          //system.rhs->print(std::cout);
+//          std::cout << "Step!\n" << std::endl;
+ 	     //system.get_vector("step").print(std::cout);
+
+//         std::cout << "Jac!\n" << std::endl;
+ 	    //system.matrix->print(std::cout);
+//          std::cout << "Solution!\n" << std::endl;
+//          system.solution->print(std::cout);
+
+ 	      if(rval.first == 0)
+ 	      {
+ 	          std::cout << "* ELASTICITY: WARNING: linear solver diverged, try adding -ksp_divtol 1e10 " << std::endl;
+              std::cout << "* ELASTICITY: I'm stopping the newton iterations, hopefully you are close enough " << std::endl;
+              break;
+ 	      }
+
  	    	(*system.solution) += system.get_vector("step");
+
+
 
  	        update_displacements(dt);
  	      	assemble_residual(dt, activation_ptr);
              res_norm = system.rhs->linfty_norm ();
 			std::cout << "\t\t\t  iter: " << M_currentNewtonIter << ", residual: " << res_norm << std::endl;
  	    }
-// 	               std::cout << "Solution!\n" << std::endl;
-// 	               system.solution->print(std::cout);
 
-		std::cout << "* ELASTICITY: Newton solve completed in " << iter << " iterations. Final residual: " << res_norm << std::endl;
+		std::cout << "* ELASTICITY: Newton solve completed in " << M_currentNewtonIter << " iterations. Final residual: " << res_norm << std::endl;
 		timer.stop();
         timer.print(std::cout);
 }

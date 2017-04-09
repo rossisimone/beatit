@@ -134,6 +134,7 @@ int main (int argc, char ** argv)
 
 
       int save_iter = 0;
+      int save_iter_exo = 0;
       std::cout << "Initializing output monodomain ..." << std::endl;
       em.M_monowave->init_exo_output();
       std::cout << "Saving monodomain parameters ..." << std::endl;
@@ -150,10 +151,15 @@ int main (int argc, char ** argv)
       int step0 = 0;
       int step1 = 1;
 
+      std::cout << "Assembling monodomain ..." << std::endl;
       em.M_monowave->assemble_matrices();
       em.M_monowave->form_system_matrix(datatime.M_dt,false, system_mass);
+      std::cout << " done" << std::endl;
 
-      std::cout << "Assembling monodomain ..." << std::endl;
+      double emdt = data("em/time/emdt", 1.0);
+      int em_iter = static_cast<int>(emdt/datatime.M_dt);
+      double emdt_exo = data("em/time/save_exo", 10.0);
+      int em_exo_iter = static_cast<int>(emdt_exo/datatime.M_dt);
 
       std::cout << "Time loop ..." << std::endl;
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
@@ -168,28 +174,37 @@ int main (int argc, char ** argv)
           em.M_monowave->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
 
           em.M_monowave->update_activation_time(datatime.M_time);
-
           // Activation part
           em.compute_activation(datatime.M_dt);
+          //em.compute_activation(datatime.M_dt);
           // mechanics part
-          if( 0 == datatime.M_iter%datatime.M_saveIter )
+          if( 0 == datatime.M_iter%em_iter )
           {
-        	  std::cout << "Solving mechanics ... " << std::endl;
+              std::cout << "Solving mechanics ... " << std::endl;
+              em.M_elasticity->setTime(datatime.M_time);
               em.solve_mechanics();
              std::cout << "* Test EM: Time: " << datatime.M_time << std::endl;
-             //em.M_monowave->save_potential(save_iter+1, datatime.M_time);
-             save_iter++;
-             em.save_exo(save_iter, datatime.M_time);
           }
+
+          if( 0 == datatime.M_iter%datatime.M_saveIter )
+          {
+             save_iter++;
+             em.save_gmv(save_iter, datatime.M_time);
+          }
+         if( 0 ==  datatime.M_iter%em_exo_iter )
+         {
+             save_iter_exo++;
+             em.save_exo(save_iter_exo, datatime.M_time);
+         }
 
       }
 
       std::cout << "Saving monodomain parameters ..." << std::endl;
       em.M_monowave->save_parameters();
       em.M_monowave->save_exo(1, datatime.M_time);
-      double last_activation_time = em.M_monowave->last_activation_time();
-      double potential_norm = em.M_monowave->potential_norm();
-      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
+      //double last_activation_time = em.M_monowave->last_activation_time();
+      //double potential_norm = em.M_monowave->potential_norm();
+      //std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
       return 0;
 
 }

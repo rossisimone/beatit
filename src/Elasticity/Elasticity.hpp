@@ -111,7 +111,7 @@ public:
     virtual void update_displacements(double /* dt */)
     {
     }
-    void solve_system();
+    virtual void solve_system();
     virtual void project_pressure();
 
     virtual void advance()

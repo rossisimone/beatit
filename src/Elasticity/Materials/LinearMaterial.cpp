@@ -121,9 +121,9 @@ LinearMaterial::evaluateDeviatoricStress()
     double mu = M_parameters[1];
     M_strain =  0.5 * ( M_gradU + M_gradU.transpose() );
     double trEk = M_strain.tr();
-//    M_deviatoric_stress = 2.0 * mu * M_strain;
-//    if(!M_isIncompressible)     M_deviatoric_stress -= 2.0 * mu / 3.0 * trEk * M_identity;
-    M_deviatoric_stress = 2.0 * mu * ( M_strain - trEk / 3.0 * M_identity);
+    M_deviatoric_stress = 2.0 * mu * M_strain;
+    if(!M_isIncompressible)     M_deviatoric_stress -= 2.0 * mu / 3.0 * trEk * M_identity;
+//    M_deviatoric_stress = 2.0 * mu * ( M_strain - trEk / 3.0 * M_identity);
 
 }
 
@@ -168,14 +168,19 @@ LinearMaterial::evaluatePressureResidual()
 void
 LinearMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q)
 {
+
 	double mu = M_parameters[1];
 	double kappa = M_parameters[2];
 	auto	  dE = 0.5 * (dU + dU.transpose() );
 	double trdE = dE.tr();
-//	M_deviatoric_jacobian = 2.0 * mu * dE;
-//	if(!M_isIncompressible) M_deviatoric_jacobian -= 2.0 * mu / 3.0 *  trdE *  M_identity;
-		M_deviatoric_jacobian = 2.0 * mu * ( dE - trdE / 3.0 * M_identity);
+	M_deviatoric_jacobian = 2.0 * mu * dE;
+	if(!M_isIncompressible) M_deviatoric_jacobian -= 2.0 * mu / 3.0 *  trdE *  M_identity;
+//		M_deviatoric_jacobian = 2.0 * mu * ( dE - trdE / 3.0 * M_identity);
+//        std::cout << "dU: " << std::endl;
+     //   dU.print(std::cout);
 
+	//	std::cout << "Dev Jac: " << std::endl;
+		//M_deviatoric_jacobian.print(std::cout);
 }
 
 void
