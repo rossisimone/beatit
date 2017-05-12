@@ -88,6 +88,7 @@ SpiritFunction::read(std::string& str)
 void
 SpiritFunction::showMe(std::ostream& ofstream)
 {
+	ofstream << "\t\t\t size: " << M_expression.size() << std::endl;
 	for(auto&& str : M_expression)	ofstream << " \t\t\t function " << str << std::endl;
 }
 

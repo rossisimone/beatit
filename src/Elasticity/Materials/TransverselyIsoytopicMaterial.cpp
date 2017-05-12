@@ -242,7 +242,7 @@ double
 TransverselyIsoytopicMaterial::W4 (double I4, double I5, double J)
 {
     double W4 = 0.0;
-    if(I4 < 1) return 0.0;
+//    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
@@ -264,7 +264,7 @@ double
 TransverselyIsoytopicMaterial::W44(double I4, double I5, double J)
 {
     double W44 = 0.0;
-    if(I4 < 1) return 0.0;
+//    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
@@ -284,7 +284,7 @@ double
 TransverselyIsoytopicMaterial::W45(double I4, double I5, double J)
 {
     double W45 = 0.0;
-    if(I4 < 1) return 0.0;
+//    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
@@ -301,7 +301,7 @@ double
 TransverselyIsoytopicMaterial::W5 (double I4, double I5, double J)
 {
     double W5 = 0.0;
-    if(I4 < 1) return 0.0;
+//    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
@@ -321,7 +321,7 @@ double
 TransverselyIsoytopicMaterial::W54(double I4, double I5, double J)
 {
     double W54 = 0.0;
-    if(I4 < 1) return 0.0;
+//    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
@@ -337,7 +337,7 @@ double
 TransverselyIsoytopicMaterial::W55(double I4, double I5, double J)
 {
     double W55 = 0.0;
-    if(I4 < 1) return 0.0;
+//    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
