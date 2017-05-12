@@ -98,7 +98,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             double nu = data(section+"/nu", 0.0);
             M_parameters[1] = E / ( 2.0 * ( 1 + nu ) );// mu
             M_parameters[2] = 1.0;// kappa
-
+            M_kappa = M_parameters[2];
             std::cout << "\t density = " << M_parameters[0] << std::endl;
             std::cout << "\t shear modulus = " << M_parameters[1] << std::endl;
             std::cout << "\t bulk modulus = " << M_parameters[2] << std::endl;
@@ -112,7 +112,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             double c2 = data(section+"/c2", 0.0);
             M_parameters[1] = c1;// c1
             M_parameters[2] = c2;// c2
-
+            M_kappa = data(section+"/k", 1.0);
             std::cout << "\t density = " << M_parameters[0] << std::endl;
             std::cout << "\t c1 = " << M_parameters[1] << std::endl;
             std::cout << "\t c2 = " << M_parameters[2] << std::endl;
@@ -126,6 +126,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             double b = data(section+"/b", 0.0);
             M_parameters[1] = a;// a
             M_parameters[2] = b;// v
+            M_kappa = data(section+"/k", 1.0);
 
             std::cout << "\t density = " << M_parameters[0] << std::endl;
             std::cout << "\t a = " << M_parameters[1] << std::endl;
@@ -197,7 +198,7 @@ IsotropicMaterial::evaluateVolumetricStress()
      *  P = F * S
      *  Svol =  J p C^-1
      */
-	double kappa = M_parameters[2];
+	double kappa = M_kappa;
 
 	double p = kappa * ( M_Jk - 1);
 	M_volumetric_stress = M_Jk * p * M_Cinvk;

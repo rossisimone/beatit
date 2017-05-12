@@ -158,6 +158,7 @@ public:
     bool M_JacIsAssembled;
 
     void evaluate_nodal_I4f();
+    void evaluate_L2_J_err();
 
 protected:
     void apply_BC(
@@ -169,7 +170,8 @@ protected:
             const libMesh::MeshBase& mesh,
             int n_ux_dofs,
             MaterialPtr mat = nullptr,
-            double dt = 0.0, double time = 1.0);
+            double dt = 0.0, double time = 1.0,
+            std::vector<double>* solk = nullptr);
 };
 
 } /* namespace BeatIt */

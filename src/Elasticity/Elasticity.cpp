@@ -273,21 +273,25 @@ Elasticity::setupSystem(std::string section )
                 default:
                 case BCMode::Full:
                 {
+                    std::cout << "Setting mode FULL" << std::endl;
                     for(unsigned int k = 0; k < dimension; ++k) variables.push_back(k);
                     break;
                 }
                 case BCMode::Component:
                 {
+                    std::cout << "Setting mode COMPONENT" << std::flush;
                     auto component = bc_ptr->get_component();
                     switch(component)
                     {
                         case BCComponent::X:
                         {
+                            std::cout << " X" << std::endl;
                             variables.push_back(0);
                             break;
                         }
                         case BCComponent::Y:
                         {
+                            std::cout << " Y" << std::endl;
                             variables.push_back(1);
                             break;
                         }
@@ -310,18 +314,23 @@ Elasticity::setupSystem(std::string section )
                 // Create a ZeroFunction to initialize dirichlet_bc
                 dirichlet_boundary_ids.insert(flag);
             }
+//
+//            libMesh::ZeroFunction<> zf;
+//            libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids,
+//                                                                                   variables,
+//                                                                                   &zf );
 
-            libMesh::ZeroFunction<> zf;
+
             libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids,
                                                                                    variables,
-                                                                                   &zf);
+                                                                                   &(bc_ptr->get_function()) );
 
             system.get_dof_map().add_dirichlet_boundary(dirichlet_bc);
 
         } // end if Dirichlet
     } // end for loop on BC
-    std::cout << " done " << std::endl;
-
+    //std::cout << " done " << std::endl;
+    //system.get_dof_map().print_info();
 
     // Add position X
     system.add_vector("X");
@@ -360,7 +369,7 @@ Elasticity::setupSystem(std::string section )
 //        VecSetSizes(petscVecPtr->vec(),m,PETSC_DECIDE);
 //    }
     system.get_vector("X").close();
-    std::cout << " done " << std::endl;
+//    std::cout << " done " << std::endl;
 
 
 }
@@ -761,6 +770,8 @@ Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMesh::N
 
       apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0, time);
       dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
+//      dof_map.heterogenously_constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
+
 
       system.matrix->add_matrix (Ke, dof_indices);
       system.rhs->add_vector    (Fe, dof_indices);
@@ -773,13 +784,14 @@ Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMesh::N
 
 void
 Elasticity::apply_BC( const libMesh::Elem*& elem,
-                   libMesh::DenseMatrix<libMesh::Number>& /* Ke */,
+                   libMesh::DenseMatrix<libMesh::Number>& Ke,
                    libMesh::DenseVector<libMesh::Number>& Fe,
                    libMesh::UniquePtr<libMesh::FEBase>& fe_face,
                    libMesh::QGauss& qface,
                    const libMesh::MeshBase& mesh, int n_ux_dofs,
                    MaterialPtr /* mat */,
-                   double /* dt */, double time)
+                   double /* dt */, double time,
+                   std::vector<double>* solk)
 {
 	const unsigned int dim = mesh.mesh_dimension();
 	for (unsigned int side=0; side<elem->n_sides(); side++)
@@ -824,6 +836,51 @@ Elasticity::apply_BC( const libMesh::Elem*& elem,
 						    }
 							break;
 						}
+                        case BCType::Penalty:
+                        {
+                            auto& solution_k = *solk;
+                            auto mode = bc->get_mode();
+                            if(BCMode::Component == mode)
+                            {
+                                int idim = 0;
+                                if(BCComponent::Y == bc->get_component()) idim = 1;
+                                if(BCComponent::Z == bc->get_component()) idim = 2;
+
+                                double beta = 1e6;
+
+
+                                for (unsigned int qp=0; qp<qface.n_points(); qp++)
+                                {
+                                    double uk = 0.0;
+                                    // The location on the boundary of the current
+                                    // face quadrature point.
+                                    const double xq = qface_point[qp](0);
+                                    const double yq = qface_point[qp](1);
+                                    const double zq = qface_point[qp](2);
+
+                                    const unsigned int n_phi = phi_face.size();
+                                    for(unsigned int l = 0; l < n_phi; ++l )
+                                    {
+                                            uk += phi_face[l][qp] * solution_k[l+idim*n_phi];
+                                    } // end grad Uk on qp
+
+                                    const double value = bc->get_function()(time, xq, yq, zq, idim);
+                                    for (unsigned int i=0; i< n_ux_dofs; i++)
+                                    {
+                                        Fe(i+idim*n_ux_dofs) += JxW_face[qp] * beta * (value - uk ) * phi_face[i][qp];
+                                    }
+
+                                    for (unsigned int i=0; i< n_ux_dofs; i++)
+                                    {
+                                        for (unsigned int j=0; j< n_ux_dofs; j++)
+                                        {
+                                            Ke(i+idim*n_ux_dofs,j+idim*n_ux_dofs) += JxW_face[qp] * beta * phi_face[i][qp] * phi_face[j][qp];
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        }
 						default:
 						{
 							break;
@@ -1062,12 +1119,12 @@ Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* activatio
  	                                                          system.get_vector("step"),
  	                                                          *system.rhs, linear_tol, linear_max_iter);
 //          std::cout << "RHS!\n" << std::endl;
-          //system.rhs->print(std::cout);
+//          system.rhs->print(std::cout);
 //          std::cout << "Step!\n" << std::endl;
- 	     //system.get_vector("step").print(std::cout);
-
+// 	     system.get_vector("step").print(std::cout);
+//
 //         std::cout << "Jac!\n" << std::endl;
- 	    //system.matrix->print(std::cout);
+// 	    system.matrix->print(std::cout);
 //          std::cout << "Solution!\n" << std::endl;
 //          system.solution->print(std::cout);
 
@@ -1262,5 +1319,88 @@ Elasticity::evaluate_nodal_I4f()
     I4f_system.solution->close();
 
 }
+
+void
+Elasticity::evaluate_L2_J_err()
+{
+    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+    const unsigned int dim = mesh.mesh_dimension();
+
+    ParameterSystem& I4f_system   = M_equationSystems.get_system<ParameterSystem>("I4f");
+    LinearSystem &   system       = M_equationSystems.get_system<LinearSystem>(M_myName);
+
+
+    const libMesh::DofMap & dof_map_I4f    = I4f_system.get_dof_map();
+    const libMesh::DofMap & dof_map        = system.get_dof_map();
+
+    libMesh::FEType fe_type = dof_map_I4f.variable_type(0);
+    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+
+    // A 5th order Gauss quadrature rule for numerical integration.
+    libMesh::QGauss qrule(dim, libMesh::FIRST);
+
+    fe->attach_quadrature_rule(&qrule);
+    const std::vector<libMesh::Real> & JxW = fe->get_JxW();
+    const std::vector<std::vector<libMesh::Real> > & phi = fe->get_phi();
+    const std::vector<std::vector<libMesh::RealGradient> > & dphi = fe->get_dphi();
+
+    std::vector<libMesh::dof_id_type> dof_indices;
+    std::vector<libMesh::dof_id_type> dof_indices_I4f;
+
+    libMesh::MeshBase::const_element_iterator el =
+            mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el =
+            mesh.active_local_elements_end();
+
+    std::vector<double> disp;
+    libMesh::TensorValue <libMesh::Number> Fk;
+
+    double errJ2 = 0.0;
+
+    for (; el != end_el; ++el)
+    {
+        const libMesh::Elem * elem = *el;
+        const unsigned int elem_id = elem->id();
+        dof_map.dof_indices(elem, dof_indices);
+        dof_map_I4f.dof_indices(elem, dof_indices_I4f);
+
+        fe->reinit(elem);
+
+        disp.resize(dof_indices.size());
+        system.current_local_solution->get(dof_indices, disp);
+
+        const unsigned int n_phi = phi.size();
+        for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
+        {
+            Fk *= 0.0;
+            for (unsigned int l = 0; l < phi.size(); l++)
+            {
+                for(int idim = 0; idim < dim; idim++)
+                {
+                    for(int jdim = 0; jdim < dim; jdim++)
+                    {
+                        Fk(idim, jdim) += dphi[l][qp](jdim) *disp[l+idim*n_phi];
+                    }
+                }
+            }
+            Fk(0, 0) += 1.0;
+            Fk(1, 1) += 1.0;
+            Fk(2, 2) += 1.0;
+
+            double J = Fk.det();
+            //std::cout << "J: " << J << std::endl;
+
+            errJ2 += JxW[qp] * (J-1) * (J-1);
+
+        }
+    }
+    mesh.comm().sum(errJ2);
+
+    double errJ = std::sqrt(errJ2);
+
+    std::cout << "\n|| J - 1 || = " << errJ << std::endl;
+
+}
+
 
 } /* namespace BeatIt */

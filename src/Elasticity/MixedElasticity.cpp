@@ -127,7 +127,8 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
    if(dim>2)uz_var =  system.variable_number ("displacementz");
 	p_var =  system.variable_number ("pressure");
 
-	const libMesh::DofMap & dof_map = system.get_dof_map();
+    const libMesh::DofMap & dof_map = system.get_dof_map();
+    //dof_map.create_dof_constraints(mesh, time);
     const libMesh::DofMap & dof_map_fibers= fiber_system.get_dof_map();
     const libMesh::DofMap & dof_map_activation = dummy_system.get_dof_map();
 
@@ -631,7 +632,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 //        }
 
 
-        Elasticity::apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0, time);
+        Elasticity::apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0, time, &solution_k);
 
         // Nietsch BC
 //        if (elem->neighbor(side) == libmesh_nullptr)
@@ -742,8 +743,13 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 
 //        Ke.print();
         dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
+//        dof_map.heterogenously_constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
+//        std::cout << "\nMatrix: " <<std::endl;
 //        Ke.print();
-
+//        std::cout << "\nVector: " <<std::endl;
+//        std::cout << Fe(0) << ", " << Fe(1) << ", " << Fe(2) << ",\n "
+//                  << Fe(3) << ", " << Fe(4) << ", " << Fe(5) << ",\n "
+//                  << Fe(6) << ", " << Fe(7) << ", " << Fe(8) << std::endl;
         system.matrix->add_matrix (Ke, dof_indices);
         system.rhs->add_vector    (Fe, dof_indices);
 

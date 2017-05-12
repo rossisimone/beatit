@@ -60,7 +60,8 @@ BCData::TypeMap  BCData::S_typeMap =
 		{"Dirichlet", BCType::Dirichlet},
 		{"Neumann", BCType::Neumann},
         {"NitscheSymmetric", BCType::NitscheSymmetric},
-        {"NitscheUnsymmetric", BCType::NitscheUnsymmetric}
+        {"NitscheUnsymmetric", BCType::NitscheUnsymmetric},
+        {"Penalty", BCType::Penalty}
 };
 
 
@@ -162,6 +163,11 @@ BCData::showMe( std::ostream& ofstream  )
         case BCType::NitscheUnsymmetric:
         {
             ofstream << " NitscheUnsymmetric" << std::endl;
+            break;
+        }
+        case BCType::Penalty:
+        {
+            ofstream << " Penalty" << std::endl;
             break;
         }
 		default:

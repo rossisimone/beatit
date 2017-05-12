@@ -92,7 +92,7 @@ public:
     double M_W2;
     double M_W21;
     double M_W22;
-
+    double M_kappa;
     bool M_active;
 
     IsotropicCL M_cl;
