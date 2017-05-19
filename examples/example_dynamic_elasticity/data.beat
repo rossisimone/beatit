@@ -1,0 +1,79 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+
+elX = 8
+E = 300
+nu = 0.0
+elType = TRI6
+
+
+[mesh]
+    # number of elements per side
+     input_mesh_name = LA_T4_m1.e
+    # input_mesh_name = LA_T4_m1_fibers.e
+    # input_mesh_name = LA_T4_m3_bis.e
+    #input_mesh_name = RA_test.e
+    
+[../]
+
+[elasticity]
+    # Output Folder
+    output_folder = test_primal_linear_TRI6
+    rhs = '0.0, 0.0'
+    order = 2
+    fefamily = LAGRANGE
+    p_order = 2
+    p_fefamily = LAGRANGE
+
+
+    materials = 'linear'
+    #materials = isotropic
+    [./materials]
+        [./linear]
+            matID = 0 
+            rho = 1.0
+            E   = 300.0
+            nu  = 0.4
+        [../]
+
+	[./isotropic]
+            matID = 0 
+            rho = 1.0
+            E   = 300.0
+            nu  = 0.4
+        [../]       
+    [../]
+
+    # Time Data
+    [./time]
+        use_midpoint = true
+        dt = 0.01
+        init_time = 0.0
+        final_time= 80.0
+        max_iter  = 2000000
+        save_iter = 10
+    [../]
+
+    [./BC]
+        list = 'zero, one'
+        [./zero]
+        flag = 3
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = '0.0, 0.0'
+        [../]
+        [./one]
+        flag = 1
+        type = Neumann #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = '0.0, -0.1'
+        [../]
+    [../]
+[../]
