@@ -191,5 +191,11 @@ SpiritFunction::component(unsigned int i,
  return operator ()(time, p(0), p(1), p(2), i);
 }
 
+int
+SpiritFunction::size() const
+{
+	return M_expression.size();
+}
+
 
 } /* namespace BeatIt */

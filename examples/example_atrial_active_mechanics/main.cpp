@@ -41,7 +41,7 @@
 #include "libmesh/transient_system.h"
 
 #include "libmesh/wrapped_functor.h"
-#include "libmesh/parallel_mesh.h"
+#include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"
 #include "Util/SpiritFunction.hpp"
 
@@ -53,6 +53,7 @@
 #include "libmesh/exodusII_io.h"
 
 #include <iomanip>
+#include <set>
 
 int main(int argc, char ** argv)
 {
@@ -75,7 +76,7 @@ int main(int argc, char ** argv)
 	// allow us to use higher-order approximation.
 	// Create a mesh, with dimension to be overridden later, on the
 	// default MPI communicator.
-	libMesh::ParallelMesh mesh(init.comm());
+	libMesh::Mesh mesh(init.comm());
 
 	// We may need XDR support compiled in to read binary .xdr files
 	std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
@@ -120,6 +121,7 @@ int main(int argc, char ** argv)
 			throw std::runtime_error("WRONG MESH!");
 		}
 	}
+
 	std::cout << "\nConstructing es: ..." << std::flush;
 	libMesh::EquationSystems es(mesh);
 	std::cout << "\ninit es: ..." << std::flush;
@@ -295,6 +297,13 @@ int main(int argc, char ** argv)
 		const libMesh::MeshBase::const_element_iterator end_el =
 				mesh.active_local_elements_end();
 		//           auto& grad1 = poisson1. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois1+"_gradient").solution;
+		std::cout
+				<< "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX: "
+				<< std::endl;
+		std::cout
+				<< "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX: "
+				<< std::endl;
+		std::cout << "el 1: " << &el << std::endl;
 
 		poisson2.M_equationSystems.get_system < libMesh::LinearImplicitSystem
 				> (pois2).update();
@@ -319,9 +328,16 @@ int main(int argc, char ** argv)
 		std::cout << "\nLooping over elements: ... \n" << std::flush;
 
 		double layer_threshold = 0.0;
+		std::set<unsigned int> bids;
 		for (; el != end_el; ++el)
 		{
 			const libMesh::Elem * elem = *el;
+			for (unsigned int side=0; side<elem->n_sides(); side++)
+			{
+			  const unsigned int boundary_id =
+				      mesh.boundary_info->boundary_id (elem, side);
+			  bids.insert(boundary_id);
+			}
 			dof_map.dof_indices(elem, dof_indices);
 			dof_map_phi.dof_indices(elem, dof_indices_phi);
 			int nnodes = dof_indices_phi.size();
@@ -391,12 +407,12 @@ int main(int argc, char ** argv)
 				double cross_z = v1_x * v2_y - v1_y * v2_x;
 				normalize(cross_x, cross_y, cross_z, 0.0, 0.0, 1.0);
 
-//                  grad3->set(dof_indices[0],cross_x);
-//                  grad3->set(dof_indices[1],cross_y);
-//                  grad3->set(dof_indices[2],cross_z);
-//				  grad4->set(dof_indices[0],v1_x);
-//                  grad4->set(dof_indices[1],v1_y);
-//                  grad4->set(dof_indices[2],v1_z);
+				//                  grad3->set(dof_indices[0],cross_x);
+				//                  grad3->set(dof_indices[1],cross_y);
+				//                  grad3->set(dof_indices[2],cross_z);
+				//				  grad4->set(dof_indices[0],v1_x);
+				//                  grad4->set(dof_indices[1],v1_y);
+				//                  grad4->set(dof_indices[2],v1_z);
 
 				if (phi >= layer_threshold)
 				{
@@ -419,8 +435,8 @@ int main(int argc, char ** argv)
 				}
 			}
 			else
-//			else if (blockID == 7 || blockID == 8 || blockID == 10
-//					|| blockID == 11)
+			//			else if (blockID == 7 || blockID == 8 || blockID == 10
+			//					|| blockID == 11)
 			{
 				double v1_x = (*grad4)(dof_indices[0]);
 				double v2_x = (*grad2)(dof_indices[0]);
@@ -463,6 +479,7 @@ int main(int argc, char ** argv)
 			}
 		}
 
+		for(auto && id : bids) std::cout << id << std::endl;
 		std::cout << "Calling exporter: ..." << std::flush;
 
 		std::cout << "Calling exporter: ..." << std::flush;
@@ -493,6 +510,14 @@ int main(int argc, char ** argv)
 	}
 
 	timer2.stop();
+	libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+	std::cout
+			<< "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX: "
+			<< std::endl;
+	std::cout
+			<< "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX: "
+			<< std::endl;
+	std::cout << "el 1: " << &el << std::endl;
 
 	int save_iter = 0;
 	int save_iter_exo = 0;
@@ -523,45 +548,39 @@ int main(int argc, char ** argv)
 	int em_exo_iter = static_cast<int>(emdt_exo / datatime.M_dt);
 
 	std::cout << "Time loop ..." << std::endl;
+	typedef libMesh::TransientExplicitSystem ActivationSystem;
+	ActivationSystem& activation_system = es.get_system < ActivationSystem
+			> ("activation");
+
 	for (;
 			datatime.M_iter < datatime.M_maxIter
 					&& datatime.M_time < datatime.M_endTime;)
 	{
+
 		datatime.advance();
-		// Electrophysiology
-
-		em.M_monowave->advance();
-
-		em.M_monowave->update_pacing(datatime.M_time);
-		em.solve_reaction_step(datatime.M_dt, datatime.M_time, step0,
-				useMidpointMethod, iion_mass);
-		em.M_monowave->solve_diffusion_step(datatime.M_dt, datatime.M_time,
-				useMidpointMethod, iion_mass);
-
-		em.M_monowave->update_activation_time(datatime.M_time);
-		// Activation part
-		em.compute_activation(datatime.M_dt);
+		//Set Activation part
+		*activation_system.solution = -0.12 * datatime.M_time;
 		//em.compute_activation(datatime.M_dt);
 		// mechanics part
-		if (0 == datatime.M_iter % em_iter)
-		{
-			std::cout << "Solving mechanics ... " << std::endl;
-			em.M_elasticity->setTime(datatime.M_time);
-			em.solve_mechanics();
-			std::cout << "* Test EM: Time: " << datatime.M_time << std::endl;
-		}
+		std::cout << "Solving mechanics ... " << std::endl;
+		em.M_elasticity->setTime(datatime.M_time);
 
-		if (0 == datatime.M_iter % datatime.M_saveIter)
-		{
-			save_iter++;
-			em.save_gmv(save_iter, datatime.M_time);
-		}
-		if (0 == datatime.M_iter % em_exo_iter)
-		{
-			save_iter_exo++;
-			em.save_exo(save_iter_exo, datatime.M_time);
-		}
+		el = mesh.active_local_elements_begin();
+        const libMesh::Elem * elem = *el;
+        auto elID = elem->id();
 
+		std::cout
+				<< "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX: "
+				<< std::endl;
+		std::cout
+				<< "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX: "
+				<< std::endl;
+		std::cout << "el 1: " << &el << ", elID: " << elID << std::endl;
+
+		em.solve_mechanics();
+		std::cout << "* Test EM: Time: " << datatime.M_time << std::endl;
+		save_iter_exo++;
+		em.save_exo(save_iter_exo, datatime.M_time);
 	}
 
 	std::cout << "Saving monodomain parameters ..." << std::endl;

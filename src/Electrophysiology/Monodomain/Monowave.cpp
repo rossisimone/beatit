@@ -472,7 +472,7 @@ Monowave::init(double time)
         M_equationSystems.parameters.set<libMesh::Real>("time") =  time;
         monodomain_system.time = time;
         std::cout << "* MONODOMAIN: Projecting initial condition to monodomain system ... " << std::flush;
-        monodomain_system.project_solution(&monodomain_ic);
+        wave_system.project_solution(&monodomain_ic);
         std::cout << " done" << std::endl;
     }
     std::cout << "* MONODOMAIN: Copying initial conditions to vectors at n nd at n-1... " << std::flush;

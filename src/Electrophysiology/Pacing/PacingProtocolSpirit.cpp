@@ -50,6 +50,7 @@
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
 #include "Util/SpiritFunction.hpp"
 #include "libmesh/getpot.h"
+#include "libmesh/point.h"
 
 namespace BeatIt
 {
@@ -78,6 +79,13 @@ PacingProtocolSpirit::setup(const GetPot& data, std::string section )
     std::string str = data( section+"/function", "1.0");
     std::cout << "* PacingProtocolSpirit: " << section+"/function = " << str << std::endl;
     dynamic_cast< SpiritFunction* >(M_pacing)->read(str);
+}
+
+double
+PacingProtocolSpirit::eval(const Point & p,
+                           const double time)
+{
+    return dynamic_cast< SpiritFunction*>(M_pacing)->operator()(time, p(0), p(1), p(2), 0);
 }
 
 } /* namespace BeatIt */

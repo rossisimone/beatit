@@ -374,11 +374,14 @@ int main (int argc, char ** argv)
 
               std::cout << "\nGetting fibers: ..." << std::flush;
               auto& fibers = monodomain. M_equationSystems.get_system<libMesh::ExplicitSystem>("fibers").solution;
+              auto& sheets = monodomain. M_equationSystems.get_system<libMesh::ExplicitSystem>("sheets").solution;
+              auto& xfibers = monodomain. M_equationSystems.get_system<libMesh::ExplicitSystem>("xfibers").solution;
 
               std::cout << "\nSetting fibers: ..." << std::flush;
               for(int i = first; i < last; ++i)
               {
                   fibers->set(i, (*grad3)(i));
+                  sheets->set(i, (*grad2)(i));
               }
               poisson1.deleteSystems();
               poisson2.deleteSystems();

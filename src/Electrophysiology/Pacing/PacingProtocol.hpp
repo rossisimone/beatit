@@ -90,7 +90,7 @@ public:
     virtual void update(double time) = 0;
 
     libMesh::FunctionBase<double>* M_pacing;
-    double eval  (const Point & p,
+    virtual double eval  (const Point & p,
                    const double time = 0.);
 
     static int S_beats;

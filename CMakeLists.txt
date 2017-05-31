@@ -25,7 +25,7 @@ find_package(MPI REQUIRED)
 find_package(VTK QUIET)
 find_package(Boost REQUIRED)
 message("-- VTK_INCLUDE_DIRS: ${VTK_INCLUDE_DIRS}")
-#message("VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
+message("VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
 
 
 #

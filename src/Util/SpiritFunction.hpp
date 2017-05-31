@@ -138,6 +138,7 @@ public:
                      const Point & p,
                      double time = 0.0);
 	void showMe(std::ostream& ofstream = std::cout );
+	int size() const;
     static grammar_Type  M_grammar;
     std::vector<std::string>    M_expression;
 };

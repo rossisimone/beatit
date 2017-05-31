@@ -77,8 +77,10 @@ int main (int argc, char ** argv)
       libMesh::EquationSystems es1(mesh);
       BeatIt::Poisson poisson1(es1);
 
+			std::string pois1 = "poisson1";
+
       std::cout << "Calling setup: ..." << std::flush;
-      poisson1.setup(data, "poisson1");
+      poisson1.setup(data, pois1);
       std::cout << " Done!" << std::endl;
       std::cout << "Calling assemble system: ..." << std::flush;
       poisson1.assemble_system();
@@ -98,6 +100,7 @@ int main (int argc, char ** argv)
       BeatIt::Poisson poisson2(es2);
 
       std::cout << "Calling setup: ..." << std::flush;
+		std::string pois2 = "poisson2";
       poisson2.setup(data, "poisson2");
       std::cout << " Done!" << std::endl;
       std::cout << "Calling assemble system: ..." << std::flush;
@@ -116,6 +119,7 @@ int main (int argc, char ** argv)
       BeatIt::Poisson poisson4(es4);
 
       std::cout << "Calling setup: ..." << std::flush;
+	std::string pois4 = "poisson4";
       poisson4.setup(data, "poisson4");
       std::cout << " Done!" << std::endl;
       std::cout << "Calling assemble system: ..." << std::flush;
@@ -134,12 +138,14 @@ int main (int argc, char ** argv)
       BeatIt::Poisson poisson3(es3);
 
       std::cout << "Calling setup: ..." << std::flush;
+	std::string pois3 = "poisson3";
+
       poisson3.setup(data, "poisson3");
 
-      auto& grad1 = poisson1. M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient").solution;
-      auto& grad2 = poisson2. M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient").solution;
-      auto& grad3 = poisson3. M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient").solution;
-      auto& grad4 = poisson4. M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient").solution;
+	  auto& grad1 = poisson1. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois1+"_gradient").solution;
+	  auto& grad2 = poisson2. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois2+"_gradient").solution;
+	  auto& grad3 = poisson3. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois3+"_gradient").solution;
+	  auto& grad4 = poisson4. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois4+"_gradient").solution;
 
       auto first = grad1->first_local_index();
       auto last = grad1->last_local_index();
@@ -204,7 +210,9 @@ int main (int argc, char ** argv)
              mesh.active_local_elements_begin();
      const libMesh::MeshBase::const_element_iterator end_el =
              mesh.active_local_elements_end();
-  const libMesh::DofMap & dof_map = poisson1.M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient").get_dof_map();
+		   const libMesh::DofMap & dof_map = poisson1. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois1+"_gradient").get_dof_map();
+
+//  const libMesh::DofMap & dof_map = poisson1.M_equationSystems.get_system<libMesh::ExplicitSystem>("gradient").get_dof_map();
        std::vector<libMesh::dof_id_type> dof_indices;
 
      for (; el != end_el; ++el)
