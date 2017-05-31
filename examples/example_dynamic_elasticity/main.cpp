@@ -40,7 +40,7 @@
 #include "libmesh/linear_implicit_system.h"
 
 #include "libmesh/wrapped_functor.h"
-#include "libmesh/mesh.h"
+#include "libmesh/parallel_mesh.h"
 #include "libmesh/mesh_generation.h"
 #include "Util/SpiritFunction.hpp"
 
@@ -66,10 +66,7 @@ int main(int argc, char ** argv)
     GetPot commandLine(argc, argv);
     std::string datafile_name = commandLine.follow("data.pot", 2, "-i", "--input");
     GetPot data(datafile_name);
-    // allow us to use higher-order approximation.
-    // Create a mesh, with dimension to be overridden later, on the
-    // default MPI communicator.
-    libMesh::Mesh mesh(init.comm());
+    libMesh::ParallelMesh mesh(init.comm());
 
     double nu = data("nu", 0.3);
     double E = data("E", 5e5);
@@ -136,7 +133,6 @@ int main(int argc, char ** argv)
         elas.init_exo_output(out_name);
 
         elas.save_exo(out_name, ++save_iter, 0.0);
-//        elas.save("dg.vtk", save_iter);
         std::cout << "Initializing data time " << std::endl;
         BeatIt::TimeData datatime;
         datatime.setup(data, "elasticity");
@@ -147,12 +143,9 @@ int main(int argc, char ** argv)
         {
             std::cout << "time: " << datatime.M_time << std::endl;
 
-//            std::cout << "Advancing datatime " << std::endl;
             datatime.advance();
             elas.setTime(datatime.M_time);
-//            std::cout << "Performing Newton " << std::endl;
             elas.newton(datatime.M_dt);
-//            std::cout << "Advancing elasticity" << std::endl;
             elas.advance();
             if (0 == datatime.M_iter % datatime.M_saveIter)
             {
@@ -165,16 +158,7 @@ int main(int argc, char ** argv)
 
         }
     }
-//    else
-//    {
-//        std::cout << "MIXED FORMULATION NOT CODED: " << std::endl;
-//        throw std::runtime_error("MIXED FORMULATION NOT CODED");
-////  BeatIt::MixedElasticity elas(es, "Elasticity");
-////  elas.setup(data,"elasticity");
-////  elas.init_exo_output("elas_mixed.exo");
-////  elas.newton();
-////  elas.save_exo("elas_mixed.exo", 1, 1.0);
-//    }
+
     delete elas_ptr;
     return 0;
 }
