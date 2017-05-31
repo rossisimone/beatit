@@ -1297,9 +1297,9 @@ void Bidomain::assemble_matrices(double dt)
 		libMesh::DenseVector<libMesh::Number> NSe;
 		MatNullSpace   nullspace;
 
-		libMesh::MeshBase::const_node_iterator node = mesh.active_nodes_begin();
+		libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
 		const libMesh::MeshBase::const_node_iterator end_node =
-				mesh.active_nodes_end();
+				mesh.local_nodes_end();
 		for (; node != end_node; ++node)
 		{
 			const libMesh::Node * nn = *node;
@@ -1405,9 +1405,9 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 	std::vector<double> old_values(num_vars + 1, 0.0);
 	int var_index = 0;
 
-	libMesh::MeshBase::const_node_iterator node = mesh.active_nodes_begin();
+	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
 	const libMesh::MeshBase::const_node_iterator end_node =
-			mesh.active_nodes_end();
+			mesh.local_nodes_end();
 
 	const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
 	const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
@@ -1428,7 +1428,6 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 		libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
 
 		double istim = M_pacing->eval(p, time);
-//		std::cout << "Istim: " << istim << std::endl;
 		double Iion_old = 0.0;
 		values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
 		old_values[0] = (*bidomain_system.old_local_solution)(dof_indices_Q[0]); //Q^n
@@ -1441,6 +1440,7 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 					var_index);
 			old_values[nv + 1] = values[nv + 1];
 		}
+
 		M_ionicModelPtr->updateVariables(values, istim_zero, dt);
 		double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero,
 				dt);
@@ -1462,6 +1462,7 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 			var_index = dof_indices_V[0] * num_vars + nv;
 			ionic_model_system.solution->set(var_index, values[nv + 1]);
 		}
+
 
 	}
 
@@ -1525,9 +1526,9 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	double rhs_oldve = 0.0;
 
 	const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
-	libMesh::MeshBase::const_node_iterator node = mesh.active_nodes_begin();
+	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
 	const libMesh::MeshBase::const_node_iterator end_node =
-			mesh.active_nodes_end();
+			mesh.local_nodes_end();
 
 	const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
 	const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
@@ -1576,7 +1577,7 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	// Add KiVn to the rhs
 	double KiVn = 0.0;
 
-	node = mesh.active_nodes_begin();
+	node = mesh.local_nodes_begin();
 	for (; node != end_node; ++node)
 	{
 		const libMesh::Node * nn = *node;
