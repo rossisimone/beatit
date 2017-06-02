@@ -174,15 +174,17 @@ int main(int argc, char ** argv)
 	bidomain.init(0.0);
 	std::cout << "Assembling matrices" << std::endl;
     bidomain.assemble_matrices(datatime.M_dt);
-//      if(do_restart)
-//      {
-//  		int restart_step = data("monodomain/restart/step", 2);
-//  		monodomain.restart(importer, restart_step);
-//      }
+      if(do_restart)
+      {
+  		int restart_step = data("bidomain/restart/step", 2);
+  		bidomain.restart(importer, restart_step);
+      }
 
       int save_iter = 1;
   	std::cout << "Init Output" << std::endl;
       bidomain.init_exo_output();
+      bidomain.save_exo(save_iter++, datatime.M_time);
+
 ////      return 0;
 //      save_iter++;
 //      libMesh::PerfLog perf_log ("Solving");
@@ -233,10 +235,15 @@ int main(int argc, char ** argv)
 //             bidomain.save_potential(save_iter++, datatime.M_time);
 //              save_iter++;
 //             monodomain.save(save_iter);
-	        bidomain.save_exo(save_iter++, datatime.M_time);
+//	        bidomain.save_exo(save_iter++, datatime.M_time);
+	        bidomain.save_potential(save_iter++, datatime.M_time);
+
           }
 //		        bidomain.save(save_iter++);
           }
+
+      bidomain.save_exo(2, datatime.M_time);
+
 //		  if(cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)
 //		  {
 //			  monodomain.cut(datatime.M_time, cut_function);

@@ -363,22 +363,25 @@ void Bidomain::restart(EXOExporter& importer, int step, bool restart)
 {
 	if (restart)
 	{
-//		BidomainSystem& bidomain_system  =  M_equationSystems.get_system<BidomainSystem>("monodomain");
-//		IonicModelSystem& ionic_model_system =  M_equationSystems.get_system<IonicModelSystem>("ionic_model");
-//		IonicModelSystem& wave_system =  M_equationSystems.get_system<IonicModelSystem>("wave");
+		std::cout << "* BIDOMAIN: restarting from step: " << step << std::endl;
+		BidomainSystem& bidomain_system  =  M_equationSystems.get_system<BidomainSystem>("bidomain");
+		IonicModelSystem& ionic_model_system =  M_equationSystems.get_system<IonicModelSystem>("ionic_model");
+		BidomainSystem& wave_system =  M_equationSystems.get_system<BidomainSystem>("wave");
 //
-//	    auto names = importer.get_nodal_var_names();
-//	    std::cout << "* Bidomain: Importer available nodal fields" << std::endl;
-//	    for(auto && n : names) std::cout << n << std::endl;
+	    auto names = importer.get_nodal_var_names();
+	    std::cout << "* Bidomain: Importer available nodal fields" << std::endl;
+	    for(auto && n : names) std::cout << n << std::endl;
 //
-//		std::cout << "* Bidomain: Importing  V"<< std::endl;
-//		importer.copy_nodal_solution(wave_system, "V", step);
-//		std::cout << "* Bidomain: Importing  Q"<< std::endl;
-//		importer.copy_nodal_solution(bidomain_system, "Q", step);
-//		unsigned int n_vars = ionic_model_system.n_vars();
-//		std::cout << "* Bidomain: Importing  Ionic Model: num_vars: "<< n_vars <<  std::endl;
-//		for(unsigned int i = 0; i < n_vars; ++i)
-//		importer.copy_nodal_solution(ionic_model_system, ionic_model_system.variable_name(i), step);
+		std::cout << "* Bidomain: Importing  V"<< std::endl;
+		importer.copy_nodal_solution(wave_system, "V", step);
+		std::cout << "* Bidomain: Importing  Q"<< std::endl;
+		importer.copy_nodal_solution(bidomain_system, "Q", step);
+		std::cout << "* Bidomain: Importing  Ve"<< std::endl;
+		importer.copy_nodal_solution(bidomain_system, "Ve", step);
+		unsigned int n_vars = ionic_model_system.n_vars();
+		std::cout << "* Bidomain: Importing  Ionic Model: num_vars: "<< n_vars <<  std::endl;
+		for(unsigned int i = 0; i < n_vars; ++i)
+		importer.copy_nodal_solution(ionic_model_system, ionic_model_system.variable_name(i), step);
 	}
 }
 
@@ -495,9 +498,9 @@ void Bidomain::init(double time)
 
 	ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
 			< ParameterSystem > ("intra_conductivity");
-	std::string Dffi_data = M_datafile("bidomain/Dffi", "1.3342");
-	std::string Dssi_data = M_datafile("bidomain/Dssi", "0.17606");
-	std::string Dnni_data = M_datafile("bidomain/Dnni", "0.17606");
+	std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
+	std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
+	std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
 	SpiritFunction intra_conductivity_func;
 	intra_conductivity_func.add_function(Dffi_data);
 	intra_conductivity_func.add_function(Dssi_data);
@@ -505,14 +508,14 @@ void Bidomain::init(double time)
 	intra_conductivity_system.project_solution(&intra_conductivity_func);
 	ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
 			< ParameterSystem > ("extra_conductivity");
-	std::string Dffe_data = M_datafile("bidomain/Dffe", "1.3342");
-	std::string Dsse_data = M_datafile("bidomain/Dsse", "0.17606");
-	std::string Dnne_data = M_datafile("bidomain/Dnne", "0.17606");
+	std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
+	std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
+	std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
 	SpiritFunction extra_conductivity_func;
 	extra_conductivity_func.add_function(Dffe_data);
 	extra_conductivity_func.add_function(Dsse_data);
 	extra_conductivity_func.add_function(Dnne_data);
-	extra_conductivity_system.project_solution(&intra_conductivity_func);
+	extra_conductivity_system.project_solution(&extra_conductivity_func);
 
 	std::map < std::string, libMesh::SolverType > solver_map;
 	solver_map["cg"] = libMesh::CG;
@@ -1242,7 +1245,6 @@ void Bidomain::assemble_matrices(double dt)
 							* (phi_qp1[i][qp] * phi_qp1[j][qp]);
 					Ke(i, j) += dt * dt * JxW_qp1[qp] * DigradV
 							* dphi_qp1[j][qp];
-
 					// Block QVe : dt * Ki
 					// Using lumped mass matrix
 					Ke(i, j + n_Q_dofs) += dt * JxW_qp1[qp] * DigradVe
@@ -1259,7 +1261,6 @@ void Bidomain::assemble_matrices(double dt)
 					// Using lumped mass matrix
 					Ke(i + n_Q_dofs, j + n_Q_dofs) += JxW_qp1[qp] * DiegradVe
 							* dphi_qp1[j][qp];
-
 					// Ki
 					Kie(i, j) += JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 
@@ -1428,6 +1429,8 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 		libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
 
 		double istim = M_pacing->eval(p, time);
+		istim_zero = 0.0*istim;
+
 		double Iion_old = 0.0;
 		values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
 		old_values[0] = (*bidomain_system.old_local_solution)(dof_indices_Q[0]); //Q^n
@@ -1510,7 +1513,7 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	// NOTE: We use wave_system.solution  because here V has not been updated yet.
 	//       So the vector still stores V^n
 	wave_system.get_matrix("Ki").vector_mult_add(wave_system.get_vector("KiV"),
-			*wave_system.solution);
+			*wave_system.old_local_solution);
 
 	// Evaluate
 	// RHS_Q  = M * (tau_i * Cm * Q^n + dt * Iion + dt * tau_i * dIion )
@@ -1568,11 +1571,12 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 
 	bidomain_system.get_vector("old_solution").close();
 	bidomain_system.get_vector("ionic_currents").close();
-	bidomain_system.rhs->add_vector(bidomain_system.get_vector("old_solution"),
-			bidomain_system.get_matrix("lumped_mass"));
 	bidomain_system.rhs->add_vector(
 			bidomain_system.get_vector("ionic_currents"),
 			bidomain_system.get_matrix("mass"));
+	bidomain_system.rhs->add_vector(bidomain_system.get_vector("old_solution"),
+			bidomain_system.get_matrix("lumped_mass"));
+
 
 	// Add KiVn to the rhs
 	double KiVn = 0.0;
@@ -1581,6 +1585,7 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	for (; node != end_node; ++node)
 	{
 		const libMesh::Node * nn = *node;
+		dof_map_V.dof_indices(nn, dof_indices_V, 0);
 		dof_map.dof_indices(nn, dof_indices_Q, 0);
 		dof_map.dof_indices(nn, dof_indices_Ve, 1);
 		KiVn = wave_system.get_vector("KiV")(dof_indices_V[0]);
@@ -1589,14 +1594,21 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	}
 
 	bidomain_system.rhs->close();
+
 }
 
 void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
 		const std::string& mass, bool reassemble)
 {
+	const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 
 	BidomainSystem& bidomain_system = M_equationSystems.get_system
-			< BidomainSystem > ("bidomain");
+			< BidomainSystem > ("bidomain"); // Q and Ve
+	BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
+			> ("wave");// V
+
+
+
 //    std::cout << "form rhs" << std::endl;
 	form_system_rhs(dt, useMidpoint, mass);
 //    std::cout << "done" << std::endl;
@@ -1608,23 +1620,45 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
 	std::pair<unsigned int, double> rval = std::make_pair(0, 0.0);
 
 
+//	bidomain_system.rhs->print();
+//	bidomain_system.matrix->print();
+//	double rhs_norm = bidomain_system.rhs->l2_norm();
+//	std::cout <<"rhs norm: " << rhs_norm << std::endl;
 
 	rval = M_linearSolver->solve(*bidomain_system.matrix,
 			*bidomain_system.solution, *bidomain_system.rhs, tol, max_iter);
 //        std::cout << "solving done" << std::endl;
 	// WAVE
-	BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
-			> ("wave");
-	auto first_local_index = wave_system.solution->first_local_index();
-	auto last_local_index = wave_system.solution->last_local_index();
-	auto i = first_local_index;
-	for (; i < last_local_index; ++i)
+//	bidomain_system.solution->print();
+
+	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+	const libMesh::MeshBase::const_node_iterator end_node =
+			mesh.local_nodes_end();
+
+	const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
+	const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
+
+	std::vector < libMesh::dof_id_type > dof_indices;
+	std::vector < libMesh::dof_id_type > dof_indices_V;
+	std::vector < libMesh::dof_id_type > dof_indices_Ve;
+	std::vector < libMesh::dof_id_type > dof_indices_Q;
+
+	for (; node != end_node; ++node)
 	{
-		wave_system.solution->set(i, (*bidomain_system.solution)(2 * i));
+		const libMesh::Node * nn = *node;
+		dof_map.dof_indices(nn, dof_indices_Q, 0);
+		dof_map.dof_indices(nn, dof_indices_Ve, 1);
+		dof_map_V.dof_indices(nn, dof_indices_V, 0);
+		wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
 	}
 	wave_system.solution->close();
 	wave_system.solution->scale(dt);
 	*wave_system.solution += *wave_system.old_local_solution;
+//	double sol_norm = wave_system.solution->l2_norm();
+//	std::cout <<"sol norm: " << sol_norm << std::endl;
+//    wave_system.solution->print();
+
+
 }
 
 void Bidomain::reinit_linear_solver()
