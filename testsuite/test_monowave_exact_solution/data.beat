@@ -1,0 +1,76 @@
+error = true
+
+[mesh]
+    # number of elements per side
+    elX = 100
+    elY = 0
+    elZ = 0
+
+    maxX = 25.0
+    minX = -25.0
+    maxY = 4.0
+    maxZ = 4.0
+[../]
+
+[monodomain]
+    [./restart] 
+        restart = false
+        restart_file =  monodomain.exo 
+        step = 0
+    [../]
+
+    # Output Folder
+    output_folder = ctest_exact_solution
+    artificial_diffusion = false
+    alpha = 0.2
+    # type = ADR
+    # If we want to impose an initial conditions on the potential
+    # we can use the parameter ic. For example
+    # ic = 'x + y * t'
+
+    # This can be made a function
+    Dff = 1.
+    Dss = 1.
+    Dnn = 1.
+    Chi = 1.0
+
+    # Ionic Model
+    # For now: NashPanfilov / ORd / FentonKarma / Grandi11 / TP06
+    ionic_model = BistablePiecewiseLinear
+
+    [./BistablePiecewiseLinear]
+        v0 = 0.0
+        a = 0.1
+    [../]
+
+    # In reaction step: use mass or  lumped_mass
+    reaction_mass = mass
+    diffusion_mass = lumped_mass
+
+    # fiber fields
+    fibers  = '1.0, 0.0, 0.0'
+    sheets  = '0.0, 1.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
+
+    # Applied Stimulus
+    [./pacing]
+        type = function
+        function = '0.0'        
+    [../]
+
+    # Time Data
+    [./time]
+        dt = 0.05
+        init_time = 0.0
+        final_time= 1.0
+        max_iter  = 20000
+        save_iter = 2
+    [../]
+
+    # Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
+    [../]
+
+[../]

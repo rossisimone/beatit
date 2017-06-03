@@ -1,0 +1,76 @@
+
+# FILE:    "data.beat"
+# PURPOSE: Test Bidomain
+# (C) 2017 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    # number of elements per side
+    elX = 200
+    elY = 200
+    elZ = 0
+
+    maxX = 20.0
+    maxY = 8.0
+[../]
+
+
+[bidomain]
+
+    # Output Folder
+    output_folder = ctest_bidomain
+
+    # If we want to impose an initial conditions on the potential
+    # we can use the parameter ic. For example
+    # ic = 'x + y * t'
+
+    # This can be made a function
+    # These parameters are large for the FentonKarma model
+    Dffe = 1.5448
+    Dsse = 1.0438
+    Dnne = 1.0438
+    Dffi = 2.3172
+    Dssi = 0.2435
+    Dnni = 0.2435
+    Chi = 1   #1000
+
+    tau_i = 0.6
+    tau_e = 0.6
+    # Ionic Model
+    # For now: NashPanfilov or ORd
+    ionic_model = FentonKarma
+
+    # In reaction step: use mass or  lumped_mass
+    reaction_mass = mass
+    diffusion_mass = lumped_mass
+
+    # fiber fields
+    fibers  = '1.0, 0.0, 0.0'
+    sheets  = '0.0, 1.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
+
+    # Applied Stimulus
+    [./pacing]
+        type = function
+       function = '-100 * ( x <= 1 ) * (y<=0.4) * (t<=1)'
+    [../]
+
+    # Time Data
+    [./time]
+        use_midpoint = true
+        dt = 0.125
+        init_time = 0.0
+        final_time= 2.0
+        max_iter  = 2000000
+        save_iter = 8
+    [../]
+
+    # Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
+    [../]
+
+[../]

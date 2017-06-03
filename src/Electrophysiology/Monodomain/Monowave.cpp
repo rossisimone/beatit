@@ -1537,7 +1537,7 @@ void
 Monowave::advance()
 {
 	MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
-	IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
+	IonicModelSystem& ionic_model_system =  M_equationSystems.get_system<IonicModelSystem>("ionic_model");
 
     *monodomain_system.old_local_solution    = *monodomain_system.solution;
     *monodomain_system.older_local_solution = *monodomain_system.solution;
@@ -1545,7 +1545,7 @@ Monowave::advance()
     *ionic_model_system.older_local_solution = *ionic_model_system.solution;
 
 	    // WAVE
-	IonicModelSystem& wave_system =  M_equationSystems.add_system<IonicModelSystem>("wave");
+	IonicModelSystem& wave_system =  M_equationSystems.get_system<IonicModelSystem>("wave");
 	*wave_system.old_local_solution    = *wave_system.solution;
     *wave_system.older_local_solution = *wave_system.solution;
 
