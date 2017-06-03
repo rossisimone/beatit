@@ -136,9 +136,23 @@ BistablePiecewiseLinear::evaluatedIonicCurrent(std::vector<double>& variables, d
 //    	dH = 0.5 / h;
 //    }
 //    return  -1 + dH;
-    return  -1.0;
+    return  -1;
 //    return  - 1 + 100 / t / t;
 }
+
+double
+BistablePiecewiseLinear::evaluatedIonicCurrent( std::vector<double>& variables,
+                                     std::vector<double>& old_variables,
+                                     double dt,
+                                     double h )
+{
+    double Q = old_variables[0];
+    double dIdV =  -1.0;
+
+    return  dIdV*Q;
+
+}
+
 
 double
 BistablePiecewiseLinear::evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
