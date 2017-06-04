@@ -72,7 +72,8 @@
 #include "libmesh/dense_matrix.h"
 #include "libmesh/dense_vector.h"
 #include "libmesh/elem.h"
-
+#include "libmesh/mesh_generation.h"
+#include "libmesh/linear_solver.h"
 // Define the DofMap, which handles degree of freedom
 // indexing.
 #include "libmesh/dof_map.h"
@@ -87,54 +88,55 @@
 #include "libmesh/fourth_error_estimators.h"
 
 #include "libmesh/vtk_io.h"
-// Function prototype.  This is the function that will assemble
-// the linear system for our Poisson problem.  Note that the
-// function will take the  EquationSystems object and the
-// name of the system we are assembling as input.  From the
-//  EquationSystems object we have access to the  Mesh and
-// other objects we might need.
-void assemble_poisson(
-        libMesh::EquationSystems & es,
-        const std::string & system_name);
 
-void IC(libMesh::EquationSystems & es, const std::string & system_name);
+#include <fstream>
+
+
+
+double exact_solution(double mu, double alpha, double x,  double time);
+double exact_derivative(double mu, double alpha, double x, double time);
+void set_exact_ic(double mu, double alpha, double time, libMesh::EquationSystems & es);
+void eval_l2_err(double& l2_V_err,
+		         double& l2_Q_err,
+				 double dt, double mu, double alpha, double time,
+				 libMesh::EquationSystems & es);
+void set_at_exact_solution(double mu, double alpha, double time, libMesh::EquationSystems & es);
+
+void solve(
+        libMesh::EquationSystems & es);
+void solveHeun(
+        libMesh::EquationSystems & es);
+
 
 int main(int argc, char ** argv)
 {
-    BeatIt::printBanner(std::cout);
-    GetPot data("data.pot");
+    // Bring in everything from the libMesh namespace
 
-    // Initialize the library.  This is necessary because the library
-    // may depend on a number of other libraries (i.e. MPI and PETSc)
-    // that require initialization before use.  When the LibMeshInit
-    // object goes out of scope, other libraries and resources are
-    // finalized.
-    libMesh::LibMeshInit init(argc, argv);
+    using namespace libMesh;
+      // Initialize libraries, like in example 2.
+      LibMeshInit init (argc, argv, MPI_COMM_WORLD);
 
-    // Check for proper usage. The program is designed to be run
-    // as follows:
-    // ./ex1 -d DIM input_mesh_name [-o output_mesh_name]
-    // where [output_mesh_name] is an optional parameter giving
-    // a filename to write the mesh into.
-//	if (argc < 4)
-//	{
-//	  // This handy function will print the file name, line number,
-//	  // specified message, and then throw an exception.
-//	  libmesh_error_msg("Usage: " << argv[0] << " -d 2 in.mesh [-o out.mesh]");
-//	}
 
-    // Get the dimensionality of the mesh from argv[2]
-    const unsigned int dim = data("DIM", 3);
+      // Use the MeshTools::Generation mesh generator to create a uniform
+      // 3D grid
+      // We build a linear tetrahedral mesh (TET4) on  [0,2]x[0,0.7]x[0,0.3]
+      // the number of elements on each side is read from the input file
+      // Create a mesh, with dimension to be overridden later, on the
+      // default MPI communicator.
+      libMesh::Mesh mesh(init.comm());
 
-    // Create a mesh, with dimension to be overridden later, on the
-    // default MPI communicator.
-    libMesh::Mesh mesh(init.comm());
+      GetPot commandLine ( argc, argv );
+      std::string datafile_name = commandLine.follow ( "data.beat", 2, "-i", "--input" );
+      GetPot data(datafile_name);
+      // allow us to use higher-order approximation.
+      int numElementsX = data("mesh/elX", 1600);
+      int numElementsY = data("mesh/elY",   5);
+      int numElementsZ = data("mesh/elZ",   4);
+      double maxX= data("mesh/maxX", 2.0);
+      double maxY = data("mesh/maxY", 0.7);
+      double maxZ = data("mesh/maxZ", 0.3);
 
-    // We may need XDR support compiled in to read binary .xdr files
-    std::string meshfile = data("input_mesh_name", "Pippo.e");
-
-    // Read the input mesh.
-    mesh.read(&meshfile[0]);
+      MeshTools::Generation::build_line ( mesh, numElementsX, -25.0, 25.0 );
 
     // Print information about the mesh to the screen.
     mesh.print_info();
@@ -142,203 +144,158 @@ int main(int argc, char ** argv)
 
     libMesh::EquationSystems systems(mesh);
 
-    systems.parameters.set<bool>("test") = true;
+    double mu = data("mu", 0.2);
+    double alpha = data("alpha", 0.1);
+    int ms = data("ms", 10);
+    double dt = data("dt", 0.003125);
     typedef libMesh::Real Real;
+    systems.parameters.set<Real>("mu") = mu;
+    systems.parameters.set<Real>("alpha") = alpha;
+    systems.parameters.set<Real>("dt") = dt;
     systems.parameters.set<Real>("dummy") = 42.0;
     systems.parameters.set<Real>("nobody") = 0.0;
 
-    systems.add_system<libMesh::TransientLinearImplicitSystem>("SimpleSystem");
-    unsigned int V_var = systems.get_system("SimpleSystem").add_variable("V",
+    typedef libMesh::TransientLinearImplicitSystem Sys;
+    Sys& Qsys = systems.add_system<Sys>("SimpleSystem");
+    unsigned int Q_var = systems.get_system("SimpleSystem").add_variable("Q",
             libMesh::FIRST);
 
-    // Construct a Dirichlet boundary condition object
-    // We impose a "clamped" boundary condition on the
-    // "left" boundary, i.e. bc_id = 3
-//    std::set<libMesh::boundary_id_type> boundary_ids;
-//    boundary_ids.insert(1);
-//    boundary_ids.insert(2);
-//    boundary_ids.insert(3);
-//    boundary_ids.insert(4);
-//    std::vector<unsigned int> variables(1);
-//    variables[0] = V_var;
-//
-//    // Create a ZeroFunction to initialize dirichlet_bc
-//    libMesh::ZeroFunction<> zf;
-//    libMesh::DirichletBoundary dirichlet_bc(boundary_ids, variables, &zf);
+    Qsys.add_matrix("lumped_mass");
+    Qsys.add_matrix("mass");
+    Qsys.add_matrix("stiffness");
+    Qsys.add_vector("In");
+    Qsys.add_vector("I2");
+    Qsys.add_vector("Jn");
+    Qsys.add_vector("J2");
+    Qsys.add_vector("Q2");
+    Qsys.add_vector("V2");
+    Qsys.add_vector("FnQ");
+    Qsys.add_vector("F2Q");
+    Qsys.add_vector("MFnQ");
+    Qsys.add_vector("MF2Q");
+    Qsys.add_vector("dIdVn");
+    Qsys.add_vector("dIdV2");
+    Qsys.add_vector("KVn");
+    Qsys.add_vector("KQn");
+    Qsys.add_vector("MQn");
+    Qsys.add_vector("KV2");
+    Qsys.add_vector("MQ2");
 
-    // Give the system a pointer to the matrix assembly
-    // function.  This will be called when needed by the
-    // library.
-    systems.get_system("SimpleSystem").attach_assemble_function(
-            assemble_poisson);
-    systems.get_system("SimpleSystem").attach_init_function (IC);
+    Sys& Vsys = systems.add_system<Sys>("WaveSystem");
+    unsigned int V_var = systems.get_system("WaveSystem").add_variable("V",
+            libMesh::FIRST);
 
-    systems.add_system<libMesh::ExplicitSystem>("ComplexSystem");
-    systems.get_system("ComplexSystem").add_variable("r", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
+    Sys& ATsys = systems.add_system<Sys>("ATSystem");
+    unsigned int at_var = systems.get_system("ATSystem").add_variable("at",
+            libMesh::FIRST);
 
 
-    // Define the mesh refinement object that takes care of adaptively
-    // refining the mesh.
-   libMesh:: MeshRefinement mesh_refinement(mesh);
-   // These parameters determine the proportion of elements that will
-   // be refined and coarsened. Any element within 30% of the maximum
-   // error on any element will be refined, and any element within 30%
-   // of the minimum error on any element might be coarsened
-   mesh_refinement.refine_fraction()  = 0.7;
-   mesh_refinement.coarsen_fraction() = 0.3;
-   // We won't refine any element more than 5 times in total
-   mesh_refinement.max_h_level()      = 3;
-   // Refinement parameters
-   const unsigned int max_r_steps = 3; // Refine the mesh 5 times
+//    systems.get_system("SimpleSystem").attach_assemble_function(
+//            assemble_poisson);
+//    systems.get_system("SimpleSystem").attach_init_function (IC);
 
-    // We must add the Dirichlet boundary condition _before_
-    // we call equation_systems.init()
-//    systems.get_system("SimpleSystem").get_dof_map().add_dirichlet_boundary(
-//            dirichlet_bc);
+
 
     // Initialize the data structures for the equation system.
     systems.init();
+    std::cout << "Systems initialized" << std::endl;
+    *ATsys.solution = -1;
 
+    systems.get_system("SimpleSystem").time = 0.;
+
+	double time = systems.get_system("SimpleSystem").time;
+
+    double l2_V_err = 0.0;
+    double l2_Q_err = 0.0;
+   set_exact_ic( mu, alpha, time, systems);
+//   Vsys.old_local_solution->print();
+
+   set_at_exact_solution( mu, alpha, time, systems);
+    std::string err_output = "error_" + std::to_string(numElementsX)
+                           + "_mu_" + std::to_string(mu)
+    	  	  	  	  	  	 + "_alpha_" + std::to_string(alpha) + ".txt";
+    std::ofstream errfile;
+    errfile.open (err_output);
+    errfile << "Time  err_V  err_Q\n";
 
     // Solve the system "Convection-Diffusion".  This will be done by
     // looping over the specified time interval and calling the
     // solve() member at each time step.  This will assemble the
     // system and call the linear solver.
-    const Real dt = 0.025;
-    systems.get_system("SimpleSystem").time = 0.;
 
 
     // Prints information about the system to the screen.
     systems.print_info();
-    // Write the system.
-    std::string output_system = data("output_systems", "");
-    if ("" != output_system)
-        systems.write(&output_system[0], libMesh::WRITE);
-    // Write the output mesh if the user specified an
-    // output file name.
-    std::string output_file = data("output_mesh", "");
-    if ("" != output_file)
-        mesh.write(&output_file[0]);
+
+
 
     // TIME LOOP
     std::string exodus_filename = "transient_ex1.e";
-    libMesh::ExodusII_IO(mesh).write_equation_systems (exodus_filename, systems);
+    libMesh::ExodusII_IO exo(mesh);
+
+    exo.write_equation_systems (exodus_filename, systems);
+    exo.append(true);
 //    libMesh::VTKIO(mesh).write_equation_systems ("out.vtu.000", systems);
 
+    Vsys.update();
+    Qsys.update();
 
-    libMesh::TransientLinearImplicitSystem & system = systems.get_system<
-            libMesh::TransientLinearImplicitSystem>("SimpleSystem");
-
-    unsigned int t_step = 0;
-    for (; t_step < 50; t_step++)
+    unsigned int t_step=0;
+    exo.write_timestep (exodus_filename, systems, t_step+1, time);
+    t_step++;
+    for (;  systems.get_system("SimpleSystem").time < 1.0; t_step++)
     {
+    	std::cout << "step: " << t_step << std::endl;
         // Output evey 10 timesteps to file.
-        libMesh::ExodusII_IO exo(mesh);
-        exo.append(true);
-        exo.write_timestep (exodus_filename, systems, t_step+1, systems.get_system("SimpleSystem").time);
 
-        std::ostringstream file_name;
-
-        file_name << "out.vtu."
-                  << std::setw(3)
-                  << std::setfill('0')
-                  << std::right
-                  << t_step+1;
-//        libMesh::VTKIO(mesh).write_equation_systems (file_name.str(), systems);
 
         // Incremenet the time counter, set the time and the
         // time step size as parameters in the EquationSystem.
         systems.get_system("SimpleSystem").time += dt;
 
-        systems.parameters.set<libMesh::Real> ("time") = systems.get_system("SimpleSystem").time;
-        systems.parameters.set<libMesh::Real> ("dt")   = dt;
+    	time = systems.get_system("SimpleSystem").time;
 
-        // A pretty update message
-        libMesh::out << " Solving time step ";
-        // Do fancy zero-padded formatting of the current time.
-        {
-          std::ostringstream out;
 
-          out << std::setw(2)
-              << std::right
-              << t_step
-              << ", time="
-              << std::fixed
-              << std::setw(6)
-              << std::setprecision(3)
-              << std::setfill('0')
-              << std::left
-              << systems.get_system("SimpleSystem").time
-              <<  "...";
+        solveHeun(systems);
 
-          libMesh::out << out.str() << std::endl;
-        }
+        Vsys.update();
+        Qsys.update();
 
-        // At this point we need to update the old
-        // solution vector.  The old solution vector
-        // will be the current solution vector from the
-        // previous time step.  We will do this by extracting the
-        // system from the EquationSystems object and using
-        // vector assignment.  Since only TransientSystems
-        // (and systems derived from them) contain old solutions
-        // we need to specify the system type when we ask for it.
-        *system.old_local_solution = *systems.get_system("SimpleSystem").current_local_solution;
+        set_at_exact_solution( mu, alpha, time, systems);
+  	    eval_l2_err(l2_V_err, l2_Q_err, dt,
+  			      mu, alpha, time,
+				  systems);
+        errfile << std::fixed << std::setprecision(7) << time << " " << l2_V_err << " "<<  l2_Q_err << std::endl;
 
         // Define the refinement loop
-          for (unsigned int r_step=0; r_step<=max_r_steps; r_step++)
-          {
-              // Assemble & solve the linear system
-              systems.get_system("SimpleSystem").solve();
-
-              // We need to ensure that the mesh is not refined on the last iteration
-              // of this loop, since we do not want to refine the mesh unless we are
-              // going to solve the equation system for that refined mesh.
-              if (r_step != max_r_steps)
-                {
-                  // Error estimation objects, see Adaptivity Example 2 for details
-                  libMesh::ErrorVector error;
-                  libMesh::KellyErrorEstimator error_estimator;
-                  //libMesh::LaplacianErrorEstimator error_estimator;
-
-                  // Compute the error for each active element
-                  error_estimator.estimate_error(system, error);
-
-                  // Output error estimate magnitude
-                  libMesh::out << "Error estimate\nl2 norm = "
-                               << error.l2_norm()
-                               << "\nmaximum = "
-                               << error.maximum()
-                               << std::endl;
-
-                  // Flag elements to be refined and coarsened
-                  mesh_refinement.flag_elements_by_error_fraction (error);
-
-                  // Perform refinement and coarsening
-                  mesh_refinement.flag_elements_by_error_fraction (error);
-                  mesh_refinement.refine_and_coarsen_elements();
-                  // Reinitialize the equation_systems object for the newly refined
-                  // mesh. One of the steps in this is project the solution onto the
-                  // new mesh
-                  systems.reinit();
-                }
 
 
-          }
+        auto first_local_index = Vsys.solution->first_local_index();
+        auto last_local_index = Vsys.solution->last_local_index();
+        for (auto i = first_local_index; i < last_local_index; ++i )
+        {
+        	double V = (*Vsys.solution)(i);
+        	double at = (*ATsys.solution)(i);
+        	if( V >= 0.9 && at == -1.0)
+        	{
+        		ATsys.solution->set(i, time);
+        	}
+        }
 
+        if(t_step > ms)
+        {
+        	break;
+        }
 
+    	if(t_step%1 == 0)
+        exo.write_timestep (exodus_filename, systems, t_step+1, time);
 
 
         }
-    // Output evey 10 timesteps to file.
-    libMesh::ExodusII_IO exo(mesh);
-    exo.append(true);
-    exo.write_timestep (exodus_filename, systems, t_step+1, systems.get_system("SimpleSystem").time);
 
-//	  libMesh::VTKIO (mesh).write_equation_systems ("out.pvtu", systems);
-    // LibMeshInit object was created first, its destruction occurs
-    // last, and it's destructor finalizes any external libraries and
-    // checks for leaked memory.
+    exo.write_timestep (exodus_filename, systems, t_step+1, time);
+
+
     return 0;
 }
 
@@ -347,14 +304,12 @@ int main(int argc, char ** argv)
 // matrices and right-hand sides, and then take into
 // account the boundary conditions, which will be handled
 // via a penalty method.
-void assemble_poisson(
-        libMesh::EquationSystems & es,
-        const std::string & system_name)
+void solve(
+        libMesh::EquationSystems & es)
 {
     using libMesh::UniquePtr;
     // It is a good idea to make sure we are assembling
     // the proper system.
-    libmesh_assert_equal_to(system_name, "SimpleSystem");
 
     // Get a constant reference to the mesh object.
     const libMesh::MeshBase & mesh = es.get_mesh();
@@ -362,18 +317,50 @@ void assemble_poisson(
     // The dimension that we are running
     const unsigned int dim = mesh.mesh_dimension();
 
+    double D = 1;
+    double mu = es.parameters.get<double>("mu");
+    double dt = es.parameters.get<double>("dt");
+    double time = es.get_system("SimpleSystem").time;
+    double alpha = 0.1;
+
     // Get a reference to the LinearImplicitSystem we are solving
-    libMesh::TransientLinearImplicitSystem & system = es.get_system<
+    libMesh::TransientLinearImplicitSystem & Qsystem = es.get_system<
             libMesh::TransientLinearImplicitSystem>("SimpleSystem");
+    libMesh::TransientLinearImplicitSystem & Vsystem = es.get_system<
+            libMesh::TransientLinearImplicitSystem>("WaveSystem");
 
 
-    const unsigned int V_Var = system.variable_number("V");
+    Qsystem.get_matrix("lumped_mass").zero();
+    Qsystem.get_matrix("mass").zero();
+    Qsystem.get_matrix("stiffness").zero();
+    Qsystem.get_vector("In").zero();
+    Qsystem.get_vector("I2").zero();
+    Qsystem.get_vector("Jn").zero();
+    Qsystem.get_vector("J2").zero();
+    Qsystem.get_vector("Q2").zero();
+    Qsystem.get_vector("V2").zero();
+    Qsystem.get_vector("FnQ").zero();
+    Qsystem.get_vector("F2Q").zero();
+    Qsystem.get_vector("dIdVn").zero();
+    Qsystem.get_vector("dIdV2").zero();
+    Qsystem.get_vector("KVn").zero();
+    Qsystem.get_vector("KQn").zero();
+    Qsystem.get_vector("MQn").zero();
+    Qsystem.get_vector("KV2").zero();
+    Qsystem.get_vector("MQ2").zero();
+   Qsystem.get_vector("MFnQ").zero();
+   Qsystem.get_vector("MF2Q").zero();
+
+    Qsystem.rhs->zero();
+    Vsystem.rhs->zero();
+    const unsigned int V_Var = Vsystem.variable_number("V");
+    const unsigned int Q_Var = Qsystem.variable_number("Q");
 
     // A reference to the  DofMap object for this system.  The  DofMap
     // object handles the index translation from node and element numbers
     // to degree of freedom numbers.  We will talk more about the  DofMap
     // in future examples.
-    const libMesh::DofMap & dof_map = system.get_dof_map();
+    const libMesh::DofMap & dof_map = Qsystem.get_dof_map();
 
     // Get a constant reference to the Finite Element type
     // for the first (and only) variable in the system.
@@ -388,23 +375,10 @@ void assemble_poisson(
     UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
-    libMesh::QGauss qrule(dim, libMesh::FIRST);
+    libMesh::QGauss qrule(dim, libMesh::SECOND);
 
     // Tell the finite element object to use our quadrature rule.
     fe->attach_quadrature_rule(&qrule);
-
-    // Declare a special finite element object for
-    // boundary integration.
-    UniquePtr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_type));
-
-    // Boundary integration requires one quadraure rule,
-    // with dimensionality one less than the dimensionality
-    // of the element.
-    libMesh::QGauss qface(dim - 1, libMesh::FIRST);
-
-    // Tell the finite element object to use our
-    // quadrature rule.
-    fe_face->attach_quadrature_rule(&qface);
 
     // Here we define some references to cell-specific data that
     // will be used to assemble the linear system.
@@ -431,7 +405,11 @@ void assemble_poisson(
     // "Ke" and "Fe".  These datatypes are templated on
     //  Number, which allows the same code to work for real
     // or complex numbers.
+    libMesh::DenseMatrix<libMesh::Number> Mate;
+
     libMesh::DenseMatrix<libMesh::Number> Ke;
+    libMesh::DenseMatrix<libMesh::Number> Me;
+    libMesh::DenseMatrix<libMesh::Number> MLe;
     libMesh::DenseVector<libMesh::Number> Fe;
 
     // This vector will hold the degree of freedom indices for
@@ -439,23 +417,13 @@ void assemble_poisson(
     // the element degrees of freedom get mapped.
     std::vector<libMesh::dof_id_type> dof_indices;
 
-    // Now we will loop over all the elements in the mesh.
-    // We will compute the element matrix and right-hand-side
-    // contribution.
-    //
-    // Element iterators are a nice way to iterate through all the
-    // elements, or all the elements that have some property.  The
-    // iterator el will iterate from the first to the last element on
-    // the local processor.  The iterator end_el tells us when to stop.
-    // It is smart to make this one const so that we don't accidentally
-    // mess it up!  In case users later modify this program to include
-    // refinement, we will be safe and will only consider the active
-    // elements; hence we use a variant of the active_elem_iterator.
+    // setup MATRICES
     libMesh::MeshBase::const_element_iterator el =
             mesh.active_local_elements_begin();
     const libMesh::MeshBase::const_element_iterator end_el =
             mesh.active_local_elements_end();
 
+//    std::cout << "Assembling matrices" << std::endl;
     // Loop over the elements.  Note that  ++el is preferred to
     // el++ since the latter requires an unnecessary temporary
     // object.
@@ -487,7 +455,8 @@ void assemble_poisson(
         // The  DenseMatrix::resize() and the  DenseVector::resize()
         // members will automatically zero out the matrix  and vector.
         Ke.resize(dof_indices.size(), dof_indices.size());
-
+        Me.resize(dof_indices.size(), dof_indices.size());
+        MLe.resize(dof_indices.size(), dof_indices.size());
         Fe.resize(dof_indices.size());
 
         // Now loop over the quadrature points.  This handles
@@ -495,11 +464,17 @@ void assemble_poisson(
         for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
         {
 
-            libMesh::Number V = 0;
-            for(unsigned int i = 0; i < phi.size(); ++i )
-            {
-                V += phi[i][qp] *  system.old_solution(dof_indices[i]);
-            }
+//            libMesh::Number Vn = 0;
+//            libMesh::Number Qn = 0;
+//            libMesh::Number gradVn = 0;
+//            libMesh::RealGradient nablaVn;
+//            for(unsigned int i = 0; i < phi.size(); ++i )
+//            {
+//                Vn += phi[i][qp] *  (*Vsystem.old_local_solution)(dof_indices[i]);
+//                Qn += phi[i][qp] *  (*Qsystem.old_local_solution)(dof_indices[i]);
+//                gradVn += dphi[i][qp](0) *  (*Vsystem.old_local_solution)(dof_indices[i]);
+//                nablaVn += dphi[i][qp] *  (*Vsystem.old_local_solution)(dof_indices[i]);
+//            }
 
             // Now we will build the element matrix.  This involves
             // a double loop to integrate the test funcions (i) against
@@ -508,171 +483,884 @@ void assemble_poisson(
                 for (unsigned int j = 0; j < phi.size(); j++)
                 {
                     // Mass term
-                    Ke(i, j) += JxW[qp] * (phi[i][qp] * phi[j][qp]);
+//                    Ke(i, j) += (mu + dt*(1+mu)+ dt*dt ) * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+//                    // stiffness term
+//                    Ke(i, j) += dt * dt * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+//                    Ke(i, j) += (dt+mu) * JxW[qp] * (phi[i][qp] * phi[j][qp]);
                     // stiffness term
-                    Ke(i, j) += JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+//                    Ke(i, j) += dt*dt * D * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+
+//					Fe(i) -= JxW[qp] * Vn * (dphi[j][qp] * dphi[i][qp]);
+                    //Ke(i, j) += dt*mu / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+
+
+                	Me(i, j)  += JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                	MLe(i,i) += JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                    Ke(i, j)  += JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+
                 }
 
             // This is the end of the matrix summation loop
             // Now we build the element right-hand-side contribution.
             // This involves a single loop in which we integrate the
             // "forcing function" in the PDE against the test functions.
-            {
-                const libMesh::Real x = q_point[qp](0);
-                const libMesh::Real y = q_point[qp](1);
-                const libMesh::Real eps = 1.e-3;
-
-                // "fxy" is the forcing function for the Poisson equation.
-                // In this case we set fxy to be a finite difference
-                // Laplacian approximation to the (known) exact solution.
-                //
-                // We will use the second-order accurate FD Laplacian
-                // approximation, which in 2D is
-                //
-                // u_xx + u_yy = (u(i,j-1) + u(i,j+1) +
-                //                u(i-1,j) + u(i+1,j) +
-                //                -4*u(i,j))/h^2
-                //
-                // Since the value of the forcing function depends only
-                // on the location of the quadrature point (q_point[qp])
-                // we will compute it here, outside of the i-loop
-                const libMesh::Real R = V * (V - 1.0) * (0.6 - V);
-                //const libMesh::Real R = V * (V - 1.0);
-
-                for (unsigned int i = 0; i < phi.size(); i++)
-                {
-                    // Mass term
-                    Fe(i) += JxW[qp] * V * phi[i][qp];
-                    // Reaction term
-                    Fe(i) += JxW[qp] * R * phi[i][qp];
-                }
-            }
-        }
-
-        // We have now reached the end of the RHS summation,
-        // and the end of quadrature point loop, so
-        // the interior element integration has
-        // been completed.  However, we have not yet addressed
-        // boundary conditions.  For this example we will only
-        // consider simple Dirichlet boundary conditions.
-        //
-        // There are several ways Dirichlet boundary conditions
-        // can be imposed.  A simple approach, which works for
-        // interpolatory bases like the standard Lagrange polynomials,
-        // is to assign function values to the
-        // degrees of freedom living on the domain boundary. This
-        // works well for interpolary bases, but is more difficult
-        // when non-interpolary (e.g Legendre or Hierarchic) bases
-        // are used.
-        //
-        // Dirichlet boundary conditions can also be imposed with a
-        // "penalty" method.  In this case essentially the L2 projection
-        // of the boundary values are added to the matrix. The
-        // projection is multiplied by some large factor so that, in
-        // floating point arithmetic, the existing (smaller) entries
-        // in the matrix and right-hand-side are effectively ignored.
-        //
-        // This amounts to adding a term of the form (in latex notation)
-        //
-        // \frac{1}{\epsilon} \int_{\delta \Omega} \phi_i \phi_j = \frac{1}{\epsilon} \int_{\delta \Omega} u \phi_i
-        //
-        // where
-        //
-        // \frac{1}{\epsilon} is the penalty parameter, defined such that \epsilon << 1
-        {
-
-            // The following loop is over the sides of the element.
-            // If the element has no neighbor on a side then that
-            // side MUST live on a boundary of the domain.
-            for (unsigned int side = 0; side < elem->n_sides(); side++)
-                if (elem->neighbor(side) == libmesh_nullptr)
-                {
-                    // The value of the shape functions at the quadrature
-                    // points.
-                    const std::vector<std::vector<libMesh::Real> > & phi_face =
-                            fe_face->get_phi();
-
-                    // The Jacobian * Quadrature Weight at the quadrature
-                    // points on the face.
-                    const std::vector<libMesh::Real> & JxW_face =
-                            fe_face->get_JxW();
-
-                    // The XYZ locations (in physical space) of the
-                    // quadrature points on the face.  This is where
-                    // we will interpolate the boundary value function.
-                    const std::vector<libMesh::Point> & qface_point =
-                            fe_face->get_xyz();
-
-                    // Compute the shape function values on the element
-                    // face.
-                    fe_face->reinit(elem, side);
-
-                    // Loop over the face quadrature points for integration.
-                    for (unsigned int qp = 0; qp < qface.n_points(); qp++)
-                    {
-                        // The location on the boundary of the current
-                        // face quadrature point.
-                        const libMesh::Real xf = qface_point[qp](0);
-                        const libMesh::Real yf = qface_point[qp](1);
-
-                        // The penalty value.  \frac{1}{\epsilon}
-                        // in the discussion above.
-                        const libMesh::Real penalty = 1.e10;
-
-                        // The boundary value.
-                        const libMesh::Real value = 0.0;
-
-//                  // Matrix contribution of the L2 projection.
-//                  for (unsigned int i=0; i<phi_face.size(); i++)
-//                    for (unsigned int j=0; j<phi_face.size(); j++)
-//                      Ke(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
+//            {
+//                const libMesh::Real x = q_point[qp](0);
+//                const libMesh::Real y = q_point[qp](1);
+//                const libMesh::Real eps = 1.e-3;
 //
-//                  // Right-hand-side contribution of the L2
-//                  // projection.
-//                  for (unsigned int i=0; i<phi_face.size(); i++)
-//                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp];
-                    }
-                }
+//                // "fxy" is the forcing function for the Poisson equation.
+//                // In this case we set fxy to be a finite difference
+//                // Laplacian approximation to the (known) exact solution.
+//                //
+//                // We will use the second-order accurate FD Laplacian
+//                // approximation, which in 2D is
+//                //
+//                // u_xx + u_yy = (u(i,j-1) + u(i,j+1) +
+//                //                u(i-1,j) + u(i+1,j) +
+//                //                -4*u(i,j))/h^2
+//                //
+//                // Since the value of the forcing function depends only
+//                // on the location of the quadrature point (q_point[qp])
+//                // we will compute it here, outside of the i-loop
+////                double Iapp = 0;
+////                if(time >= 0.03 && time <= 1.03 )
+//////				if(time >= 0.0 && time <= 0.004 )
+////                {
+////                	double r = 0.5;
+////                	double x0 = 25.;
+////                	if( x >= x0-r && x <= x0+r )
+////					{
+////                		Iapp = 0.0;
+////                        std::cout << time << std::endl;
+////					}
+////                }
+////                for (unsigned int i = 0; i < phi.size(); i++)
+////                {
+////
+////                	double F = ( Vn > 0.1 ) ? 1.0 : 0.0;
+////    				F -= Vn;
+//////    		        std::cout << F << std::endl;
+////
+////					Fe(i) += dt*mu / dt * JxW[qp] * Qn * phi[i][qp];
+////                	Fe(i) += dt*JxW[qp] * F * phi[i][qp];
+////                	Fe(i) += dt*JxW[qp] * Iapp * phi[i][qp];
+////					Fe(i) -= dt*JxW[qp] * D * nablaVn * dphi[i][qp];
+////
+////
+////					Fe(i) -= dt * mu * JxW[qp] * Qn * phi[i][qp];
+////                }
+//            }
         }
 
-        // We have now finished the quadrature point loop,
-        // and have therefore applied all the boundary conditions.
 
-        // If this assembly program were to be used on an adaptive mesh,
-        // we would have to apply any hanging node constraint equations
-        dof_map.constrain_element_matrix_and_vector(Ke, Fe, dof_indices);
-
-        // The element matrix and right-hand-side are now built
-        // for this element.  Add them to the global matrix and
-        // right-hand-side vector.  The  SparseMatrix::add_matrix()
-        // and  NumericVector::add_vector() members do this for us.
-        system.matrix->add_matrix(Ke, dof_indices);
-        system.rhs->add_vector(Fe, dof_indices);
+        Qsystem.get_matrix("stiffness").add_matrix(Ke, dof_indices);
+        Qsystem.get_matrix("mass").add_matrix(Me, dof_indices);
+        Qsystem.get_matrix("lumped_mass").add_matrix(MLe, dof_indices);
+//        Qsystem.rhs->add_vector(Fe, dof_indices);
     }
+//    std::cout << "Done!" << std::endl;
 
     // All done!
+    Qsystem.get_matrix("stiffness").close();
+    Qsystem.get_matrix("mass").close();
+    Qsystem.get_matrix("lumped_mass").close();
+    Qsystem.rhs->zero();
+    Qsystem.rhs->close();
+    Qsystem.matrix->zero();
+    Qsystem.matrix->close();
+
+
+//    std::cout << "Setup matrix!" << std::endl;
+
+    // MATRIX:
+    // ( mu + dt / 2 ) * ML + dt^2 / 4 * K
+    Qsystem.matrix->add(( 0.5 * dt +mu ), Qsystem.get_matrix("lumped_mass") );
+    Qsystem.matrix->add( 0.25*dt*dt, Qsystem.get_matrix("stiffness" ) );
+
+
+//    Qsystem.matrix->print();
+
+
+//    std::cout << "Computing Fn!" << std::endl;
+
+
+        // STEP 1: Compute Fn
+        //                 FnQ = -In - tau * Jn
+
+    	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+    	const libMesh::MeshBase::const_node_iterator end_node =
+    			mesh.local_nodes_end();
+    	//Vsystem.current_local_solution->print();
+    	for (; node != end_node; ++node)
+    	{
+    		const libMesh::Node * nn = *node;
+    		dof_map.dof_indices(nn, dof_indices, 0);
+    		double Vn = (*Vsystem.current_local_solution)(dof_indices[0]);
+    		double Qn = (*Qsystem.current_local_solution)(dof_indices[0]);
+    		double In = ( Vn > alpha ) ? -1.0 : 0.0;
+    		In += Vn;
+    		Qsystem.get_vector("In").set(dof_indices[0], In);
+
+    		Qsystem.get_vector("dIdVn").set(dof_indices[0], 1.0);
+    		Qsystem.get_vector("FnQ").set(dof_indices[0], -In - mu * Qn );
+
+    	}
+  	   Qsystem.get_vector("In").close();
+  	   Qsystem.get_vector("FnQ").close();
+  	   Qsystem.get_vector("dIdVn").close();
+
+//        std::cout << "Computing RHS Q2 !" << std::endl;
+
+    	Qsystem.get_matrix("stiffness").vector_mult_add( Qsystem.get_vector("KVn"),
+                                                 *Vsystem.solution );
+    	Qsystem.get_matrix("stiffness").vector_mult_add( Qsystem.get_vector("KQn"),
+                                                 *Qsystem.solution );
+    	Qsystem.get_matrix("lumped_mass").vector_mult_add( Qsystem.get_vector("MQn"),
+                                                 *Qsystem.solution );
+    	Qsystem.get_matrix("mass").vector_mult_add( Qsystem.get_vector("MFnQ"),
+    												Qsystem.get_vector("FnQ") );
+
+
+
+ 	   Qsystem.get_vector("KVn").close();
+ 	   Qsystem.get_vector("KQn").close();
+ 	   Qsystem.get_vector("MQn").close();
+ 	   Qsystem.get_vector("MFnQ").close();
+
+
+    	Qsystem.rhs->add( mu - 0.5*dt, Qsystem.get_vector("MQn") );
+    	Qsystem.rhs->add( dt, Qsystem.get_vector("MFnQ") );
+    	Qsystem.rhs->add( - dt, Qsystem.get_vector("KVn") );
+    	Qsystem.rhs->add( -0.25* dt*dt, Qsystem.get_vector("KQn") );
+
+//        std::cout << "Solving for Q2 !" << std::endl;
+
+        libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver;
+        linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
+       linearSolver->init();
+
+       double tol = 1e-12;
+       double max_iter = 2000;
+
+       std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
+
+       rval = linearSolver->solve (*Qsystem.matrix, nullptr,
+                                                            Qsystem.get_vector("Q2"),
+                                                            *Qsystem.rhs, tol, max_iter);
+
+//       std::cout << "Updating V2 !" << std::endl;
+
+       Qsystem.get_vector("V2") = *Vsystem.solution;
+   	   Qsystem.get_vector("V2").add( 0.5*dt, Qsystem.get_vector("Q2") );
+   	   Qsystem.get_vector("V2").add( 0.5*dt, *Qsystem.solution );
+	   Qsystem.get_vector("V2").close();
+//       std::cout << "Updating Vnp1 !" << std::endl;
+//	   Vsystem.old_local_solution->print();
+//	   *Vsystem.solution = Qsystem.get_vector("V2");
+
+//       std::cout << "Computing F2Q !" << std::endl;
+
+   	node = mesh.local_nodes_begin();
+
+   	for (; node != end_node; ++node)
+   	{
+   		const libMesh::Node * nn = *node;
+   		dof_map.dof_indices(nn, dof_indices, 0);
+   		double V2 = Qsystem.get_vector("V2")(dof_indices[0]);
+   		double Q2 = Qsystem.get_vector("Q2")(dof_indices[0]);
+   		double I2 = ( V2 > alpha ) ? -1.0 : 0.0;
+   		I2 += V2;
+   		Qsystem.get_vector("I2").set(dof_indices[0], I2);
+   		Qsystem.get_vector("dIdV2").set(dof_indices[0], 1.0);
+   		Qsystem.get_vector("F2Q").set(dof_indices[0], -I2 - mu * Q2 );
+   	}
+
+
+	   Qsystem.get_vector("I2").close();
+	   Qsystem.get_vector("dIdV2").close();
+	   Qsystem.get_vector("F2Q").close();
+
+
+//    std::cout << "Computing Qn+1 RHS !" << std::endl;
+
+	Qsystem.get_matrix("stiffness").vector_mult_add( Qsystem.get_vector("KV2"),
+			                                         Qsystem.get_vector("V2"));
+	Qsystem.get_matrix("lumped_mass").vector_mult_add( Qsystem.get_vector("MQ2"),
+													   Qsystem.get_vector("Q2") );
+	Qsystem.get_matrix("mass").vector_mult_add( Qsystem.get_vector("MF2Q"),
+												Qsystem.get_vector("F2Q") );
+
+
+   Qsystem.get_vector("KV2").close();
+   Qsystem.get_vector("MQ2").close();
+   Qsystem.get_vector("MF2Q").close();
+
+
+
+
+	Qsystem.rhs->zero();
+	Qsystem.rhs->close();
+
+	// mu ML
+
+	Qsystem.get_matrix("lumped_mass").vector_mult_add( *Qsystem.rhs,
+													   *Qsystem.solution );
+	Qsystem.rhs->add( 0.5*dt/mu, Qsystem.get_vector("MFnQ") );
+	Qsystem.rhs->add( 0.5*dt/mu, Qsystem.get_vector("MF2Q") );
+	Qsystem.rhs->add(-0.5*dt/mu, Qsystem.get_vector("KVn") );
+	Qsystem.rhs->add(-0.5*dt/mu, Qsystem.get_vector("KV2") );
+	Qsystem.rhs->add(-0.5*dt/mu, Qsystem.get_vector("MQn") );
+	Qsystem.rhs->add(-0.5*dt/mu, Qsystem.get_vector("MQ2") );
+
+//    std::cout << "Solving forg Qn+1 !" << std::endl;
+
+    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver2;
+    linearSolver2 =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
+   linearSolver2->init();
+
+   rval = linearSolver2->solve (Qsystem.get_matrix("lumped_mass"), nullptr,
+                                                        *Qsystem.solution,
+                                                        *Qsystem.rhs, tol, max_iter);
+
+	   //*Qsystem.solution = Qsystem.get_vector("Q2");
+
+   *Vsystem.solution = Qsystem.get_vector("V2");
+//   Qsystem.sol = *Vsystem.solution;
+//	   Qsystem.get_vector("V2").add( 0.5*dt, Qsystem.get_vector("Q2") );
+//	   Qsystem.get_vector("V2").add( 0.5*dt, *Qsystem.solution );
+//   Qsystem.get_vector("V2").close();
+////       std::cout << "Updating Vnp1 !" << std::endl;
+////	   Vsystem.old_local_solution->print();
+//   std::cout << "Advancing !" << std::endl;
+
+   *Qsystem.old_local_solution = *Qsystem.solution;
+   *Vsystem.old_local_solution = *Vsystem.solution;
+
+
 }
 
-libMesh::Number initial_value(
-                                const libMesh::Point & p,
-                                const libMesh::Parameters & parameters,
-                                const std::string &,
-                                const std::string &)
+
+
+
+void solveHeun(
+        libMesh::EquationSystems & es)
 {
-    if( 20 < p(0) ) return 1.0;
-    else return 0.0;
+    using libMesh::UniquePtr;
+    // It is a good idea to make sure we are assembling
+    // the proper system.
+
+    // Get a constant reference to the mesh object.
+    const libMesh::MeshBase & mesh = es.get_mesh();
+
+    // The dimension that we are running
+    const unsigned int dim = mesh.mesh_dimension();
+
+    double D = 1;
+    double mu = es.parameters.get<double>("mu");
+    double dt = es.parameters.get<double>("dt");
+    double time = es.get_system("SimpleSystem").time;
+    double alpha = 0.1;
+
+    // Get a reference to the LinearImplicitSystem we are solving
+    libMesh::TransientLinearImplicitSystem & Qsystem = es.get_system<
+            libMesh::TransientLinearImplicitSystem>("SimpleSystem");
+    libMesh::TransientLinearImplicitSystem & Vsystem = es.get_system<
+            libMesh::TransientLinearImplicitSystem>("WaveSystem");
+
+
+    Qsystem.get_matrix("lumped_mass").zero();
+    Qsystem.get_matrix("mass").zero();
+    Qsystem.get_matrix("stiffness").zero();
+    Qsystem.get_vector("In").zero();
+    Qsystem.get_vector("I2").zero();
+    Qsystem.get_vector("Jn").zero();
+    Qsystem.get_vector("J2").zero();
+    Qsystem.get_vector("Q2").zero();
+    Qsystem.get_vector("V2").zero();
+    Qsystem.get_vector("FnQ").zero();
+    Qsystem.get_vector("F2Q").zero();
+    Qsystem.get_vector("dIdVn").zero();
+    Qsystem.get_vector("dIdV2").zero();
+    Qsystem.get_vector("KVn").zero();
+    Qsystem.get_vector("KQn").zero();
+    Qsystem.get_vector("MQn").zero();
+    Qsystem.get_vector("KV2").zero();
+    Qsystem.get_vector("MQ2").zero();
+   Qsystem.get_vector("MFnQ").zero();
+   Qsystem.get_vector("MF2Q").zero();
+
+    Qsystem.rhs->zero();
+    Vsystem.rhs->zero();
+    const unsigned int V_Var = Vsystem.variable_number("V");
+    const unsigned int Q_Var = Qsystem.variable_number("Q");
+
+    // A reference to the  DofMap object for this system.  The  DofMap
+    // object handles the index translation from node and element numbers
+    // to degree of freedom numbers.  We will talk more about the  DofMap
+    // in future examples.
+    const libMesh::DofMap & dof_map = Qsystem.get_dof_map();
+
+    // Get a constant reference to the Finite Element type
+    // for the first (and only) variable in the system.
+    libMesh::FEType fe_type = dof_map.variable_type(0);
+
+    // Build a Finite Element object of the specified type.  Since the
+    // FEBase::build() member dynamically creates memory we will
+    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // of as a pointer that will clean up after itself.  Introduction Example 4
+    // describes some advantages of  UniquePtr's in the context of
+    // quadrature rules.
+    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+
+    // A 5th order Gauss quadrature rule for numerical integration.
+    libMesh::QGauss qrule(dim, libMesh::SECOND);
+
+    // Tell the finite element object to use our quadrature rule.
+    fe->attach_quadrature_rule(&qrule);
+
+    // Here we define some references to cell-specific data that
+    // will be used to assemble the linear system.
+    //
+    // The element Jacobian * quadrature weight at each integration point.
+    const std::vector<libMesh::Real> & JxW = fe->get_JxW();
+
+    // The physical XY locations of the quadrature points on the element.
+    // These might be useful for evaluating spatially varying material
+    // properties at the quadrature points.
+    const std::vector<libMesh::Point> & q_point = fe->get_xyz();
+
+    // The element shape functions evaluated at the quadrature points.
+    const std::vector<std::vector<libMesh::Real> > & phi = fe->get_phi();
+
+    // The element shape function gradients evaluated at the quadrature
+    // points.
+    const std::vector<std::vector<libMesh::RealGradient> > & dphi =
+            fe->get_dphi();
+
+    // Define data structures to contain the element matrix
+    // and right-hand-side vector contribution.  Following
+    // basic finite element terminology we will denote these
+    // "Ke" and "Fe".  These datatypes are templated on
+    //  Number, which allows the same code to work for real
+    // or complex numbers.
+    libMesh::DenseMatrix<libMesh::Number> Mate;
+
+    libMesh::DenseMatrix<libMesh::Number> Ke;
+    libMesh::DenseMatrix<libMesh::Number> Me;
+    libMesh::DenseMatrix<libMesh::Number> MLe;
+    libMesh::DenseVector<libMesh::Number> Fe;
+
+    // This vector will hold the degree of freedom indices for
+    // the element.  These define where in the global system
+    // the element degrees of freedom get mapped.
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+    // setup MATRICES
+    libMesh::MeshBase::const_element_iterator el =
+            mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el =
+            mesh.active_local_elements_end();
+
+//    std::cout << "Assembling matrices" << std::endl;
+    // Loop over the elements.  Note that  ++el is preferred to
+    // el++ since the latter requires an unnecessary temporary
+    // object.
+    for (; el != end_el; ++el)
+    {
+        // Store a pointer to the element we are currently
+        // working on.  This allows for nicer syntax later.
+        const libMesh::Elem * elem = *el;
+
+        // Get the degree of freedom indices for the
+        // current element.  These define where in the global
+        // matrix and right-hand-side this element will
+        // contribute to.
+        dof_map.dof_indices(elem, dof_indices);
+
+        // Compute the element-specific data for the current
+        // element.  This involves computing the location of the
+        // quadrature points (q_point) and the shape functions
+        // (phi, dphi) for the current element.
+        fe->reinit(elem);
+
+        // Zero the element matrix and right-hand side before
+        // summing them.  We use the resize member here because
+        // the number of degrees of freedom might have changed from
+        // the last element.  Note that this will be the case if the
+        // element type is different (i.e. the last element was a
+        // triangle, now we are on a quadrilateral).
+
+        // The  DenseMatrix::resize() and the  DenseVector::resize()
+        // members will automatically zero out the matrix  and vector.
+        Ke.resize(dof_indices.size(), dof_indices.size());
+        Me.resize(dof_indices.size(), dof_indices.size());
+        MLe.resize(dof_indices.size(), dof_indices.size());
+        Fe.resize(dof_indices.size());
+
+        // Now loop over the quadrature points.  This handles
+        // the numeric integration.
+        for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
+        {
+
+//            libMesh::Number Vn = 0;
+//            libMesh::Number Qn = 0;
+//            libMesh::Number gradVn = 0;
+//            libMesh::RealGradient nablaVn;
+//            for(unsigned int i = 0; i < phi.size(); ++i )
+//            {
+//                Vn += phi[i][qp] *  (*Vsystem.old_local_solution)(dof_indices[i]);
+//                Qn += phi[i][qp] *  (*Qsystem.old_local_solution)(dof_indices[i]);
+//                gradVn += dphi[i][qp](0) *  (*Vsystem.old_local_solution)(dof_indices[i]);
+//                nablaVn += dphi[i][qp] *  (*Vsystem.old_local_solution)(dof_indices[i]);
+//            }
+
+            // Now we will build the element matrix.  This involves
+            // a double loop to integrate the test funcions (i) against
+            // the trial functions (j).
+            for (unsigned int i = 0; i < phi.size(); i++)
+                for (unsigned int j = 0; j < phi.size(); j++)
+                {
+                    // Mass term
+//                    Ke(i, j) += (mu + dt*(1+mu)+ dt*dt ) * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+//                    // stiffness term
+//                    Ke(i, j) += dt * dt * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+//                    Ke(i, j) += (dt+mu) * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                    // stiffness term
+//                    Ke(i, j) += dt*dt * D * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+
+//					Fe(i) -= JxW[qp] * Vn * (dphi[j][qp] * dphi[i][qp]);
+                    //Ke(i, j) += dt*mu / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+
+
+                	Me(i, j)  += JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                	MLe(i,i) += JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                    Ke(i, j)  += JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+
+                }
+
+            // This is the end of the matrix summation loop
+            // Now we build the element right-hand-side contribution.
+            // This involves a single loop in which we integrate the
+            // "forcing function" in the PDE against the test functions.
+//            {
+//                const libMesh::Real x = q_point[qp](0);
+//                const libMesh::Real y = q_point[qp](1);
+//                const libMesh::Real eps = 1.e-3;
+//
+//                // "fxy" is the forcing function for the Poisson equation.
+//                // In this case we set fxy to be a finite difference
+//                // Laplacian approximation to the (known) exact solution.
+//                //
+//                // We will use the second-order accurate FD Laplacian
+//                // approximation, which in 2D is
+//                //
+//                // u_xx + u_yy = (u(i,j-1) + u(i,j+1) +
+//                //                u(i-1,j) + u(i+1,j) +
+//                //                -4*u(i,j))/h^2
+//                //
+//                // Since the value of the forcing function depends only
+//                // on the location of the quadrature point (q_point[qp])
+//                // we will compute it here, outside of the i-loop
+////                double Iapp = 0;
+////                if(time >= 0.03 && time <= 1.03 )
+//////				if(time >= 0.0 && time <= 0.004 )
+////                {
+////                	double r = 0.5;
+////                	double x0 = 25.;
+////                	if( x >= x0-r && x <= x0+r )
+////					{
+////                		Iapp = 0.0;
+////                        std::cout << time << std::endl;
+////					}
+////                }
+////                for (unsigned int i = 0; i < phi.size(); i++)
+////                {
+////
+////                	double F = ( Vn > 0.1 ) ? 1.0 : 0.0;
+////    				F -= Vn;
+//////    		        std::cout << F << std::endl;
+////
+////					Fe(i) += dt*mu / dt * JxW[qp] * Qn * phi[i][qp];
+////                	Fe(i) += dt*JxW[qp] * F * phi[i][qp];
+////                	Fe(i) += dt*JxW[qp] * Iapp * phi[i][qp];
+////					Fe(i) -= dt*JxW[qp] * D * nablaVn * dphi[i][qp];
+////
+////
+////					Fe(i) -= dt * mu * JxW[qp] * Qn * phi[i][qp];
+////                }
+//            }
+        }
+
+
+        Qsystem.get_matrix("stiffness").add_matrix(Ke, dof_indices);
+        Qsystem.get_matrix("mass").add_matrix(Me, dof_indices);
+        Qsystem.get_matrix("lumped_mass").add_matrix(MLe, dof_indices);
+//        Qsystem.rhs->add_vector(Fe, dof_indices);
+    }
+//    std::cout << "Done!" << std::endl;
+
+    // All done!
+    Qsystem.get_matrix("stiffness").close();
+    Qsystem.get_matrix("mass").close();
+    Qsystem.get_matrix("lumped_mass").close();
+    Qsystem.rhs->zero();
+    Qsystem.rhs->close();
+    Qsystem.matrix->zero();
+    Qsystem.matrix->close();
+
+
+        // STEP 1: Compute Fn
+        //                 FnQ = -In - tau * Jn
+
+    	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+    	const libMesh::MeshBase::const_node_iterator end_node =
+    			mesh.local_nodes_end();
+    	//Vsystem.current_local_solution->print();
+    	for (; node != end_node; ++node)
+    	{
+    		const libMesh::Node * nn = *node;
+    		dof_map.dof_indices(nn, dof_indices, 0);
+    		double Vn = (*Vsystem.current_local_solution)(dof_indices[0]);
+    		double Qn = (*Qsystem.current_local_solution)(dof_indices[0]);
+    		double In = ( Vn > alpha ) ? -1.0 : 0.0;
+    		In += Vn;
+    		double Jn = 1.0;
+    		double V2 = Vn + dt * Qn;
+
+    		Qsystem.get_vector("In").set(dof_indices[0], In);
+    		Qsystem.get_vector("dIdVn").set(dof_indices[0], 1.0);
+    		Qsystem.get_vector("FnQ").set(dof_indices[0], -In - mu * Jn * Qn );
+    		Qsystem.get_vector("In").set(dof_indices[0], In);
+    		Qsystem.get_vector("V2").set(dof_indices[0], V2);
+
+
+    	}
+  	   Qsystem.get_vector("In").close();
+  	   Qsystem.get_vector("FnQ").close();
+  	   Qsystem.get_vector("dIdVn").close();
+  	   Qsystem.get_vector("V2").close();
+
+//        std::cout << "Computing RHS Q2 !" << std::endl;
+
+    	Qsystem.get_matrix("stiffness").vector_mult_add( Qsystem.get_vector("KVn"),
+                                                 *Vsystem.solution );
+    	Qsystem.get_matrix("lumped_mass").vector_mult_add( Qsystem.get_vector("MQn"),
+                                                 *Qsystem.solution );
+    	Qsystem.get_matrix("mass").vector_mult_add( Qsystem.get_vector("MFnQ"),
+    												Qsystem.get_vector("FnQ") );
+
+ 	   Qsystem.get_vector("KVn").close();
+ 	   Qsystem.get_vector("MQn").close();
+ 	   Qsystem.get_vector("MFnQ").close();
+
+
+    	Qsystem.rhs->add( -dt/mu, Qsystem.get_vector("MQn") );
+    	Qsystem.rhs->add(  dt/mu, Qsystem.get_vector("MFnQ") );
+    	Qsystem.rhs->add( -dt/mu, Qsystem.get_vector("KVn") );
+    	Qsystem.rhs->add(    1.0, Qsystem.get_vector("MQn") );
+
+//        std::cout << "Solving for Q2 !" << std::endl;
+
+        libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver;
+        linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
+       linearSolver->init();
+
+       double tol = 1e-12;
+       double max_iter = 2000;
+
+       std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
+
+       rval = linearSolver->solve (Qsystem.get_matrix("lumped_mass"), nullptr,
+                                                            Qsystem.get_vector("Q2"),
+                                                            *Qsystem.rhs, tol, max_iter);
+
+       Vsystem.solution->add(0.5*dt, *Qsystem.solution);
+       Vsystem.solution->add(0.5*dt, Qsystem.get_vector("Q2"));
+
+   	node = mesh.local_nodes_begin();
+
+   	for (; node != end_node; ++node)
+   	{
+   		const libMesh::Node * nn = *node;
+   		dof_map.dof_indices(nn, dof_indices, 0);
+   		double V2 = Qsystem.get_vector("V2")(dof_indices[0]);
+   		double Q2 = Qsystem.get_vector("Q2")(dof_indices[0]);
+   		double I2 = ( V2 > alpha ) ? -1.0 : 0.0;
+   		I2 += V2;
+		double J2 = 1.0;
+   		Qsystem.get_vector("I2").set(dof_indices[0], I2);
+   		Qsystem.get_vector("dIdV2").set(dof_indices[0], 1.0);
+   		Qsystem.get_vector("F2Q").set(dof_indices[0], -I2 - mu * J2 * Q2 );
+   	}
+
+
+	   Qsystem.get_vector("I2").close();
+	   Qsystem.get_vector("dIdV2").close();
+	   Qsystem.get_vector("F2Q").close();
+
+
+	    Qsystem.rhs->zero();
+	    Qsystem.rhs->close();
+
+//    std::cout << "Computing Qn+1 RHS !" << std::endl;
+
+	Qsystem.get_matrix("stiffness").vector_mult_add( Qsystem.get_vector("KV2"),
+			                                         Qsystem.get_vector("V2"));
+	Qsystem.get_matrix("lumped_mass").vector_mult_add( Qsystem.get_vector("MQ2"),
+													   Qsystem.get_vector("Q2") );
+	Qsystem.get_matrix("mass").vector_mult_add( Qsystem.get_vector("MF2Q"),
+												Qsystem.get_vector("F2Q") );
+
+
+   Qsystem.get_vector("KV2").close();
+   Qsystem.get_vector("MQ2").close();
+   Qsystem.get_vector("MF2Q").close();
+
+
+
+
+	Qsystem.rhs->zero();
+	Qsystem.rhs->close();
+
+	Qsystem.rhs->add( -0.5*dt/mu, Qsystem.get_vector("MQn") );
+	Qsystem.rhs->add(  0.5*dt/mu, Qsystem.get_vector("MFnQ") );
+	Qsystem.rhs->add( -0.5*dt/mu, Qsystem.get_vector("KVn") );
+	Qsystem.rhs->add( -0.5*dt/mu, Qsystem.get_vector("MQ2") );
+	Qsystem.rhs->add(  0.5*dt/mu, Qsystem.get_vector("MF2Q") );
+	Qsystem.rhs->add( -0.5*dt/mu, Qsystem.get_vector("KV2") );
+	Qsystem.rhs->add(    1.0, Qsystem.get_vector("MQn") );
+	// mu ML
+
+    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver2;
+    linearSolver2 =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
+   linearSolver2->init();
+
+
+   rval = linearSolver2->solve (Qsystem.get_matrix("lumped_mass"), nullptr,
+                                                        *Qsystem.solution,
+                                                        *Qsystem.rhs, tol, max_iter);
+
+	   //*Qsystem.solution = Qsystem.get_vector("Q2");
+
+//   Qsystem.sol = *Vsystem.solution;
+//	   Qsystem.get_vector("V2").add( 0.5*dt, Qsystem.get_vector("Q2") );
+//	   Qsystem.get_vector("V2").add( 0.5*dt, *Qsystem.solution );
+//   Qsystem.get_vector("V2").close();
+////       std::cout << "Updating Vnp1 !" << std::endl;
+////	   Vsystem.old_local_solution->print();
+//   std::cout << "Advancing !" << std::endl;
+
+   *Qsystem.old_local_solution = *Qsystem.solution;
+   *Vsystem.old_local_solution = *Vsystem.solution;
+
+
 }
 
-void IC(libMesh::EquationSystems & es, const std::string & system_name)
+
+
+
+double speed(double mu, double alpha)
 {
+	return (1-2*alpha) / std::sqrt(mu+(alpha-alpha*alpha)*(mu-1)*(mu-1) );
+}
 
-    // Get a reference to the Convection-Diffusion system object.
-    libMesh::TransientLinearImplicitSystem & system = es.get_system<
-            libMesh::TransientLinearImplicitSystem>(system_name);
+double exact_solution(double mu, double alpha, double x, double time)
+{
+	double exact_solution;
+	double c = speed(mu, alpha);
+	double gamma = c * c * mu - 1.0;
+	double beta = - c * ( 1 + mu );
+	double Delta = beta*beta-4*gamma;
+	double lp = ( -beta + std::sqrt(Delta) ) / (2*gamma);
+	double lm = ( -beta - std::sqrt(Delta) ) / (2*gamma);
 
-    // Project initial conditions at time 0
-    es.parameters.set<libMesh::Real>("time") = system.time = 0;
+	double z0 = 0;
+	double z = x - c *time;
 
-    system.project_solution(initial_value, libmesh_nullptr, es.parameters);
+	if(z >= z0)
+	{
+		exact_solution = alpha * std::exp(lp*z);
+	}
+	else
+	{
+		exact_solution = 1 + (alpha-1) * std::exp(lm*z);
+	}
+	return exact_solution;
+
+}
+
+
+double exact_derivative(double mu, double alpha, double x,  double time)
+{
+	double exact_der;
+	double c = speed(mu, alpha);
+	double gamma = c * c * mu - 1.0;
+	double beta = - c * ( 1 + mu );
+	double Delta = beta*beta-4*gamma;
+	double lp = ( -beta + std::sqrt(Delta) ) / (2*gamma);
+	double lm = ( -beta - std::sqrt(Delta) ) / (2*gamma);
+
+	double z0 = 0;
+	double z = x - c*time;
+
+	if(z >= z0)
+	{
+		exact_der = - c * lp * alpha * std::exp(lp*z);
+	}
+	else
+	{
+		exact_der = -c * lm * (alpha-1) * std::exp(lm*z);
+	}
+	return exact_der;
+
+}
+
+
+void set_exact_ic(double mu, double alpha, double time, libMesh::EquationSystems & es)
+{
+	const libMesh::MeshBase& mesh = es.get_mesh();
+	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+	const libMesh::MeshBase::const_node_iterator end_node =
+			mesh.local_nodes_end();
+
+	typedef libMesh::TransientLinearImplicitSystem     MonodomainSystem;
+	typedef libMesh::TransientExplicitSystem           IonicModelSystem;
+	typedef libMesh::ExplicitSystem                     ParameterSystem;
+
+	MonodomainSystem& monodomain_system  =  es.get_system<MonodomainSystem>("SimpleSystem");//Q
+	IonicModelSystem& wave_system =  es.get_system<IonicModelSystem>("WaveSystem");//V
+
+	const libMesh::DofMap& dof_map = monodomain_system.get_dof_map();
+
+	std::vector < libMesh::dof_id_type > dof_indices;
+	std::cout << "Setting IC" << std::endl;
+	for (; node != end_node; ++node)
+	{
+		const libMesh::Node * nn = *node;
+		dof_map.dof_indices(nn, dof_indices, 0);
+		libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
+
+		double exsol = exact_solution(mu, alpha, p(0), time);
+		double exder = exact_derivative(mu, alpha, p(0), time);
+		monodomain_system.solution->set(dof_indices[0], exder);//Q
+		wave_system.solution->set(dof_indices[0], exsol);//V
+	}
+	std::cout << "done" << std::endl;
+
+	monodomain_system.solution->close();
+	*monodomain_system.old_local_solution = *monodomain_system.solution;
+	monodomain_system.update();
+	wave_system.solution->close();
+	*wave_system.old_local_solution = *wave_system.solution;
+	wave_system.update();
+	wave_system.old_local_solution->close();
+	std::cout << "IC set" << std::endl;
+
+}
+
+void set_at_exact_solution(double mu, double alpha, double time, libMesh::EquationSystems & es)
+{
+	const libMesh::MeshBase& mesh = es.get_mesh();
+	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+	const libMesh::MeshBase::const_node_iterator end_node =
+			mesh.local_nodes_end();
+
+	typedef libMesh::ExplicitSystem                     ParameterSystem;
+
+	ParameterSystem& activation_times_system  = es.add_system<ParameterSystem>("ATSystem");
+
+
+	const libMesh::DofMap& dof_map = activation_times_system.get_dof_map();
+
+	std::vector < libMesh::dof_id_type > dof_indices;
+
+	for (; node != end_node; ++node)
+	{
+		const libMesh::Node * nn = *node;
+		dof_map.dof_indices(nn, dof_indices, 0);
+		libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
+
+		double exsol = exact_solution(mu, alpha, p(0), time);
+		double exder = exact_derivative(mu, alpha, p(0), time);
+//		monodomain_system.solution->set(dof_indices[0], exder);//Q
+		activation_times_system.solution->set(dof_indices[0], exder);//V
+	}
+	activation_times_system.solution->close();
+}
+
+
+
+void eval_l2_err(double& l2_V_err,
+		         double& l2_Q_err,
+				 double dt, double mu, double alpha, double time,
+				 libMesh::EquationSystems & es)
+{
+	typedef libMesh::TransientLinearImplicitSystem     MonodomainSystem;
+	typedef libMesh::TransientExplicitSystem           IonicModelSystem;
+	typedef libMesh::ExplicitSystem                     ParameterSystem;
+
+    const libMesh::MeshBase & mesh = es.get_mesh();
+    const unsigned int dim = mesh.mesh_dimension();
+
+	MonodomainSystem& monodomain_system  =  es.get_system<MonodomainSystem>("SimpleSystem");//Q
+	monodomain_system.update();
+	IonicModelSystem& wave_system =  es.get_system<IonicModelSystem>("WaveSystem");//V
+	wave_system.update();
+    const libMesh::DofMap & dof_map_monodomain = monodomain_system.get_dof_map();
+    libMesh::FEType fe_type = dof_map_monodomain.variable_type(0);
+    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    libMesh::QGauss qrule(dim, libMesh::FOURTH);
+    fe->attach_quadrature_rule(&qrule);
+    const std::vector<libMesh::Real> & JxW = fe->get_JxW();
+    const std::vector<libMesh::Point> & q_point = fe->get_xyz();
+    const std::vector<std::vector<libMesh::Real> > & phi = fe->get_phi();
+
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+    libMesh::MeshBase::const_element_iterator el =
+            mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el =
+            mesh.active_local_elements_end();
+
+
+    double err_l2_V2 = 0.0;
+    double err_l2_Q2 = 0.0;
+
+    for (; el != end_el; ++el)
+    {
+        const libMesh::Elem * elem = *el;
+        const unsigned int elem_id = elem->id();
+        dof_map_monodomain.dof_indices(elem, dof_indices);
+        fe->reinit(elem);
+
+        for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
+        {
+
+            libMesh::Number Vn = 0;
+            libMesh::Number Qn = 0;
+            for(unsigned int i = 0; i < phi.size(); ++i )
+            {
+                Qn += phi[i][qp] *  (*monodomain_system.current_local_solution)(dof_indices[i]);//Q
+                Vn += phi[i][qp] *  (*wave_system.current_local_solution)(dof_indices[i]);//V
+            }
+
+            double x = q_point[qp](0);
+            double exact_V = exact_solution(mu, alpha, x, time);
+            double exact_Q = exact_derivative(mu, alpha, x, time);
+
+            err_l2_V2 +=  JxW[qp] * (exact_V - Vn) * (exact_V - Vn);
+            err_l2_Q2 +=  JxW[qp] * (exact_Q - Qn) * (exact_Q - Qn);
+
+
+        }
+    }
+
+    double err_l2_V = std::sqrt(err_l2_V2);
+    double err_l2_Q = std::sqrt(err_l2_Q2);
+
+
+    l2_V_err += dt * err_l2_V;
+    l2_Q_err += dt * err_l2_Q;
 }
 
