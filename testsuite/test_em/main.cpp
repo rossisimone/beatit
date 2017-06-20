@@ -103,17 +103,9 @@ int main (int argc, char ** argv)
 
       int numElementsX = data("mesh/elX", 15);
       int numElementsY = data("mesh/elY",  5);
-      int numElementsZ = data("mesh/elZ",  4);
       double maxX= data("mesh/maxX", 2.0);
       double maxY = data("mesh/maxY", 0.7);
-      double maxZ = data("mesh/maxZ", 0.3);
 
-//      MeshTools::Generation::build_cube (mesh,
-//    		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
-//                                         0., maxX,
-//                                         0., maxY,
-//                                         0., maxZ,
-//                                         TET4);
 
       MeshTools::Generation::build_square ( mesh,
                                             numElementsX, numElementsY,
@@ -138,7 +130,6 @@ int main (int argc, char ** argv)
       em.M_monowave->init_exo_output();
       std::cout << "Saving monodomain parameters ..." << std::endl;
       em.M_monowave->save_parameters();
-//      return 0;
 
       BeatIt::TimeData datatime;
       datatime.setup(data, "em");
@@ -207,9 +198,9 @@ int main (int argc, char ** argv)
     std::cout << "norm is mechanics: " << norm << std::endl;
     std::cout << "activation norm is mechanics: " << anorm << std::endl;
 
-    double reference_potential_norm = 1.180132432165309719351853;
-    double reference_norm = 17.90409631663879252982952;
-    double reference_anorm = 0.06755865198526839199288929;
+    double reference_potential_norm = 6.798396710296156442154825;
+    double reference_norm = 15.94906528140608514831911;
+    double reference_anorm = 0.0696313514253144860699507;
     double reference_value = reference_anorm + reference_norm + reference_potential_norm;
     return BeatIt::CTest::check_test(norm+anorm+potential_norm, reference_value, 1e-10);
 
