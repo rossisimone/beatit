@@ -74,7 +74,6 @@ int main (int argc, char ** argv)
     // Bring in everything from the libMesh namespace
 
     using namespace libMesh;
-    MPI_Init (&argc, &argv);
     std::cout << "Starting ... "  << std::endl;
 
       // Initialize libraries, like in example 2.
@@ -91,7 +90,7 @@ int main (int argc, char ** argv)
       // elements instead of the default QUAD4's we used in example 2
       // allow us to use higher-order approximation.
       MeshTools::Generation::build_cube (mesh,
-                                         2, 2, 2,
+                                         2, 1, 1,
                                          0., 1.,
                                          0., 1.,
                                          0., 1.,
@@ -117,41 +116,38 @@ int main (int argc, char ** argv)
 
       if( 0 == init.comm().rank() ) std::cout << "My Length on 0 is " << my_length << std::endl;
       if( 1 == init.comm().rank() ) std::cout << "My Length on 1 is " << my_length << std::endl;
+      auto rank = equation_systems.comm().rank();
+      auto size = equation_systems.comm().size();
+      std::cout << "This run has " << size << " ranks" << std::endl;
 
 
       auto first_local_index = equation_systems.get_system("Poisson").get_vector(0).first_local_index();
       auto last_local_index = equation_systems.get_system("Poisson").get_vector(0).last_local_index();
 
       equation_systems.get_system("Poisson").get_vector(0).set(first_local_index+1, 3.0);
+	  if(rank == 0 ) std::cout << "Printing vector: All elements should be zero except for element 1 which has value 3." << std::endl;
       equation_systems.get_system("Poisson").get_vector(0).print(std::cout);
 
-      auto rank = equation_systems.comm().rank();
       for(int i = first_local_index; i < last_local_index; ++i)
       {
-             if(rank == 0 )  equation_systems.get_system("Poisson").solution->add(i, 1.0);
-             if(rank == 1 )  equation_systems.get_system("Poisson").solution->add(i, -1.0);
+    	  equation_systems.get_system("Poisson").solution->add(i, rank);
       }
-      if(rank == 1 )  equation_systems.get_system("Poisson").solution->add(first_local_index-1, -1.0);
       equation_systems.get_system("Poisson").solution->close();
+	  if(rank == 0 ) std::cout << "Printing vector:elements should have their rank has the value." << std::endl;
       equation_systems.get_system("Poisson").solution->print(std::cout);
 
-      if(rank == 1 )  equation_systems.get_system("Poisson").solution->set(last_local_index-1, 0.0);
-      equation_systems.comm().barrier();
-      equation_systems.get_system("Poisson").solution->close();
-      equation_systems.get_system("Poisson").solution->print(std::cout);
-      if(rank == 0 )  equation_systems.get_system("Poisson").solution->add(last_local_index, 2.0);
-      equation_systems.get_system("Poisson").solution->close();
-      equation_systems.get_system("Poisson").solution->print(std::cout);
-
-      libMesh::ExodusII_IO exo(mesh);
-      exo.write_equation_systems ("meshfile.e", equation_systems);
-
-	  auto init_val = equation_systems.get_system("Poisson").solution->operator()(first_local_index);
+	  auto init_val = equation_systems.get_system("Poisson").get_vector(0)(first_local_index+1);
 	  auto last_val = equation_systems.get_system("Poisson").solution->operator()(last_local_index-1);
 
 	  std::cout << "init_val: " << init_val << ", last_val " << last_val << std::endl;
-	  if(init_val == 1.0 && last_val == 0.0) return EXIT_SUCCESS;
-	  else return EXIT_FAILURE;
+	  auto status = EXIT_FAILURE;
+	  if(init_val == 3.0 && last_val == 0.0)
+	  {
+		  std::cout << "Test passed!" << std::endl;
+		  status = EXIT_SUCCESS;
+	  }
+	  init.comm().min(status);
+	  return status;
 }
 
 

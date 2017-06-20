@@ -530,22 +530,6 @@ void Bidomain::init(double time)
 	prec_map["ilu"] = libMesh::ILU_PRECOND;
 	prec_map["amg"] = libMesh::AMG_PRECOND;
 
-//    std::string solver_type = M_datafile("bidomain/linear_solver/type", "gmres");
-//    std::cout << "* BIDOMAIN: using " << solver_type << std::endl;
-//    std::string prec_type = M_datafile("bidomain/linear_solver/preconditioner", "amg");
-//    std::cout << "* BIDOMAIN: using " << prec_type << std::endl;
-//     M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
-//
-//     std::cout << "* BIDOMAIN: setting solver  " << prec_type << std::endl;
-//    M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
-//    M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
-//
-//    bidomain_system.matrix->close();
-//    std::cout << "* BIDOMAIN: closing matrix  " << prec_type << std::endl;
-//
-//    M_linearSolver->init();
-//    std::cout << "* BIDOMAIN: initialized linear solver  " << prec_type << std::endl;
-
 	ParameterSystem& procID_system = M_equationSystems.get_system
 			< ParameterSystem > ("ProcID");
 	first_local_index = procID_system.solution->first_local_index();

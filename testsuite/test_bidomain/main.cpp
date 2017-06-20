@@ -145,9 +145,6 @@ int main(int argc, char ** argv)
 		std::string mesh_type = data("mesh/type", "TRI3");
 		auto elType = orderMap.find(mesh_type)->second;
 
-		//      MeshTools::Generation::build_line ( mesh,
-		//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
-		//                                                                      0., maxX );
 		MeshTools::Generation::build_square(mesh, numElementsX, numElementsY,
 				0., maxX, 0.0, maxY, elType);
 		MeshTools::Modification::rotate(mesh, rotation);
@@ -157,9 +154,6 @@ int main(int argc, char ** argv)
 
 	std::cout << "Mesh done!" << std::endl;
 
-	//IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
-//      std::string system_mass = data("monodomain/system_mass", "mass");
-//      std::string iion_mass = data("monodomain/iion_mass", "lumped_mass");
 	std::string system_mass = data("bidomain/diffusion_mass", "mass");
 	std::string iion_mass = data("bidomain/reaction_mass", "lumped_mass");
 	bool useMidpointMethod = false;
@@ -189,17 +183,12 @@ int main(int argc, char ** argv)
     	std::cout << "Time loop starts:" << std::endl;
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
-//
 		  datatime.advance();
           std::cout << "Time:" << datatime.M_time << std::endl;
 		  bidomain.advance();
-//
-//		  monodomain.update_pacing(datatime.M_time);
 		  bidomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
 
 		  bidomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
-
-//
 		  bidomain.update_activation_time(datatime.M_time);
 
           if( 0 == datatime.M_iter%datatime.M_saveIter )
@@ -217,7 +206,7 @@ int main(int argc, char ** argv)
   			< BidomainSystem > ("bidomain");
   	double sol_norm = bidomain_system.solution->l2_norm();
     std::cout << std::setprecision(25) << "pot norm = " << sol_norm << std::endl;
-    const double reference_value = 53.2675101874086251996232;
+    const double reference_value = 53.26755679280705635392223;
     return BeatIt::CTest::check_test(sol_norm, reference_value, 1e-8);
 }
 

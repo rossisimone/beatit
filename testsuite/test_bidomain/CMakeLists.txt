@@ -23,7 +23,7 @@ IF ( ${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 
 
-add_test(${TESTNAME} mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_bidomain -i data.beat -ksp_type  bcgs -ksp_converged_reason -pc_type asm)
+add_test(${TESTNAMEV} mpirun -n 2 ${CMAKE_CURRENT_BINARY_DIR}/test_bidomain -i data.beat -ksp_type  bcgs -ksp_converged_reason -pc_type asm)
 
 
 

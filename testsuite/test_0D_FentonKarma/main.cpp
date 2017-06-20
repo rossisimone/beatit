@@ -119,11 +119,8 @@ int main (int argc, char ** argv)
 
     std::cout << std::setprecision(18) << "Solution norm = " << solution_norm << std::endl;
     //up to the 16th digit
-    const double reference_solution_norm = 4.81774928413110892;
+    const double reference_solution_norm = 2814.72668772403449;
     //We check only up to 12th
-	return BeatIt::CTest::check_test(solution_norm, reference_solution_norm, 1e-12);
-
-	return 0;
-//	return BeatIt::CTest::check_test(APD90[APD90.size()-1], reference_solution_norm, 1e-12);
+	return BeatIt::CTest::check_test(solution_norm, reference_solution_norm, 1e-8);
 }
 

@@ -77,8 +77,6 @@
 #include <iomanip>
 #include "Util/Timer.hpp"
 #include <fstream>
-#include "Util/CTestUtil.hpp"
-
 
 double exact_solution(double mu, double alpha, double x,  double time);
 double exact_derivative(double mu, double alpha, double x, double time);
@@ -179,23 +177,16 @@ int main (int argc, char ** argv)
           	  	  	  	  	  	 + "_alpha_" + std::to_string(alpha) + ".txt";
           errfile.open (err_output);
           errfile << "Time  err_V  err_Q\n";
-//		  eval_l2_err(l2_V_err, l2_Q_err, datatime.M_dt,
-//					  mu, alpha, datatime.M_time,
-//					  es);
-//		  errfile << datatime.M_time << " " << l2_V_err << " "<<  l2_Q_err << std::endl;
       }
       int save_iter = 0;
       std::cout << "Initializing output monodomain ..." << std::endl;
 
 		  monodomain.init_exo_output();
-	//      return 0;
 		  save_iter++;
-	//      return 0;
 
       for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
       {
           datatime.advance();
-          // Electrophysiology
 
           monodomain.advance();
 
@@ -210,7 +201,7 @@ int main (int argc, char ** argv)
         	  eval_l2_err(l2_V_err, l2_Q_err, datatime.M_dt,
         			      mu, alpha, datatime.M_time,
 						  es);
-              errfile << std::fixed << std::setprecision(15) << datatime.M_time << " " << l2_V_err << " "<<  l2_Q_err << std::endl;
+              errfile << datatime.M_time << " " << l2_V_err << " "<<  l2_Q_err << std::endl;
           }
 
 
@@ -231,13 +222,11 @@ int main (int argc, char ** argv)
       }
       std::cout << "Saving monodomain parameters ..." << std::endl;
       monodomain.save_parameters();
-
-      const double reference_value_V =  0.025915881788969;
-      const double reference_value_Q = 0.118060388384228;
-      int passV = BeatIt::CTest::check_test(l2_V_err, reference_value_V, 1e-8);
-      int passQ = BeatIt::CTest::check_test(l2_Q_err, reference_value_Q, 1e-8);
-      if(passQ == EXIT_FAILURE || passV == EXIT_FAILURE) return EXIT_FAILURE;
-      else return EXIT_SUCCESS;
+      //monodomain.save_exo(1, datatime.M_time);
+      //double last_activation_time = monodomain.last_activation_time();
+      //double potential_norm = monodomain.potential_norm();
+      //std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
+      return 0;
 
 }
 

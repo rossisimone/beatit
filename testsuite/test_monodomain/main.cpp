@@ -102,7 +102,7 @@ int main (int argc, char ** argv)
       // We build a linear tetrahedral mesh (TET4) on  [0,2]x[0,0.7]x[0,0.3]
       // the number of elements on each side is read from the input file
       GetPot commandLine ( argc, argv );
-      std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
+      std::string datafile_name = commandLine.follow ( "nash_panfilov.beat", 2, "-i", "--input" );
       GetPot data(datafile_name);
 
       // Reading Meshfile
@@ -271,13 +271,11 @@ int main (int argc, char ** argv)
           if( 0 == datatime.M_iter%datatime.M_saveIter )
           {
               std::cout << "* Test Monodomain: Time: " << datatime.M_time << std::endl;
-//              monodomain.save(save_iter++);
               perf_log.push("saving");
 
               if(usingAMR == true)
 			  {
             	  monodomain.save(save_iter);
-            	  //monodomain.save_exo(save_iter++, datatime.M_time);
 			  }
               else monodomain.save_exo(save_iter++, datatime.M_time);
               perf_log.pop("saving");
@@ -294,7 +292,7 @@ int main (int argc, char ** argv)
 
   	//We check only up to 12th
       //We check only up to 12th
-  	return BeatIt::CTest::check_test(potential_norm, reference_value, 1e-8);
+  	return BeatIt::CTest::check_test(potential_norm, reference_value, 1e-6);
 
 }
 

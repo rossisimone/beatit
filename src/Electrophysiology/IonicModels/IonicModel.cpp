@@ -23,4 +23,11 @@ IonicModel::IonicModel( int numVar,
 {
 }
 
+double
+IonicModel::evaluateIonicCurrentH(std::vector<double>& variables, double appliedCurrent, double dt, double h)
+{
+	return evaluateIonicCurrent(variables, appliedCurrent, dt);
+}
+
+
 } // namespace BeatIt
