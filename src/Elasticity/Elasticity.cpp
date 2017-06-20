@@ -98,7 +98,7 @@ typedef libMesh::TransientLinearImplicitSystem LinearSystem;
 
 Elasticity::Elasticity(libMesh::EquationSystems& es, std::string system_name) :
 		M_equationSystems(es), M_exporter(), M_outputFolder(), M_datafile(), M_linearSolver(), M_bch(), M_rhsFunction(), M_myName(
-				system_name), M_JacIsAssembled(false)
+				system_name), M_JacIsAssembled(false), M_stabilize(false), M_currentNewtonIter(0)
 {
 	// TODO Auto-generated constructor stub
 

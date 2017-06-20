@@ -21,6 +21,7 @@ TPL=
 # Example: 
 # PETSC=$TPL/petsc/3.7.4/opt/
 PETSC=
+PETSC_LIB=
 
 # LibMesh
 # Example: 
@@ -49,6 +50,7 @@ cmake \
   -D CMAKE_CXX_COMPILER=$MPICXX \
   -D CMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS} -std=c++11" \
   -D LIBMESH_DIR=$LIBMESH  \
+  -D PETSC_LIBRARIES=$PETSC_LIB  \
   -D VTK_DIR=$VTK  \
   -D PETSC_DIR=$PETSC \
   -D BOOST_ROOT=$BOOST \
