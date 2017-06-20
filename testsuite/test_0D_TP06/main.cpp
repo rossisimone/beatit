@@ -136,6 +136,7 @@ Variables::Variables(double V_init,double Cai_init,double CaSR_init,double CaSS_
   FCass= 1.;
   RR= 1.;
   OO= 0.;
+  Itot = 0.0;
 
   printf("Variables initialized\n");
 }
