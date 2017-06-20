@@ -759,7 +759,7 @@ void Elasticity::assemble_residual(double /* dt */,
 					dW(jdim, 2) = JxW_u[qp] * dphi_u[n][qp](2);
 					// Compute  - \nabla \cdot \sigma + f
 					Fe(n + jdim * n_ux_dofs) -= Sk.contract(dW);
-					Fe(n + jdim * n_ux_dofs) += rho * body_force[jdim]
+					Fe(n + jdim * n_ux_dofs) += JxW_u[qp] * rho * body_force[jdim]
 							* phi_u[n][qp];
 				}
 			}

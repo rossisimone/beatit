@@ -168,12 +168,12 @@ double reference_norm(Formulation f, CL cl)
                 }
                 case Mixed:
                 {
-                    norm = 52700.36394633166492;
+                    norm =  52703.24720521792915;
                     break;
                 }
                 case Incompressible:
                 {
-                    norm = 52720.041272301452409;
+                    norm =  50729.94868658449559;
                     break;
                 }
 
@@ -197,7 +197,7 @@ double reference_norm(Formulation f, CL cl)
                 }
                 case Mixed:
                 {
-                    norm = 12.66071562539388573;
+                    norm =  12.66136556159523785;
                     break;
                 }
                 case Incompressible:
