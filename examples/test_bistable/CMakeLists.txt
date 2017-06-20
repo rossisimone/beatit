@@ -1,9 +1,9 @@
-SET(TESTNAMEV test_bistable)
+SET(TESTNAMEV test_bistable_example)
 message("=== Adding Example : ${TESTNAMEV}")
 
 add_executable(${TESTNAMEV} main.cpp)
 
-set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_bistable.x")
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_bistable_example.x")
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
