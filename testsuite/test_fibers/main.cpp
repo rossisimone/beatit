@@ -135,7 +135,7 @@ int main (int argc, char ** argv)
       // For ctest
       const double reference_value = 2447.321987922462994902162;
       //We check only up to 12th
-       return BeatIt::CTest::check_test(fiber_norm, reference_value, 1e-8);
+       return BeatIt::CTest::check_test(fiber_norm, reference_value, 1e-6);
 }
 
 

@@ -563,36 +563,19 @@ Monodomain::generate_fibers(   const GetPot& data,
 
     std::cout << "* MONODOMAIN: Computing rule-based fiber fields" << std::endl;
 
-//    sol_ptr->print();
 
     auto j = first_local_index_sol;
 
     for(auto i = first_local_index; i < last_local_index; )
     {
 
-//        std::cout << "* MONODOMAIN: getting sol ... " << std::flush;
         potential = (*sol_ptr)(j);
         j++;
-//        std::cout << " done" << std::endl;
 
         sx = (*sheets_system.solution)(i);
         sy = (*sheets_system.solution)(i+1);
         sz = (*sheets_system.solution)(i+2);
         normalize(sx, sy, sz, 0.0, 1.0, 0.0);
-
-//        norm = std::sqrt( sx * sx + sy * sy + sz * sz);
-//        if(norm >= 1e-12 )
-//        {
-//            sx /= norm;
-//            sy /= norm;
-//            sz /= norm;
-//        }
-//        else
-//        {
-//            sx = 1.0;
-//            sy = 0.0;
-//            sz = 0.0;
-//        }
 
         cdot = cx * sx + cy * sy + cz * sz;
 
@@ -655,12 +638,10 @@ Monodomain::generate_fibers(   const GetPot& data,
         xfiber_system.solution->set(i,   xfx);
         xfiber_system.solution->set(i+1, xfy);
         xfiber_system.solution->set(i+2, xfz);
-//        std::cout << "* MONODOMAIN: setting sol ... " << std::flush;
 
         fiber_system. solution->set(i,   f0x);
         fiber_system. solution->set(i+1, f0y);
         fiber_system. solution->set(i+2, f0z);
-//        std::cout << " done" << std::endl;
 
         i += 3;
     }
@@ -679,7 +660,6 @@ void
 Monodomain::save(int step)
 {
     std::cout << "* MONODOMAIN: GMVIO::Exporting " << step << " in: "  << M_outputFolder << " ... " << std::flush;
-//    M_equationSystems->
     M_monodomainExporter->write_equation_systems ( M_outputFolder+"monodomain.gmv."+std::to_string(step),
                                                    M_equationSystems,
                                                    &M_monodomainExporterNames);
