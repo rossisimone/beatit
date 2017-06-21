@@ -170,6 +170,7 @@ void Elasticity::setup(const GetPot& data, std::string section)
 
 	std::cout << "Setting up system " << std::endl;
 	setupSystem(section);
+	setupPositionVector();
 	std::cout << "Setting up parameters " << std::endl;
 	setupParameters(section);
 }
@@ -339,9 +340,18 @@ void Elasticity::setupSystem(std::string section)
 	  //system.get_dof_map().print_info();
 
 	// Add position X
-	system.add_vector("X");
 	system.init();
 
+
+}
+
+void
+Elasticity::setupPositionVector()
+{
+	LinearSystem& system = M_equationSystems.get_system < LinearSystem
+			> (M_myName);
+
+	system.add_vector("X");
 	// FILL VECTOR X
 	std::cout << "* ELASTICITY: Filling position vector ... " << std::flush;
 	auto it = M_equationSystems.get_mesh().active_nodes_begin();
@@ -363,21 +373,11 @@ void Elasticity::setupSystem(std::string section)
 				auto dof_id = node->dof_number(sys_num, v, c);
 				system.get_vector("X").set(dof_id, value);
 			}
-
-//            std::cout << "cc:  " << cc << std::endl;
-//             std::cout << "Setting: " << value << " for dof_id " << dof_id << std::endl;
 		}
 	}
-//    {
-//        auto petscVecPtr = dynamic_cast<libMesh::PetscVector<libMesh::Number> *>(system.request_vector("X"));
-//        VecSetBlockSize(petscVecPtr->vec(),3);
-//        int m = petscVecPtr->size();
-//        VecSetSizes(petscVecPtr->vec(),m,PETSC_DECIDE);
-//    }
 	system.get_vector("X").close();
-//    std::cout << " done " << std::endl;
-
 }
+
 
 void Elasticity::setupParameters(std::string section)
 {

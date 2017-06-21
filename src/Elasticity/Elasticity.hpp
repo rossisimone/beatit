@@ -82,6 +82,7 @@ public:
 
     Elasticity(libMesh::EquationSystems& es, std::string system_name);
     virtual void setup(const GetPot& data, std::string section = "elasticity");
+    void setupPositionVector();
     virtual void setupSystem(std::string section = "elasticity");
     virtual void setupParameters(std::string section = "elasticity");
     virtual void save_exo(

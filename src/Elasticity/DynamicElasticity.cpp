@@ -280,47 +280,6 @@ void DynamicElasticity::setupSystem(std::string section)
     }
     else
         M_usingDG = false;
-
-    //INITIALIZE POSITION VECTOR:
-    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
-    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
-    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
-    std::vector<libMesh::dof_id_type> dof_indices;
-    std::vector<libMesh::dof_id_type> dof_indices_ux;
-    libMesh::DenseVector<libMesh::Number> Fe;
-    const libMesh::DofMap & dof_map = pos_system.get_dof_map();
-    libMesh::FEType fe_disp = dof_map.variable_type(0);
-    const unsigned int dim = mesh.mesh_dimension();
-    int pp = 0;
-    for (; el != end_el; ++el)
-    {
-        const libMesh::Elem * elem = *el;
-        auto elID = elem->id();
-
-        auto p0 = elem->point(0);
-        auto p1 = elem->point(1);
-        auto p2 = elem->point(2);
-
-        dof_map.dof_indices(elem, dof_indices);
-        dof_map.dof_indices(elem, dof_indices_ux, 0);
-        const unsigned int n_dofs = dof_indices.size();
-        const unsigned int n_ux_dofs = dof_indices_ux.size();
-        Fe.resize(n_dofs);
-//        Fe(0 + 0 * n_ux_dofs) = dof_indices[0];
-//        Fe(1 + 0 * n_ux_dofs) = dof_indices[1];
-//        Fe(2 + 0 * n_ux_dofs) = dof_indices[2];
-
-        for (int idim = 0; idim < dim; idim++)
-        {
-            Fe(0 + idim * n_ux_dofs) = dof_indices[0+idim*n_ux_dofs];
-            Fe(1 + idim * n_ux_dofs) = dof_indices[1+idim*n_ux_dofs];
-            Fe(2 + idim * n_ux_dofs) = dof_indices[2+idim*n_ux_dofs];
-        }
-
-        pos_system.solution->insert(Fe, dof_indices);
-    }
-    pos_system.solution->close();
-    pos_system.solution->print(std::cout);
 }
 
 void DynamicElasticity::update_displacements(double dt)
