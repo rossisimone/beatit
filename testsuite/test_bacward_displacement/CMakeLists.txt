@@ -1,9 +1,9 @@
-SET(TESTNAMEV example_bacward_displacement)
-message("=== Adding Example : ${TESTNAMEV}")
+SET(TESTNAMEV test_bacward_displacement)
+message("=== Adding Test : ${TESTNAMEV}")
 
 add_executable(${TESTNAMEV} main.cpp)
 
-set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_bacward_displacement")
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "test_bacward_displacement")
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
@@ -20,6 +20,7 @@ IF ( ${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
      CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/data.beat  ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 
+add_test(${TESTNAMEV} mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_bacward_displacement -i data.beat -pc_type lu)
 
 
 

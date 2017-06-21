@@ -48,7 +48,7 @@
 #include "Util/CTestUtil.hpp"
 #include "libmesh/dof_map.h"
 #include <iomanip>
-
+#include "Util/CTestUtil.hpp"
 
 enum Formulation { Primal,  Mixed, Incompressible };
 enum CL { Linear,  NH };
@@ -80,8 +80,6 @@ int main (int argc, char ** argv)
     int elX = data("elX", 10);
     int elY = data("elY", 2);
 
-
-    std::cout << "Element type chosen:  " << elType << std::endl;
     MeshTools::Generation::build_square ( mesh,
                                           elX, elY,
                                           0., 1.,
@@ -135,6 +133,9 @@ int main (int argc, char ** argv)
     double ramp_dt = data("ramp/dt", 0.1);
     double ramp_end_time = data("ramp/end_time", 0.9);
     double time = 0.0;
+
+    double error = 0.0;
+	int bd_iter = 0;
     while(time < ramp_end_time)
     {
         std::cout << "Solving ... " << std::endl;
@@ -142,9 +143,9 @@ int main (int argc, char ** argv)
         elas->setTime(time);
         std::cout << "Time: " << time << std::endl;
 		elas->newton();
-		int bd_iter = 0;
+		bd_iter = 0;
 		std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
-		double error = checkConfiguration(elas);
+		error = checkConfiguration(elas);
         elas->save_exo("solution.exo", save_iter, time);
         elas->save("solution.gmv", save_iter);
         save_iter++;
@@ -164,6 +165,12 @@ int main (int argc, char ** argv)
     }
 
     delete elas;
+    std::cout << std::setprecision(20) << "error: " << error << std::endl;
+    std::cout << "backward displacement iterations: " << bd_iter << std::endl;
+	const double reference_value = 9.0839119559760206357e-09;
+	if(bd_iter != 7) return EXIT_FAILURE;
+	else return BeatIt::CTest::check_test(error, reference_value, 1e-6);
+
     return 0;
 }
 
