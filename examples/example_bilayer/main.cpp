@@ -228,7 +228,7 @@ int main (int argc, char ** argv)
 
           if( 0 == datatime.M_iter%8 )
           {
-        	  std::cout << "Time: " << datatime.M_iter << std::endl;
+        	  std::cout << "Time: " << datatime.M_iter*datatime.M_dt << std::endl;
           }
           if( 0 == datatime.M_iter%datatime.M_saveIter )
           {

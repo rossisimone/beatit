@@ -71,7 +71,7 @@ namespace BeatIt
 class IonicModel;
 class PacingProtocol;
 
-enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic };
+enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic, UserDefined };
 enum class EquationType { ReactionDiffusion, Wave };
 
 /// Class
@@ -167,10 +167,12 @@ public:
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
 
     Anisotropy M_anisotropy;
+    std::vector<double>  M_conductivity;
     EquationType M_equationType;
     DynamicTimeIntegratorType M_timeIntegratorType;
 
     double M_meshSize;
+    bool M_shellCorrection;
 };
 
 } /* namespace BeatIt */
