@@ -307,6 +307,20 @@ void Monowave::setup(GetPot& data, std::string section)
     aniso_map["orthotropic"] = Anisotropy::Orthotropic;
     aniso_map["isotropic"] = Anisotropy::Isotropic;
     aniso_map["transverse"] = Anisotropy::TransverselyIsotropic;
+    aniso_map["user"] = Anisotropy::UserDefined;
+    M_anisotropy = aniso_map.find(anisotropy)->second;
+    //if( Anisotropy::UserDefined == M_anisotropy)
+    {
+    	M_conductivity.push_back(Dff);
+    	M_conductivity.push_back(Dss);
+    	M_conductivity.push_back(Dnn);
+        double Dns = M_datafile( section+"/Dns", 0.0);
+        double Dnf = M_datafile( section+"/Dnf", 0.0);
+        double Dsf = M_datafile( section+"/Dsf", 0.0);
+    	M_conductivity.push_back(Dns);
+    	M_conductivity.push_back(Dnf);
+    	M_conductivity.push_back(Dsf);
+	}
     std::cout << "* MONODOMAIN: Parameters: " << std::endl;
     std::cout << "              Chi = " << Chi << std::endl;
     std::cout << "              Dff = " << Dff << std::endl;
@@ -338,9 +352,17 @@ void Monowave::setup(GetPot& data, std::string section)
 
     M_equationType = EquationType::Wave;
     std::string eq_type = M_datafile(section+"/type", "wave");
-    if(eq_type != "wave") M_equationType = EquationType::ReactionDiffusion;
+    if(eq_type != "wave")
+	{
+    	M_equationType = EquationType::ReactionDiffusion;
+        std::cout << "* MONODOMAIN type: RD " << std::endl;
+	}
+    else         std::cout << "* MONODOMAIN type: Wave " << std::endl;
 
     M_artificialDiffusion = M_datafile(section+"/artificial_diffusion", false);
+
+    M_shellCorrection =  M_datafile(section+"/shell", false);
+    std::cout << "* MONODOMAIN: Shell Correction: " << M_shellCorrection << std::endl;
 
 }
 
@@ -1303,6 +1325,20 @@ Monowave::assemble_matrices()
 				 }
 				 break;
 			 }
+			 case Anisotropy::UserDefined:
+			 {
+    			 D0(0, 0) = M_conductivity[0]; //Dff
+    			 D0(1, 1) = M_conductivity[1]; //Dss
+    			 D0(2, 2) = M_conductivity[2]; //Dnn
+    			 D0(2, 1) = M_conductivity[3]; //Dns
+    			 D0(1, 2) = M_conductivity[3]; //Dns
+    			 D0(0, 2) = M_conductivity[4]; //Dnf
+    			 D0(2, 0) = M_conductivity[4]; //Dnf
+    			 D0(0, 1) = M_conductivity[5]; //Dsf
+    			 D0(1, 0) = M_conductivity[5]; //Dsf
+				 break;
+			 }
+
 
 			 case Anisotropy::Orthotropic:
 			 default:
@@ -1599,6 +1635,9 @@ Monowave::solve_reaction_step( double dt,
     //iion_system.old_local_solution->zero();
     iion_system.get_vector("diion").zero();
 
+    // get Dnn from setup method for shell approximation
+    double D33 = M_conductivity[2];
+
     double Cm = M_ionicModelPtr->membraneCapacitance();
 
     auto first_local_index = wave_system.solution->first_local_index();
@@ -1655,6 +1694,11 @@ Monowave::solve_reaction_step( double dt,
         }
         Iion += Isac;
 //        monodomain_system.get_vector("ionic_currents").set(i,Iion);
+        if(M_shellCorrection)
+        {
+        	double Lambda = 1.0;
+        	Iion += ( old_values[0] > 0 ) ? D33*Lambda*old_values[0] : 0.0;
+        }
         iion_system.solution->set(i,Iion);
         //iion_system.old_local_solution->set(i,Iion);
 		if(M_equationType == EquationType::Wave)

@@ -83,7 +83,7 @@ namespace BeatIt
 class IonicModel;
 class PacingProtocol;
 
-enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic };
+enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic, UserDefined };
 enum class EquationType { ReactionDiffusion, Wave };
 
 /// Class
