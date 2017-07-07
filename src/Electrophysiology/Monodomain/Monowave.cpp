@@ -1635,7 +1635,10 @@ Monowave::solve_reaction_step( double dt,
 //        monodomain_system.get_vector("ionic_currents").set(i,Iion);
         iion_system.solution->set(i,Iion);
         //iion_system.old_local_solution->set(i,Iion);
-        iion_system.get_vector("diion").set(i,dIion);
+		if(M_equationType == EquationType::Wave)
+        {
+                	iion_system.get_vector("diion").set(i,dIion);
+        }
         for(int nv = 0; nv < num_vars; ++nv)
         {
         	var_index =  i  * num_vars + nv;

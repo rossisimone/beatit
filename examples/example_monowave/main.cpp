@@ -142,13 +142,19 @@ int main (int argc, char ** argv)
 		    orderMap["QUAD9"] = QUAD9;
 		  std::string mesh_type = data("mesh/type", "TRI3");
 		   auto elType = orderMap.find(mesh_type)->second;
+                  if(numElementsZ>0) elType = TET4;
+                  else elType = TRI3; 
 
 	//      MeshTools::Generation::build_line ( mesh,
 	//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
 	//                                                                      0., maxX );
-		  MeshTools::Generation::build_square ( mesh,
-																		  numElementsX, numElementsY,
-																		  0., maxX, 0.0, maxY, elType );
+//		  MeshTools::Generation::build_square ( mesh,
+//																		  numElementsX, numElementsY,
+//																		  0., maxX, 0.0, maxY, elType );
+                  MeshTools::Generation::build_cube ( mesh,
+                                                                                                                                                  numElementsX, numElementsY,numElementsZ,
+                                                                                                                                                  0., maxX, 0.0, maxY, 0.0, maxZ, elType );
+
 		  MeshTools::Modification::rotate(mesh, rotation);
 		  MeshTools::Modification::translate(mesh, x_translation, y_translation, z_translation);
       }
@@ -167,15 +173,25 @@ int main (int argc, char ** argv)
       // Constructor
       std::cout << "Create monodomain ..." << std::endl;
       libMesh::EquationSystems es1(mesh);
+
+      libMesh::PerfLog perf_log ("Timing");
+
       BeatIt::Monowave monodomain(es1);
 
 
       std::cout << "Setup monodomain ..." << std::endl;
+	  perf_log.push("setup");
 	  monodomain.setup(data, "monodomain");
+	  perf_log.pop("setup");
       // Setup the equation systems
+	  perf_log.push("init");
       monodomain.init(0.0);
+	  perf_log.pop("init");
       std::cout << "Assembling monodomain ..." << std::endl;
-      monodomain.assemble_matrices();
+
+	  perf_log.push("assemble matrix");
+	  monodomain.assemble_matrices();
+	  perf_log.pop("assemble matrix");
       if(do_restart)
       {
   		int restart_step = data("monodomain/restart/step", 2);
@@ -191,9 +207,10 @@ int main (int argc, char ** argv)
       BeatIt::TimeData datatime;
       datatime.setup(data, "monodomain");
       datatime.print();
-      libMesh::PerfLog perf_log ("Solving");
 
+	  perf_log.push("form system matrix");
       monodomain.form_system_matrix(datatime.M_dt,useMidpointMethod, system_mass);
+	  perf_log.pop("form system matrix");
 
       bool cut = data("monodomain/cut", false);
       double cut_time = -5.0;
@@ -212,13 +229,19 @@ int main (int argc, char ** argv)
 		  monodomain.advance();
 
 		  monodomain.update_pacing(datatime.M_time);
+    	  perf_log.push("reaction");
 		  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
+		  perf_log.pop("reaction");
+
 //          if( 0 == datatime.M_iter%datatime.M_saveIter )
 //          {
 //              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
 //             monodomain.save_potential(save_iter++, datatime.M_time-0.5*datatime.M_dt);
 //          }
+		  perf_log.push("diffusion");
 		  monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
+		  perf_log.pop("diffusion");
+
 //          if( 0 == datatime.M_iter%datatime.M_saveIter )
 //          {
 //              std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
@@ -236,7 +259,10 @@ int main (int argc, char ** argv)
               std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
 //             monodomain.save_potential(save_iter++, datatime.M_time);
               save_iter++;
+			  perf_log.push("output");
+
              monodomain.save(save_iter);
+			  perf_log.pop("output");
           }
 		  if(cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)
 		  {
