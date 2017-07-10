@@ -290,6 +290,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
         }
 
         dof_map_fibers.dof_indices(elem, dof_indices_fibers);
+
         // fiber direction
         f0(0) = (*fiber_system.solution)(dof_indices_fibers[0]);
         f0(1) = (*fiber_system.solution)(dof_indices_fibers[1]);
@@ -347,6 +348,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 
             M_materialMap[0]->M_gradU = dUk;
             M_materialMap[0]->M_f0 = f0;
+            M_materialMap[0]->M_s0 = s0;
 
             const unsigned int n_phi_p = phi_p.size();
             for(unsigned int l = 0; l < n_phi_p; ++l )

@@ -118,6 +118,7 @@ public:
    double M_pressureResidual;
    std::vector<double>  M_parameters;
    libMesh::VectorValue <double> M_f0;
+   libMesh::VectorValue <double> M_s0;
    bool M_isIncompressible;
    int M_ndim;
    libMesh::TensorValue <double> M_FA;

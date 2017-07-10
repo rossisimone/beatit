@@ -84,6 +84,8 @@
 #include "Elasticity/Materials/LinearMaterial.hpp"
 #include "Elasticity/Materials/BenNeohookean.hpp"
 #include "Elasticity/Materials/IsotropicMaterial.hpp"
+#include "Elasticity/Materials/HolzapfelOgden.hpp"
+
 #include "Util/Timer.hpp"
 
 namespace libMesh
@@ -145,6 +147,8 @@ void Elasticity::save_exo(const std::string& output_filename, int step,
 			<< M_outputFolder << " ... " << std::flush;
 	M_exporter->write_timestep(M_outputFolder + output_filename,
 			M_equationSystems, step, time);
+	M_exporter->write_element_data(M_equationSystems);
+
 //	M_exporter->write_element_data(M_equationSystems);
 	std::cout << "done " << std::endl;
 }
@@ -565,6 +569,7 @@ void Elasticity::assemble_residual(double /* dt */,
 
 	const libMesh::DofMap & dof_map = system.get_dof_map();
 	libMesh::FEType fe_disp = dof_map.variable_type(ux_var);
+    const libMesh::DofMap & dof_map_fibers= fiber_system.get_dof_map();
 
 	UniquePtr < libMesh::FEBase > fe_u(libMesh::FEBase::build(dim, fe_disp));
 	auto order = fe_u->get_order();
@@ -617,6 +622,8 @@ void Elasticity::assemble_residual(double /* dt */,
 	double gamma_f;
 	double gamma_s;
 	double gamma_n;
+    std::vector<libMesh::dof_id_type> dof_indices_fibers;
+
 	std::vector<double> gamma_f_k;
 	libMesh::TensorValue < libMesh::Number > FA;
 
@@ -664,6 +671,21 @@ void Elasticity::assemble_residual(double /* dt */,
 //  	  for(auto && di : dof_indices)  std::cout << "dof id: " << di << std::endl;
 
 		system.current_local_solution->get(dof_indices, solution_k);
+
+		dof_map_fibers.dof_indices(elem, dof_indices_fibers);
+        // fiber direction
+        f0(0) = (*fiber_system.solution)(dof_indices_fibers[0]);
+        f0(1) = (*fiber_system.solution)(dof_indices_fibers[1]);
+        f0(2) = (*fiber_system.solution)(dof_indices_fibers[2]);
+        // sheet direction
+        s0(0) = (*sheets_system.solution)(dof_indices_fibers[0]);
+        s0(1) = (*sheets_system.solution)(dof_indices_fibers[1]);
+        s0(2) = (*sheets_system.solution)(dof_indices_fibers[2]);
+        // crossfiber direction
+        n0(0) = (*xfiber_system.solution)(dof_indices_fibers[0]);
+        n0(1) = (*xfiber_system.solution)(dof_indices_fibers[1]);
+        n0(2) = (*xfiber_system.solution)(dof_indices_fibers[2]);
+
 
 		if (activation_ptr)
 		{
@@ -735,6 +757,9 @@ void Elasticity::assemble_residual(double /* dt */,
 					}
 				}
 			}
+
+			M_materialMap[0]->M_f0 = f0;
+            M_materialMap[0]->M_s0 = s0;
 
 			M_materialMap[0]->M_gradU = dUk;
 			M_materialMap[0]->M_FA = FA;
@@ -996,7 +1021,8 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 						}
 						else if (BCMode::Normal == mode)
 						{
-							beta = 1e3;
+//							beta = 1e3;
+							beta = 1e6;
 							// Defines a region on which to apply the BC
 							int function_size = bc->get_function().size();
 							std::vector<double> center(function_size);
