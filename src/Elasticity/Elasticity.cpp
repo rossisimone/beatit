@@ -100,7 +100,8 @@ typedef libMesh::TransientLinearImplicitSystem LinearSystem;
 
 Elasticity::Elasticity(libMesh::EquationSystems& es, std::string system_name) :
 		M_equationSystems(es), M_exporter(), M_outputFolder(), M_datafile(), M_linearSolver(), M_bch(), M_rhsFunction(), M_myName(
-				system_name), M_JacIsAssembled(false), M_stabilize(false), M_currentNewtonIter(0)
+				system_name), M_JacIsAssembled(false), M_stabilize(false), M_currentNewtonIter(
+				0)
 {
 	// TODO Auto-generated constructor stub
 
@@ -188,8 +189,7 @@ void Elasticity::setupSystem(std::string section)
 	// DISPLACEMENT PART
 	std::cout << "* ELASTICITY: Creating new System for the ELASTICITY Solver"
 			<< std::endl;
-	LinearSystem& system = M_equationSystems.add_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.add_system<LinearSystem>(M_myName);
 
 	std::string disp_name = "displacement";
 
@@ -250,8 +250,8 @@ void Elasticity::setupSystem(std::string section)
 		M_solverType = ElasticSolverType::Primal;
 		std::cout << "* ELASTICITY: Setting up pressure  field ... "
 				<< std::flush;
-		LinearSystem& p_system = M_equationSystems.add_system < LinearSystem
-				> ("Pressure_Projection");
+		LinearSystem& p_system = M_equationSystems.add_system<LinearSystem>(
+				"Pressure_Projection");
 		p_system.add_variable(pressure_name, libMesh::FIRST, libMesh::LAGRANGE);
 		p_system.init();
 		std::cout << " done " << std::endl;
@@ -276,7 +276,7 @@ void Elasticity::setupSystem(std::string section)
 		auto bc_type = bc_ptr->get_type();
 		if (bc_type == BCType::Dirichlet)
 		{
-			std::set < libMesh::boundary_id_type > dirichlet_boundary_ids;
+			std::set<libMesh::boundary_id_type> dirichlet_boundary_ids;
 			auto bc_mode = bc_ptr->get_mode();
 			std::vector<unsigned int> variables;
 
@@ -346,14 +346,11 @@ void Elasticity::setupSystem(std::string section)
 	// Add position X
 	system.init();
 
-
 }
 
-void
-Elasticity::setupPositionVector()
+void Elasticity::setupPositionVector()
 {
-	LinearSystem& system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
 
 	system.add_vector("X");
 	// FILL VECTOR X
@@ -382,12 +379,10 @@ Elasticity::setupPositionVector()
 	system.get_vector("X").close();
 }
 
-
 void Elasticity::setupParameters(std::string section)
 {
 	int dimension = M_equationSystems.get_mesh().mesh_dimension();
-	LinearSystem& system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
 
 	//Add vectors for anisotropic case
 	std::cout << "Fibers? " << M_equationSystems.has_system("fibers")
@@ -398,8 +393,8 @@ void Elasticity::setupParameters(std::string section)
 			<< std::endl;
 	if (!M_equationSystems.has_system("fibers"))
 	{
-		ParameterSystem& fiber_system = M_equationSystems.add_system
-				< ParameterSystem > ("fibers");
+		ParameterSystem& fiber_system = M_equationSystems.add_system<
+				ParameterSystem>("fibers");
 		fiber_system.add_variable("fibersx", libMesh::CONSTANT,
 				libMesh::MONOMIAL);
 		fiber_system.add_variable("fibersy", libMesh::CONSTANT,
@@ -415,8 +410,8 @@ void Elasticity::setupParameters(std::string section)
 	}
 	if (!M_equationSystems.has_system("sheets"))
 	{
-		ParameterSystem& sheets_system = M_equationSystems.add_system
-				< ParameterSystem > ("sheets");
+		ParameterSystem& sheets_system = M_equationSystems.add_system<
+				ParameterSystem>("sheets");
 		sheets_system.add_variable("sheetsx", libMesh::CONSTANT,
 				libMesh::MONOMIAL);
 		sheets_system.add_variable("sheetsy", libMesh::CONSTANT,
@@ -431,8 +426,8 @@ void Elasticity::setupParameters(std::string section)
 	}
 	if (!M_equationSystems.has_system("xfibers"))
 	{
-		ParameterSystem& xfiber_system = M_equationSystems.add_system
-				< ParameterSystem > ("xfibers");
+		ParameterSystem& xfiber_system = M_equationSystems.add_system<
+				ParameterSystem>("xfibers");
 		xfiber_system.add_variable("xfibersx", libMesh::CONSTANT,
 				libMesh::MONOMIAL);
 		xfiber_system.add_variable("xfibersy", libMesh::CONSTANT,
@@ -445,11 +440,11 @@ void Elasticity::setupParameters(std::string section)
 		std::cout << "*             n: " << xfibers_data << std::endl;
 		Util::project_function(xfibers_data, xfiber_system);
 	}
-	ParameterSystem& dummy_system = M_equationSystems.add_system
-			< ParameterSystem > ("dumb");
+	ParameterSystem& dummy_system =
+			M_equationSystems.add_system<ParameterSystem>("dumb");
 	dummy_system.add_variable("dumb", libMesh::FIRST, libMesh::LAGRANGE);
-	ParameterSystem& I4f_system = M_equationSystems.add_system < ParameterSystem
-			> ("I4f");
+	ParameterSystem& I4f_system = M_equationSystems.add_system<ParameterSystem>(
+			"I4f");
 	I4f_system.add_variable("I4f", libMesh::FIRST, libMesh::LAGRANGE);
 	I4f_system.add_vector("patch_area");
 	I4f_system.add_vector("F11");
@@ -482,13 +477,13 @@ void Elasticity::setupParameters(std::string section)
 
 	std::cout << "* ELASTICITY: Setup linear solvers ... " << std::endl;
 
-	M_linearSolver = libMesh::LinearSolver < libMesh::Number
-			> ::build(M_equationSystems.comm());
+	M_linearSolver = libMesh::LinearSolver<libMesh::Number>::build(
+			M_equationSystems.comm());
 //    M_linearSolver->set_solver_type(libMesh::GMRES);
 	M_linearSolver->set_preconditioner_type(libMesh::AMG_PRECOND);
 	M_linearSolver->init();
-	M_projectionsLinearSolver = libMesh::LinearSolver < libMesh::Number
-			> ::build(M_equationSystems.comm());
+	M_projectionsLinearSolver = libMesh::LinearSolver<libMesh::Number>::build(
+			M_equationSystems.comm());
 	M_projectionsLinearSolver->set_solver_type(libMesh::GMRES);
 	M_projectionsLinearSolver->set_preconditioner_type(libMesh::SOR_PRECOND);
 	M_projectionsLinearSolver->init();
@@ -500,7 +495,7 @@ void Elasticity::setupParameters(std::string section)
 	M_GMVexporter.reset(new Exporter(M_equationSystems.get_mesh()));
 	M_VTKexporter.reset(new VTKExporter(M_equationSystems.get_mesh()));
 	std::string mats = M_datafile(section + "/materials", "NO_MATERIAL");
-	std::vector < std::string > materials;
+	std::vector<std::string> materials;
 	BeatIt::readList(mats, materials);
 	std::string base_path = section + "/materials/";
 	for (auto&& material : materials)
@@ -529,8 +524,7 @@ void Elasticity::setupParameters(std::string section)
 
 void Elasticity::setTime(double time)
 {
-	LinearSystem& system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
 	system.time = time;
 }
 
@@ -545,15 +539,14 @@ void Elasticity::assemble_residual(double /* dt */,
 	const unsigned int dim = mesh.mesh_dimension();
 	const unsigned int max_dim = 3;
 	// Get a reference to the LinearImplicitSystem we are solving
-	LinearSystem& system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
 	double time = system.time;
-	ParameterSystem& fiber_system = M_equationSystems.get_system
-			< ParameterSystem > ("fibers");
-	ParameterSystem& sheets_system = M_equationSystems.get_system
-			< ParameterSystem > ("sheets");
-	ParameterSystem& xfiber_system = M_equationSystems.get_system
-			< ParameterSystem > ("xfibers");
+	ParameterSystem& fiber_system =
+			M_equationSystems.get_system<ParameterSystem>("fibers");
+	ParameterSystem& sheets_system = M_equationSystems.get_system<
+			ParameterSystem>("sheets");
+	ParameterSystem& xfiber_system = M_equationSystems.get_system<
+			ParameterSystem>("xfibers");
 
 	system.get_vector("residual").zero();
 	system.rhs->zero();
@@ -569,9 +562,9 @@ void Elasticity::assemble_residual(double /* dt */,
 
 	const libMesh::DofMap & dof_map = system.get_dof_map();
 	libMesh::FEType fe_disp = dof_map.variable_type(ux_var);
-    const libMesh::DofMap & dof_map_fibers= fiber_system.get_dof_map();
+	const libMesh::DofMap & dof_map_fibers = fiber_system.get_dof_map();
 
-	UniquePtr < libMesh::FEBase > fe_u(libMesh::FEBase::build(dim, fe_disp));
+	UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp));
 	auto order = fe_u->get_order();
 
 	libMesh::QGauss qrule_1(dim, order);
@@ -590,31 +583,31 @@ void Elasticity::assemble_residual(double /* dt */,
 	libMesh::DenseVector<libMesh::Number> Fe;
 	libMesh::DenseMatrix<libMesh::Number> Ke;
 
-	std::vector < libMesh::dof_id_type > dof_indices;
-	std::vector < libMesh::dof_id_type > dof_indices_ux;
-	std::vector < libMesh::dof_id_type > dof_indices_uy;
-	std::vector < libMesh::dof_id_type > dof_indices_uz;
+	std::vector<libMesh::dof_id_type> dof_indices;
+	std::vector<libMesh::dof_id_type> dof_indices_ux;
+	std::vector<libMesh::dof_id_type> dof_indices_uy;
+	std::vector<libMesh::dof_id_type> dof_indices_uz;
 
 	// Grad U
 	std::vector<double> solution_k;
-	libMesh::TensorValue < libMesh::Number > dU;
+	libMesh::TensorValue<libMesh::Number> dU;
 	// Grad U
-	libMesh::TensorValue < libMesh::Number > dUk;
+	libMesh::TensorValue<libMesh::Number> dUk;
 	// Strain
-	libMesh::TensorValue < libMesh::Number > E;
+	libMesh::TensorValue<libMesh::Number> E;
 	// Strain
-	libMesh::TensorValue < libMesh::Number > Ek;
+	libMesh::TensorValue<libMesh::Number> Ek;
 	// Identity
-	libMesh::TensorValue < libMesh::Number > id;
+	libMesh::TensorValue<libMesh::Number> id;
 	id(0, 0) = 1.0;
 	id(1, 1) = 1.0;
 	id(2, 2) = 1.0;
 	// Stress
-	libMesh::TensorValue < libMesh::Number > Sk;
+	libMesh::TensorValue<libMesh::Number> Sk;
 	// Stress
-	libMesh::TensorValue < libMesh::Number > S;
+	libMesh::TensorValue<libMesh::Number> S;
 	// Grad W (test function)
-	libMesh::TensorValue < libMesh::Number > dW;
+	libMesh::TensorValue<libMesh::Number> dW;
 
 	double body_force[3];
 	const std::vector<libMesh::Point> & q_point = fe_u->get_xyz();
@@ -622,14 +615,14 @@ void Elasticity::assemble_residual(double /* dt */,
 	double gamma_f;
 	double gamma_s;
 	double gamma_n;
-    std::vector<libMesh::dof_id_type> dof_indices_fibers;
+	std::vector<libMesh::dof_id_type> dof_indices_fibers;
 
 	std::vector<double> gamma_f_k;
-	libMesh::TensorValue < libMesh::Number > FA;
+	libMesh::TensorValue<libMesh::Number> FA;
 
 	// On the boundary
-	libMesh::UniquePtr < libMesh::FEBase
-			> fe_face(libMesh::FEBase::build(dim, fe_disp));
+	libMesh::UniquePtr<libMesh::FEBase> fe_face(
+			libMesh::FEBase::build(dim, fe_disp));
 	libMesh::QGauss qface(dim - 1, libMesh::FIRST);
 	fe_face->attach_quadrature_rule(&qface);
 
@@ -673,19 +666,18 @@ void Elasticity::assemble_residual(double /* dt */,
 		system.current_local_solution->get(dof_indices, solution_k);
 
 		dof_map_fibers.dof_indices(elem, dof_indices_fibers);
-        // fiber direction
-        f0(0) = (*fiber_system.solution)(dof_indices_fibers[0]);
-        f0(1) = (*fiber_system.solution)(dof_indices_fibers[1]);
-        f0(2) = (*fiber_system.solution)(dof_indices_fibers[2]);
-        // sheet direction
-        s0(0) = (*sheets_system.solution)(dof_indices_fibers[0]);
-        s0(1) = (*sheets_system.solution)(dof_indices_fibers[1]);
-        s0(2) = (*sheets_system.solution)(dof_indices_fibers[2]);
-        // crossfiber direction
-        n0(0) = (*xfiber_system.solution)(dof_indices_fibers[0]);
-        n0(1) = (*xfiber_system.solution)(dof_indices_fibers[1]);
-        n0(2) = (*xfiber_system.solution)(dof_indices_fibers[2]);
-
+		// fiber direction
+		f0(0) = (*fiber_system.solution)(dof_indices_fibers[0]);
+		f0(1) = (*fiber_system.solution)(dof_indices_fibers[1]);
+		f0(2) = (*fiber_system.solution)(dof_indices_fibers[2]);
+		// sheet direction
+		s0(0) = (*sheets_system.solution)(dof_indices_fibers[0]);
+		s0(1) = (*sheets_system.solution)(dof_indices_fibers[1]);
+		s0(2) = (*sheets_system.solution)(dof_indices_fibers[2]);
+		// crossfiber direction
+		n0(0) = (*xfiber_system.solution)(dof_indices_fibers[0]);
+		n0(1) = (*xfiber_system.solution)(dof_indices_fibers[1]);
+		n0(2) = (*xfiber_system.solution)(dof_indices_fibers[2]);
 
 		if (activation_ptr)
 		{
@@ -759,7 +751,7 @@ void Elasticity::assemble_residual(double /* dt */,
 			}
 
 			M_materialMap[0]->M_f0 = f0;
-            M_materialMap[0]->M_s0 = s0;
+			M_materialMap[0]->M_s0 = s0;
 
 			M_materialMap[0]->M_gradU = dUk;
 			M_materialMap[0]->M_FA = FA;
@@ -784,8 +776,8 @@ void Elasticity::assemble_residual(double /* dt */,
 					dW(jdim, 2) = JxW_u[qp] * dphi_u[n][qp](2);
 					// Compute  - \nabla \cdot \sigma + f
 					Fe(n + jdim * n_ux_dofs) -= Sk.contract(dW);
-					Fe(n + jdim * n_ux_dofs) += JxW_u[qp] * rho * body_force[jdim]
-							* phi_u[n][qp];
+					Fe(n + jdim * n_ux_dofs) += JxW_u[qp] * rho
+							* body_force[jdim] * phi_u[n][qp];
 				}
 			}
 
@@ -926,6 +918,168 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 									Fe(i + idim * n_ux_dofs) += JxW_face[qp]
 											* traction * normals[qp](idim)
 											* phi_face[i][qp];
+								}
+							}
+						}
+
+					}
+
+					break;
+				}
+				case BCType::Robin:
+				{
+					auto& solution_k = *solk;
+					auto mode = bc->get_mode();
+					double beta = 1e6;
+
+					for (unsigned int qp = 0; qp < qface.n_points(); qp++)
+					{
+						double uk = 0.0;
+						// The location on the boundary of the current
+						// face quadrature point.
+						const double xq = qface_point[qp](0);
+						const double yq = qface_point[qp](1);
+						const double zq = qface_point[qp](2);
+
+						const unsigned int n_phi = phi_face.size();
+
+						if (BCMode::Component == mode)
+						{
+							int idim = 0;
+							if (BCComponent::Y == bc->get_component())
+								idim = 1;
+							if (BCComponent::Z == bc->get_component())
+								idim = 2;
+
+							for (unsigned int l = 0; l < n_phi; ++l)
+							{
+								uk += phi_face[l][qp]
+										* solution_k[l + idim * n_phi];
+							} // end grad Uk on qp
+
+							const double value = bc->get_function()(time, xq,
+									yq, zq, 0);
+							// Add the constant
+							beta = bc->get_function()(time, xq,
+									yq, zq, 1);
+							for (unsigned int i = 0; i < n_ux_dofs; i++)
+							{
+								Fe(i + idim * n_ux_dofs) += JxW_face[qp] *
+										* (value - beta * uk) * phi_face[i][qp];
+							}
+
+							for (unsigned int i = 0; i < n_ux_dofs; i++)
+							{
+								for (unsigned int j = 0; j < n_ux_dofs; j++)
+								{
+									Ke(i + idim * n_ux_dofs,
+											j + idim * n_ux_dofs) +=
+											JxW_face[qp] * beta
+													* phi_face[i][qp]
+													* phi_face[j][qp];
+								}
+							}
+
+						}
+						else if (BCMode::Full == mode)
+						{
+							beta = bc->get_function()(time, xq,
+									yq, zq, dim+1);
+							for (int idim = 0; idim < dim; ++idim)
+							{
+
+								for (unsigned int l = 0; l < n_phi; ++l)
+								{
+									uk += phi_face[l][qp]
+											* solution_k[l + idim * n_phi];
+								} // end grad Uk on qp
+
+								const double value = bc->get_function()(time,
+										xq, yq, zq, idim);
+								for (unsigned int i = 0; i < n_ux_dofs; i++)
+								{
+									Fe(i + idim * n_ux_dofs) += JxW_face[qp]
+											* (value - beta * uk)
+											* phi_face[i][qp];
+								}
+
+								for (unsigned int i = 0; i < n_ux_dofs; i++)
+								{
+									for (unsigned int j = 0; j < n_ux_dofs; j++)
+									{
+										Ke(i + idim * n_ux_dofs,
+												j + idim * n_ux_dofs) +=
+												JxW_face[qp] * beta
+														* phi_face[i][qp]
+														* phi_face[j][qp];
+									}
+								}
+							}
+						}
+						else if (BCMode::Normal == mode)
+						{
+							beta = bc->get_function()(time, xq,
+									yq, zq, 1);
+							// Defines a region on which to apply the BC
+							const double value = bc->get_function()(time,
+									xq, yq, zq, 0);
+							double un = 0.0;
+							double u1 = 0.0;
+							double u2 = 0.0;
+							double u3 = 0.0;
+							for (unsigned int l = 0; l < n_phi; ++l)
+							{
+								u1 += phi_face[l][qp] * solution_k[l];
+								if (dim > 1)
+									u2 += phi_face[l][qp]
+											* solution_k[l + n_phi];
+								if (dim > 2)
+									u3 += phi_face[l][qp]
+											* solution_k[l + 2 * n_phi];
+							} // end grad Uk on qp
+
+							un = u1 * normals[qp](0);
+							if (dim > 1)
+								un += u2 * normals[qp](1);
+							if (dim > 2)
+								un += u3 * normals[qp](2);
+
+							for (int idim = 0; idim < dim; ++idim)
+							{
+								for (unsigned int i = 0; i < n_ux_dofs; i++)
+								{
+									//Fe(i+idim*n_ux_dofs) += JxW_face[qp] * beta * (value - ukn ) * phi_face[i][qp] * normals[qp](idim);
+									//Fe(i+idim*n_ux_dofs) += JxW_face[qp] * beta * (value - ukn ) * phi_face[i][qp] * normals[qp](idim);
+									//Fe(i+idim*n_ux_dofs) -= JxW_face[qp] * u1 * normals[qp](0) * phi_face[i][qp] * normals[qp](idim);
+									//Fe(i+idim*n_ux_dofs) -= JxW_face[qp] * u2 * normals[qp](1) * phi_face[i][qp] * normals[qp](idim);
+									Fe(i + idim * n_ux_dofs) -= JxW_face[qp]
+											* (un - beta * value)
+											* phi_face[i][qp]
+											* normals[qp](idim);
+								}
+							}
+
+							for (int idim = 0; idim < dim; ++idim)
+							{
+								for (unsigned int i = 0; i < n_ux_dofs; i++)
+								{
+									for (int jdim = 0; jdim < dim; ++jdim)
+									{
+										for (unsigned int j = 0;
+												j < n_ux_dofs; j++)
+										{
+											//Ke(i+idim*n_ux_dofs,j+jdim*n_ux_dofs) += JxW_face[qp] * beta * phi_face[i][qp] * normals[qp](idim) * phi_face[j][qp] * normals[qp](jdim);
+											Ke(i + idim * n_ux_dofs,
+													j + jdim * n_ux_dofs) +=
+													JxW_face[qp] * beta
+															* phi_face[i][qp]
+															* normals[qp](
+																	idim)
+															* phi_face[j][qp]
+															* normals[qp](
+																	jdim);
+										}
+									}
 								}
 							}
 						}
@@ -1128,8 +1282,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 
 void Elasticity::solve_system()
 {
-	LinearSystem& system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
 
 	double tol = 1e-12;
 	double max_iter = 2000;
@@ -1179,10 +1332,10 @@ void Elasticity::project_pressure()
 	const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 	const unsigned int dim = mesh.mesh_dimension();
 
-	LinearSystem & system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
-	LinearSystem & system_p = M_equationSystems.get_system < LinearSystem
-			> ("Pressure_Projection");
+	LinearSystem & system = M_equationSystems.get_system<LinearSystem>(
+			M_myName);
+	LinearSystem & system_p = M_equationSystems.get_system<LinearSystem>(
+			"Pressure_Projection");
 	system.update();
 	unsigned int ux_var = system.variable_number("displacementx");
 	unsigned int uy_var, uz_var, p_var;
@@ -1195,15 +1348,15 @@ void Elasticity::project_pressure()
 
 	const libMesh::DofMap & dof_map = system.get_dof_map();
 	libMesh::FEType fe_type = dof_map.variable_type(0);
-	libMesh::UniquePtr < libMesh::FEBase
-			> fe(libMesh::FEBase::build(dim, fe_type));
+	libMesh::UniquePtr<libMesh::FEBase> fe(
+			libMesh::FEBase::build(dim, fe_type));
 	libMesh::QGauss qrule(dim, fe->get_order());
 	fe->attach_quadrature_rule(&qrule);
 
 	const libMesh::DofMap & dof_map_p = system_p.get_dof_map();
 	libMesh::FEType fe_type_p = dof_map_p.variable_type(0);
-	libMesh::UniquePtr < libMesh::FEBase
-			> fe_p(libMesh::FEBase::build(dim, fe_type_p));
+	libMesh::UniquePtr<libMesh::FEBase> fe_p(
+			libMesh::FEBase::build(dim, fe_type_p));
 	libMesh::QGauss qrule_p(dim, libMesh::SECOND);
 	fe_p->attach_quadrature_rule(&qrule_p);
 
@@ -1221,13 +1374,13 @@ void Elasticity::project_pressure()
 	// Grad U
 	std::vector<double> solution_k;
 
-	libMesh::TensorValue < libMesh::Number > dUk;
+	libMesh::TensorValue<libMesh::Number> dUk;
 
-	std::vector < libMesh::dof_id_type > dof_indices;
-	std::vector < libMesh::dof_id_type > dof_indices_ux;
-	std::vector < libMesh::dof_id_type > dof_indices_uy;
-	std::vector < libMesh::dof_id_type > dof_indices_uz;
-	std::vector < libMesh::dof_id_type > dof_indices_p;
+	std::vector<libMesh::dof_id_type> dof_indices;
+	std::vector<libMesh::dof_id_type> dof_indices_ux;
+	std::vector<libMesh::dof_id_type> dof_indices_uy;
+	std::vector<libMesh::dof_id_type> dof_indices_uz;
+	std::vector<libMesh::dof_id_type> dof_indices_p;
 
 	libMesh::MeshBase::const_element_iterator el =
 			mesh.active_local_elements_begin();
@@ -1329,8 +1482,7 @@ void Elasticity::newton(double dt,
 {
 	Timer timer;
 	timer.start();
-	LinearSystem& system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
 	update_displacements(dt);
 
 	M_currentNewtonIter = 0;
@@ -1402,12 +1554,12 @@ void Elasticity::evaluate_nodal_I4f()
 	const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 	const unsigned int dim = mesh.mesh_dimension();
 
-	ParameterSystem& fiber_system = M_equationSystems.get_system
-			< ParameterSystem > ("fibers");
-	ParameterSystem& I4f_system = M_equationSystems.get_system < ParameterSystem
-			> ("I4f");
-	LinearSystem & system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	ParameterSystem& fiber_system =
+			M_equationSystems.get_system<ParameterSystem>("fibers");
+	ParameterSystem& I4f_system = M_equationSystems.get_system<ParameterSystem>(
+			"I4f");
+	LinearSystem & system = M_equationSystems.get_system<LinearSystem>(
+			M_myName);
 
 	auto& patch_area = I4f_system.get_vector("patch_area");
 	auto& F11 = I4f_system.get_vector("F11");
@@ -1442,8 +1594,8 @@ void Elasticity::evaluate_nodal_I4f()
 	const libMesh::DofMap & dof_map_fibers = fiber_system.get_dof_map();
 
 	libMesh::FEType fe_type = dof_map_I4f.variable_type(0);
-	libMesh::UniquePtr < libMesh::FEBase
-			> fe(libMesh::FEBase::build(dim, fe_type));
+	libMesh::UniquePtr<libMesh::FEBase> fe(
+			libMesh::FEBase::build(dim, fe_type));
 
 	// A 5th order Gauss quadrature rule for numerical integration.
 	libMesh::QGauss qrule(dim, libMesh::FIRST);
@@ -1454,9 +1606,9 @@ void Elasticity::evaluate_nodal_I4f()
 	const std::vector<std::vector<libMesh::RealGradient> > & dphi =
 			fe->get_dphi();
 
-	std::vector < libMesh::dof_id_type > dof_indices;
-	std::vector < libMesh::dof_id_type > dof_indices_I4f;
-	std::vector < libMesh::dof_id_type > dof_indices_fibers;
+	std::vector<libMesh::dof_id_type> dof_indices;
+	std::vector<libMesh::dof_id_type> dof_indices_I4f;
+	std::vector<libMesh::dof_id_type> dof_indices_fibers;
 
 	libMesh::MeshBase::const_element_iterator el =
 			mesh.active_local_elements_begin();
@@ -1464,13 +1616,13 @@ void Elasticity::evaluate_nodal_I4f()
 			mesh.active_local_elements_end();
 
 	std::vector<double> disp;
-	libMesh::VectorValue < libMesh::Number > f0;
-	libMesh::VectorValue < libMesh::Number > f;
-	libMesh::VectorValue < libMesh::Number > du1;
-	libMesh::VectorValue < libMesh::Number > du2;
-	libMesh::VectorValue < libMesh::Number > du3;
+	libMesh::VectorValue<libMesh::Number> f0;
+	libMesh::VectorValue<libMesh::Number> f;
+	libMesh::VectorValue<libMesh::Number> du1;
+	libMesh::VectorValue<libMesh::Number> du2;
+	libMesh::VectorValue<libMesh::Number> du3;
 	// Grad U
-	libMesh::TensorValue < libMesh::Number > dUk;
+	libMesh::TensorValue<libMesh::Number> dUk;
 
 	double I4f;
 
@@ -1554,7 +1706,7 @@ void Elasticity::evaluate_nodal_I4f()
 	nodal_fibersy /= patch_area;
 	nodal_fibersz /= patch_area;
 
-	libMesh::TensorValue < libMesh::Number > nodalF;
+	libMesh::TensorValue<libMesh::Number> nodalF;
 
 	auto first_local_index = I4f_system.solution->first_local_index();
 	auto last_local_index = I4f_system.solution->last_local_index();
@@ -1600,17 +1752,17 @@ void Elasticity::evaluate_L2_J_err()
 	const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 	const unsigned int dim = mesh.mesh_dimension();
 
-	ParameterSystem& I4f_system = M_equationSystems.get_system < ParameterSystem
-			> ("I4f");
-	LinearSystem & system = M_equationSystems.get_system < LinearSystem
-			> (M_myName);
+	ParameterSystem& I4f_system = M_equationSystems.get_system<ParameterSystem>(
+			"I4f");
+	LinearSystem & system = M_equationSystems.get_system<LinearSystem>(
+			M_myName);
 
 	const libMesh::DofMap & dof_map_I4f = I4f_system.get_dof_map();
 	const libMesh::DofMap & dof_map = system.get_dof_map();
 
 	libMesh::FEType fe_type = dof_map_I4f.variable_type(0);
-	libMesh::UniquePtr < libMesh::FEBase
-			> fe(libMesh::FEBase::build(dim, fe_type));
+	libMesh::UniquePtr<libMesh::FEBase> fe(
+			libMesh::FEBase::build(dim, fe_type));
 
 	// A 5th order Gauss quadrature rule for numerical integration.
 	libMesh::QGauss qrule(dim, libMesh::FIRST);
@@ -1621,8 +1773,8 @@ void Elasticity::evaluate_L2_J_err()
 	const std::vector<std::vector<libMesh::RealGradient> > & dphi =
 			fe->get_dphi();
 
-	std::vector < libMesh::dof_id_type > dof_indices;
-	std::vector < libMesh::dof_id_type > dof_indices_I4f;
+	std::vector<libMesh::dof_id_type> dof_indices;
+	std::vector<libMesh::dof_id_type> dof_indices_I4f;
 
 	libMesh::MeshBase::const_element_iterator el =
 			mesh.active_local_elements_begin();
@@ -1630,7 +1782,7 @@ void Elasticity::evaluate_L2_J_err()
 			mesh.active_local_elements_end();
 
 	std::vector<double> disp;
-	libMesh::TensorValue < libMesh::Number > Fk;
+	libMesh::TensorValue<libMesh::Number> Fk;
 
 	double errJ2 = 0.0;
 
