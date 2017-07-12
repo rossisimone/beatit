@@ -44,7 +44,8 @@ enum class IsotropicCL
 {
     Neohookean,
     MooneyRivlin,
-    Exponential
+    Exponential,
+	Fung
 };
 
 class IsotropicMaterial : public virtual Material

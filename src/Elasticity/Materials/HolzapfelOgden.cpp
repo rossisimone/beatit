@@ -54,7 +54,6 @@ namespace BeatIt
 {
 
 
-
 Material* createHolzapfelOgden()
 {
     return new HolzapfelOgden;
@@ -62,6 +61,15 @@ Material* createHolzapfelOgden()
 
 
 HolzapfelOgden::HolzapfelOgden()
+ : M_I4f(1.0)
+ , M_I4s(1.0)
+ , M_I8fs(0.0)
+ , M_W4f(0.0)
+ , M_W44f(0.0)
+ , M_W4s(0.0)
+ , M_W44s(0.0)
+ , M_W8fs(0.0)
+ , M_W88fs(0.0)
 {
     /*
      *  The parameters will be stored using the following order

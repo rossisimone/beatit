@@ -65,9 +65,14 @@ public:
 
 	std::vector<std::shared_ptr<BCData> > M_bcs;
 	std::vector<std::string> M_bcNames;
-	std::map<unsigned int, std::shared_ptr<BCData> > M_bcMap;
+	typedef std::multimap<unsigned int, std::shared_ptr<BCData> > BCMap;
+	typedef std::pair<unsigned int, std::shared_ptr<BCData> > BCPair;
+	typedef std::pair <BCMap::iterator, BCMap::iterator> BCPairIterators;
+	BCMap M_bcMap;
 
 	std::shared_ptr<BCData> get_bc(unsigned int ID);
+	//BCMap::iterator get_bc_iterator(unsigned int ID);
+	BCMap& get_bc_map();
 
 };
 

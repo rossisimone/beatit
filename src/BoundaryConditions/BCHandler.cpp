@@ -71,7 +71,11 @@ BCHandler::readBC(const GetPot& data,  const std::string& section)
 				std::cout << "Wrong size in readBC" << std::endl;
 				throw std::runtime_error("Error in readBC");
 			}
-			for(int i = 0; i < size; ++i) M_bcMap[bc_ptr->get_flag(i)] = bc_ptr;
+			for(int i = 0; i < size; ++i)
+			{
+				//M_bcMap[bc_ptr->get_flag(i)] = bc_ptr;
+				M_bcMap.insert( BCPair( bc_ptr->get_flag(i), bc_ptr ) );
+			}
 		}
 	}
 
@@ -100,6 +104,13 @@ BCHandler::get_bc(unsigned int ID)
 		std::shared_ptr<BCData> ptr;
 		return ptr;
 	}
+}
+
+
+BCHandler::BCMap&
+BCHandler::get_bc_map()
+{
+	return M_bcMap;
 }
 
 

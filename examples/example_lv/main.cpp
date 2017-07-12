@@ -51,6 +51,7 @@
 #include "libmesh/dof_map.h"
 #include <iomanip>
 #include "Util/CTestUtil.hpp"
+#include "libmesh/mesh_modification.h"
 
 enum Formulation { Primal,  Mixed, Incompressible };
 enum CL { Linear,  NH };
@@ -80,9 +81,12 @@ int main (int argc, char ** argv)
     // default MPI communicator.
     libMesh::Mesh mesh(init.comm());
 
-    std::string meshfile =  data("mesh", "UNKNOWN");;
+    std::string meshfile =  data("mesh", "UNKNOWN");
     mesh.read(&meshfile[0]);
-
+    double scalex =  data("scalex", 1.0);
+    double scaley =  data("scaley", 1.0);
+    double scalez =  data("scalez", 1.0);
+    MeshTools::Modification::scale(mesh, scalex, scaley, scalez);
     libMesh::EquationSystems es(mesh);
 
     Formulation f;
@@ -115,11 +119,11 @@ int main (int argc, char ** argv)
     double ramp_dt = data("ramp/dt", 0.1);
     double ramp_end_time = data("ramp/end_time", 0.9);
     double time = 0.0;
-
+    bool computeReferenceConfiguration = data("do_bd", true);
     double error = 0.0;
 	int bd_iter = 0;
 	elas->save_exo("solution.exo", save_iter,0);
-	elas->save("solution.gmv", save_iter);
+	//elas->save("solution.gmv", save_iter);
     save_iter++;
     while(time < ramp_end_time)
     {
@@ -129,23 +133,26 @@ int main (int argc, char ** argv)
         std::cout << "Time: " << time << std::endl;
 		elas->newton();
 		elas->evaluate_nodal_I4f();
-		bd_iter = 0;
-		std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
-		error = checkConfiguration(elas);
-
-        double tol = 1e-8;
-        while(error > tol)
-        {
-        	bd_iter++;
-    		moveMesh(elas);
-			elas->newton();
+		if(computeReferenceConfiguration)
+		{
+			bd_iter = 0;
 			std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
 			error = checkConfiguration(elas);
-//	        elas->save_exo("solution.exo", save_iter, time);
-//	        elas->save("solution.gmv", save_iter);
-//	        save_iter++;
-        }
-		elas->save("solution.gmv", save_iter);
+
+			double tol = 1e-8;
+			while(error > tol)
+			{
+				bd_iter++;
+				moveMesh(elas);
+
+				elas->newton();
+				elas->evaluate_nodal_I4f();
+				std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
+				error = checkConfiguration(elas);
+			}
+		    generate_fibers(es, data);
+		}
+		//elas->save("solution.gmv", save_iter);
 		elas->save_exo("solution.exo", save_iter, time);
  	   save_iter++;
 
@@ -260,6 +267,9 @@ void generate_fibers(  libMesh::EquationSystems& es , GetPot& data_fibers)
 		std::string pois1 = "poisson1";
 		BeatIt::Poisson poisson1(es, pois1);
 		poisson1.setup(data_fibers, "poisson1");
+
+	     const libMesh::MeshBase & mesh = poisson1.M_equationSystems.get_mesh();
+
 		std::cout << " Done!" << std::endl;
 		std::cout << "Calling assemble system: ..." << std::flush;
 		poisson1.assemble_system();
@@ -272,7 +282,10 @@ void generate_fibers(  libMesh::EquationSystems& es , GetPot& data_fibers)
 		std::cout << " Done!" << std::endl;
 		auto& grad1 = poisson1.M_equationSystems.get_system
 				< libMesh::ExplicitSystem > (pois1 + "_gradient").solution;
-		const auto& sol_ptr = poisson1.get_P0_solution();
+		auto& p0_system = poisson1.M_equationSystems.get_system
+				< libMesh::ExplicitSystem > (pois1 + "_P0");
+		p0_system.update();
+		const auto& sol_ptr = p0_system.current_local_solution;
 
 		auto first = grad1->first_local_index();
 		auto last = grad1->last_local_index();
@@ -352,17 +365,40 @@ void generate_fibers(  libMesh::EquationSystems& es , GetPot& data_fibers)
 
 	*sheets_system.solution = *poisson1.get_gradient();
 
+	const libMesh::DofMap & f_dof_map = fiber_system.get_dof_map();
+	const libMesh::DofMap & p0_dof_map= p0_system.get_dof_map();
+
+	std::vector < libMesh::dof_id_type > f_dof_indices;
+	std::vector < libMesh::dof_id_type > p0_dof_indices;
+
+	std::vector<double> phi;
+	std::vector<double> fibers;
+	std::vector<double> sheets;
+	std::vector<double> xfibers;
 	    auto j = first;
 
-    for(auto i = first; i < last; )
-    {
+//    for(auto i = first; i < last; )
+	     libMesh::MeshBase::const_element_iterator el =
+	             mesh.active_local_elements_begin();
+	     const libMesh::MeshBase::const_element_iterator end_el =
+	             mesh.active_local_elements_end();
 
-        potential = (*sol_ptr)(j);
+	 for (; el != end_el; ++el)
+    {
+         const libMesh::Elem * elem = *el;
+         f_dof_map.dof_indices(elem, f_dof_indices);
+         p0_dof_map.dof_indices(elem, p0_dof_indices);
+
+         p0_system.current_local_solution->get(p0_dof_indices, phi);
+         fiber_system.solution->get(f_dof_indices, fibers);
+         sheets_system.solution->get(f_dof_indices, sheets);
+         xfiber_system.solution->get(f_dof_indices, xfibers);
+        potential = phi[0];
         j++;
 
-        sx = (*sheets_system.solution)(i);
-        sy = (*sheets_system.solution)(i+1);
-        sz = (*sheets_system.solution)(i+2);
+        sx = sheets[0];
+        sy = sheets[1];
+        sz = sheets[2];
         normalize(sx, sy, sz, 0.0, 1.0, 0.0);
 
         cdot = cx * sx + cy * sy + cz * sz;
@@ -420,18 +456,27 @@ void generate_fibers(  libMesh::EquationSystems& es , GetPot& data_fibers)
         xfz = f0x * sy - f0y * sx;
         normalize(xfx, xfy, xfz, 0.0, 0.0, 1.0);
 
-        sheets_system.solution->set(i,   sx);
-        sheets_system.solution->set(i+1, sy);
-        sheets_system.solution->set(i+2, sz);
-        xfiber_system.solution->set(i,   xfx);
-        xfiber_system.solution->set(i+1, xfy);
-        xfiber_system.solution->set(i+2, xfz);
+        sheets[0] = sx;
+        sheets[1] = sy;
+        sheets[2] = sz;
+        sheets_system.solution->insert(sheets, f_dof_indices);
+//        sheets_system.solution->set(i+1, sy);
+//        sheets_system.solution->set(i+2, sz);
+        xfibers[0] = xfx;
+        xfibers[1] = xfy;
+        xfibers[2] = xfz;
+        xfiber_system.solution->insert(xfibers, f_dof_indices);
+//        xfiber_system.solution->set(i+1, xfy);
+//        xfiber_system.solution->set(i+2, xfz);
 
-        fiber_system. solution->set(i,   f0x);
-        fiber_system. solution->set(i+1, f0y);
-        fiber_system. solution->set(i+2, f0z);
+        fibers[0] = f0x;
+        fibers[1] = f0y;
+        fibers[2] = f0z;
+        fiber_system. solution->insert(fibers, f_dof_indices);
+//        fiber_system. solution->set(i+1, f0y);
+//        fiber_system. solution->set(i+2, f0z);
 
-        i += 3;
+        //i += 3;
     }
 	poisson1.deleteSystems();
 

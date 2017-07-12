@@ -44,7 +44,8 @@ BCData::ModeMap  BCData::S_modeMap =
 {
 		{"Full", BCMode::Full},
 		{"Component", BCMode::Component},
-		{"Normal", BCMode::Normal}
+		{"Normal", BCMode::Normal},
+		{"Tangential", BCMode::Tangential}
 };
 
 BCData::ComponentMap  BCData::S_componentMap =
@@ -140,6 +141,7 @@ void
 BCData::showMe( std::ostream& ofstream  )
 {
 	ofstream << " \t BCData: " << std::endl;
+	std::cout << "\t\t Num flags: " << M_flag.size() << std::endl;
 	ofstream << " \t\t FLAGs: ";
 	for (auto && fl : M_flag ) std::cout << fl  << ", ";
 	std::cout << std::endl;
@@ -198,6 +200,11 @@ BCData::showMe( std::ostream& ofstream  )
 		case BCMode::Normal:
 		{
 			ofstream << " Normal" << std::endl;
+			break;
+		}
+		case BCMode::Tangential:
+		{
+			ofstream << " Tangential" << std::endl;
 			break;
 		}
 		default:

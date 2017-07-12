@@ -600,6 +600,8 @@ Poisson::compute_elemental_solution_gradient()
     libMesh::RealGradient grad;
 
     std::vector<double> sol(1,0.0);
+    std::vector<double> elemental_solution;
+
     std::vector<double> grad_vector(3,0.0);
     double elSol = 0.0;
     double nodeSol = 0.0;
@@ -614,13 +616,15 @@ Poisson::compute_elemental_solution_gradient()
 
         grad *= 0.0;
         sol[0] = 0.0;
+        p_system.current_local_solution->get(p_dof_indices, elemental_solution);
         for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
         {
             // Compute the old solution & its gradient.
-            for (unsigned int l=0; l<dphi.size(); l++)
+            for (unsigned int l=0; l<elemental_solution.size(); l++)
             {
-                nodeSol =  (*p_system.current_local_solution)(p_dof_indices[l]);
-                sol[0] +=nodeSol * phi[l][qp];
+            	//nodeSol =  (*p_system.current_local_solution)(p_dof_indices[l]);
+            	nodeSol = elemental_solution[l];
+				sol[0] +=nodeSol * phi[l][qp];
                 grad.add_scaled ( dphi[l][qp], nodeSol );
             }
         }

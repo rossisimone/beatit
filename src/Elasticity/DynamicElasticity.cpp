@@ -246,11 +246,17 @@ void DynamicElasticity::setupSystem(std::string section)
                 }
             }
 
-            for (auto&& flag : bc_ptr->M_flag)
-            {
-                // Create a ZeroFunction to initialize dirichlet_bc
-                dirichlet_boundary_ids.insert(flag);
-            }
+			auto num_flags = bc_ptr->size();
+			for(int nflag = 0; nflag < num_flags; nflag++)
+			{
+				dirichlet_boundary_ids.insert( bc_ptr->get_flag(nflag) );
+			}
+
+//            for (auto&& flag : bc_ptr->M_flag)
+//            {
+//                // Create a ZeroFunction to initialize dirichlet_bc
+//                dirichlet_boundary_ids.insert(flag);
+//            }
 
             libMesh::ZeroFunction<> zf;
             libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids, variables, &zf);

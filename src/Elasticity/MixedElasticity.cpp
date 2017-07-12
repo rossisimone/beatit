@@ -77,7 +77,7 @@
 #include "Elasticity/Materials/LinearMaterial.hpp"
 #include "Elasticity/Materials/Neohookean.hpp"
 #include "Elasticity/Materials/IsotropicMaterial.hpp"
-
+#include "Elasticity/Materials/HolzapfelOgden.hpp"
 namespace BeatIt {
 
 

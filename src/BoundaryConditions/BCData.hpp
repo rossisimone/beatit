@@ -44,7 +44,7 @@ class GetPot;
 namespace BeatIt {
 
 
-enum class BCMode { Full, Component, Normal };
+enum class BCMode { Full, Component, Normal, Tangential };
 enum class BCComponent{ X, Y,  Z, All };
 enum class BCType   { Dirichlet, Neumann, Robin, NitscheSymmetric, NitscheUnsymmetric, Penalty };
 
@@ -55,7 +55,7 @@ public:
 	void setup(const GetPot& data, const std::string& section = "" );
 	void showMe(std::ostream& ofstream = std::cout );
 
-	unsigned int size()
+	unsigned int size() const
 	{
 		return M_flag.size();
 	}
@@ -64,6 +64,7 @@ public:
 	{
 		return M_flag[index];
 	}
+
 	BCType get_type() const
 	{
 		return M_type;
@@ -82,6 +83,7 @@ public:
 		return M_function;
 	}
 
+protected:
 	std::vector<unsigned int>         M_flag;
 	SpiritFunction          M_function;
 	BCComponent        M_component;

@@ -79,6 +79,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
 	cl_map["neohookean"] = IsotropicCL::Neohookean;
     cl_map["mooneyrivlin"] = IsotropicCL::MooneyRivlin;
     cl_map["exponential"] = IsotropicCL::Exponential;
+    cl_map["fung"] = IsotropicCL::Fung;
     auto it_cl = cl_map.find(type);
     if( it_cl != cl_map.end() ) M_cl = it_cl->second;
     else
@@ -132,6 +133,21 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             std::cout << "\t a = " << M_parameters[1] << std::endl;
             std::cout << "\t b = " << M_parameters[2] << std::endl;
             M_tau = 0.5 /  a;
+
+            break;
+        }
+        case IsotropicCL::Fung:
+        {
+            double C = data(section+"/C", 0.0);
+            double b = data(section+"/b", 0.0);
+            M_parameters[1] = C;// C
+            M_parameters[2] = b;// b
+            M_kappa = data(section+"/k", 1.0);
+
+            std::cout << "\t density = " << M_parameters[0] << std::endl;
+            std::cout << "\t C = " << M_parameters[1] << std::endl;
+            std::cout << "\t b = " << M_parameters[2] << std::endl;
+            M_tau = 0.5 /  C;
 
             break;
         }
@@ -437,8 +453,17 @@ IsotropicMaterial::W1 (double I1, double I2, double J)
         case IsotropicCL::Exponential:
         {
             // a = M_parameters[1]
-            // b = M_parameters[1]
+            // b = M_parameters[2]
             W1 = 0.5 * M_parameters[1] * std::exp(M_parameters[2] * (I1 - 3) );
+            break;
+        }
+        case IsotropicCL::Fung:
+        {
+            // C = M_parameters[1]
+            // b = M_parameters[2]
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+        	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
+        	W1 = 0.5 * M_parameters[1] * dQdI1 * std::exp(Q);
             break;
         }
         default:
@@ -461,6 +486,17 @@ IsotropicMaterial::W11(double I1, double I2, double J)
             W11 = 0.5 * M_parameters[1] * M_parameters[2] * std::exp(M_parameters[2] * (I1 - 3) );
             break;
         }
+        case IsotropicCL::Fung:
+        {
+            // C = M_parameters[1]
+            // b = M_parameters[2]
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+        	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
+        	double d2QdI1 = 0.25 * M_parameters[2] * ( 2.0 );
+        	W11 = 0.5 * M_parameters[1] * ( dQdI1 * dQdI1 + d2QdI1 ) * std::exp(Q);
+            break;
+        }
+
         case IsotropicCL::Neohookean:
         case IsotropicCL::MooneyRivlin:
         default:
@@ -474,7 +510,30 @@ IsotropicMaterial::W11(double I1, double I2, double J)
 double
 IsotropicMaterial::W12(double I1, double I2, double J)
 {
-    return 0.0;
+    double W12 = 0.0;
+    switch(M_cl)
+    {
+        case IsotropicCL::Fung:
+        {
+            // C = M_parameters[1]
+            // b = M_parameters[2]
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+        	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
+        	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
+        	//double d2QdI1dI2 = 0.0;
+        	//W12 = M_parameters[1] * ( dQdI1 * dQdI2 + d2QdI1dI2 ) * std::exp(Q);
+        	W12 = 0.5 * M_parameters[1] * ( dQdI1 * dQdI2 ) * std::exp(Q);
+            break;
+        }
+        case IsotropicCL::Exponential:
+        case IsotropicCL::Neohookean:
+        case IsotropicCL::MooneyRivlin:
+        default:
+        {
+            break;
+        }
+    }
+    return W12;
 }
 
 double
@@ -487,6 +546,15 @@ IsotropicMaterial::W2 (double I1, double I2, double J)
         {
             // mu = M_parameters[1]
             W2 = 0.5 * M_parameters[1];
+            break;
+        }
+        case IsotropicCL::Fung:
+        {
+            // C = M_parameters[1]
+            // b = M_parameters[2]
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+        	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
+        	W2 = 0.5 * M_parameters[1] * dQdI2 * std::exp(Q);
             break;
         }
         case IsotropicCL::Neohookean:
@@ -502,13 +570,58 @@ IsotropicMaterial::W2 (double I1, double I2, double J)
 double
 IsotropicMaterial::W21(double I1, double I2, double J)
 {
-    return 0.0;
+    double W21 = 0.0;
+    switch(M_cl)
+    {
+        case IsotropicCL::Fung:
+        {
+            // C = M_parameters[1]
+            // b = M_parameters[2]
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+        	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
+        	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
+        	//double d2QdI1dI2 = 0.0;
+        	//W21 = M_parameters[1] * ( dQdI1 * dQdI2 + d2QdI1dI2 ) * std::exp(Q);
+        	W21 = 0.5 * M_parameters[1] * ( dQdI1 * dQdI2 ) * std::exp(Q);
+            break;
+        }
+        case IsotropicCL::Exponential:
+        case IsotropicCL::Neohookean:
+        case IsotropicCL::MooneyRivlin:
+        default:
+        {
+            break;
+        }
+    }
+    return W21;
 }
 
 double
 IsotropicMaterial::W22(double I1, double I2, double J)
 {
-    return 0.0;
+    double W22 = 0.0;
+    switch(M_cl)
+    {
+        case IsotropicCL::Fung:
+        {
+            // C = M_parameters[1]
+            // b = M_parameters[2]
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+        	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
+        	//double d2QdI2 = 0.0;
+        	//W22 = M_parameters[1] * ( dQdI2 * dQdI2 + d2QdI2 ) * std::exp(Q);
+        	W22 = 0.5 * M_parameters[1] * ( dQdI2 * dQdI2 ) * std::exp(Q);
+            break;
+        }
+        case IsotropicCL::Exponential:
+        case IsotropicCL::Neohookean:
+        case IsotropicCL::MooneyRivlin:
+        default:
+        {
+            break;
+        }
+    }
+    return W22;
 }
 
 

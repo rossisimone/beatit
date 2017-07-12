@@ -322,11 +322,16 @@ void Elasticity::setupSystem(std::string section)
 			}
 			}
 
-			for (auto&& flag : bc_ptr->M_flag)
+			auto num_flags = bc_ptr->size();
+			for(int nflag = 0; nflag < num_flags; nflag++)
 			{
-				// Create a ZeroFunction to initialize dirichlet_bc
-				dirichlet_boundary_ids.insert(flag);
+				dirichlet_boundary_ids.insert( bc_ptr->get_flag(nflag) );
 			}
+//			for (auto&& flag : bc_ptr->M_flag)
+//			{
+//				// Create a ZeroFunction to initialize dirichlet_bc
+//				dirichlet_boundary_ids.insert(flag);
+//			}
 //
 //            libMesh::ZeroFunction<> zf;
 //            libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids,
@@ -849,10 +854,16 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 			const unsigned int boundary_id = mesh.boundary_info->boundary_id(
 					elem, side);
 
-			auto bc = M_bch.get_bc(boundary_id);
+//			auto bc = M_bch.get_bc(boundary_id);
+			auto& bc_map = M_bch.get_bc_map();
+			auto bc_iterators = bc_map.equal_range(boundary_id);
 
-			if (bc)
+
+			for (auto it=bc_iterators.first; it!=bc_iterators.second; ++it)
+			//if (bc)
 			{
+				auto& bc = it->second;
+
 				const std::vector<libMesh::Real> & JxW_face =
 						fe_face->get_JxW();
 				const std::vector<std::vector<libMesh::Real> > & phi_face =
@@ -868,6 +879,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 				fe_face->reinit(elem, side);
 
 				auto bc_type = bc->get_type();
+
 				switch (bc_type)
 				{
 				case BCType::Neumann:
@@ -964,7 +976,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 									yq, zq, 1);
 							for (unsigned int i = 0; i < n_ux_dofs; i++)
 							{
-								Fe(i + idim * n_ux_dofs) += JxW_face[qp] *
+								Fe(i + idim * n_ux_dofs) += JxW_face[qp]
 										* (value - beta * uk) * phi_face[i][qp];
 							}
 
@@ -984,10 +996,11 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 						else if (BCMode::Full == mode)
 						{
 							beta = bc->get_function()(time, xq,
-									yq, zq, dim+1);
+									yq, zq, dim);
+							//std::cout << "beta: " << beta << std::endl;
 							for (int idim = 0; idim < dim; ++idim)
 							{
-
+								uk = 0.0;
 								for (unsigned int l = 0; l < n_phi; ++l)
 								{
 									uk += phi_face[l][qp]
@@ -1053,7 +1066,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 									//Fe(i+idim*n_ux_dofs) -= JxW_face[qp] * u1 * normals[qp](0) * phi_face[i][qp] * normals[qp](idim);
 									//Fe(i+idim*n_ux_dofs) -= JxW_face[qp] * u2 * normals[qp](1) * phi_face[i][qp] * normals[qp](idim);
 									Fe(i + idim * n_ux_dofs) -= JxW_face[qp]
-											* (un - beta * value)
+											* (beta * un - value)
 											* phi_face[i][qp]
 											* normals[qp](idim);
 								}
@@ -1083,6 +1096,139 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 								}
 							}
 						}
+						else if (BCMode::Tangential == mode)
+						{
+							libMesh::VectorValue<double> e1;
+							libMesh::VectorValue<double> e2;
+							libMesh::VectorValue<double> e3;
+							e1(0) = 1; e2(1) = 1; e3(2) = 1;
+							auto ne1 = e1.cross(normals[qp]);
+							auto ne2 = e2.cross(normals[qp]);
+							auto ne3 = e3.cross(normals[qp]);
+							auto norm_ne1= ne1.norm();
+							auto norm_ne2= ne2.norm();
+							auto norm_ne3= ne3.norm();
+							int tangent_case = 0;
+							if(norm_ne1 >= norm_ne2)
+							{
+								if(norm_ne1 >= norm_ne3)
+								{
+									tangent_case = 1;
+								}
+								else
+								{
+									tangent_case = 3;
+								}
+							}
+							else
+							{
+								if(norm_ne2 >= norm_ne3)
+								{
+									tangent_case = 2;
+								}
+								else
+								{
+									tangent_case = 3;
+
+								}
+							}
+							libMesh::VectorValue<double> t1;
+							libMesh::VectorValue<double> t2;
+							if( 1 == tangent_case )
+							{
+								t1 = ne1 / norm_ne1;
+								t2 = ne1.cross(normals[qp]);
+							}
+							else if(2 == tangent_case)
+							{
+								t1 = ne2 / norm_ne2;
+								t2 = ne2.cross(normals[qp]);
+							}
+							else if(3 == tangent_case)
+							{
+								t1 = ne3 / norm_ne3;
+								t2 = ne3.cross(normals[qp]);
+							}
+
+
+							beta = bc->get_function()(time, xq,
+									yq, zq, 1);
+							// Defines a region on which to apply the BC
+							const double value = bc->get_function()(time,
+									xq, yq, zq, 0);
+							double ut1 = 0.0;
+							double ut2 = 0.0;
+							double u1 = 0.0;
+							double u2 = 0.0;
+							double u3 = 0.0;
+							for (unsigned int l = 0; l < n_phi; ++l)
+							{
+								u1 += phi_face[l][qp] * solution_k[l];
+								if (dim > 1)
+									u2 += phi_face[l][qp]
+											* solution_k[l + n_phi];
+								if (dim > 2)
+									u3 += phi_face[l][qp]
+											* solution_k[l + 2 * n_phi];
+							} // end grad Uk on qp
+
+							ut1 = u1 * t1(0);
+							ut2 = u1 * t2(0);
+							if (dim > 1)
+							{
+								ut1 += u2 * t1(1);
+								ut2 += u2 * t2(1);
+							}
+							if (dim > 2)
+							{
+								ut1 += u3 * t1(2);
+								ut2 += u3 * t2(2);
+							}
+
+							for (int idim = 0; idim < dim; ++idim)
+							{
+								for (unsigned int i = 0; i < n_ux_dofs; i++)
+								{
+									Fe(i + idim * n_ux_dofs) -= JxW_face[qp]
+											* (beta * ut1 - value)
+											* phi_face[i][qp]
+											* t1(idim);
+									Fe(i + idim * n_ux_dofs) -= JxW_face[qp]
+											* (beta * ut2 - value)
+											* phi_face[i][qp]
+											* t2(idim);
+								}
+							}
+
+							for (int idim = 0; idim < dim; ++idim)
+							{
+								for (unsigned int i = 0; i < n_ux_dofs; i++)
+								{
+									for (int jdim = 0; jdim < dim; ++jdim)
+									{
+										for (unsigned int j = 0;
+												j < n_ux_dofs; j++)
+										{
+											Ke(i + idim * n_ux_dofs,
+													j + jdim * n_ux_dofs) +=
+													JxW_face[qp] * beta
+															* phi_face[i][qp]
+															* t1(idim)
+															* phi_face[j][qp]
+															* t1(jdim);
+
+											Ke(i + idim * n_ux_dofs,
+													j + jdim * n_ux_dofs) +=
+													JxW_face[qp] * beta
+															* phi_face[i][qp]
+															* t2(idim)
+															* phi_face[j][qp]
+															* t2(jdim);
+										}
+									}
+								}
+							}
+						}
 
 					}
 
@@ -1096,7 +1242,6 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 
 					for (unsigned int qp = 0; qp < qface.n_points(); qp++)
 					{
-						double uk = 0.0;
 						// The location on the boundary of the current
 						// face quadrature point.
 						const double xq = qface_point[qp](0);
@@ -1112,6 +1257,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 								idim = 1;
 							if (BCComponent::Z == bc->get_component())
 								idim = 2;
+							double uk = 0.0;
 
 							for (unsigned int l = 0; l < n_phi; ++l)
 							{
@@ -1144,6 +1290,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 						{
 							for (int idim = 0; idim < dim; ++idim)
 							{
+								double uk = 0.0;
 
 								for (unsigned int l = 0; l < n_phi; ++l)
 								{
