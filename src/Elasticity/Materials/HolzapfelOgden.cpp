@@ -146,11 +146,15 @@ HolzapfelOgden::evaluateDeviatoricStress()
     M_W88fs = W88(a8fs, b8fs, M_I8fs, M_Jk);
 
     // Fiber part
-    M_deviatoric_stress += 2.0 * M_W4f * ( M_fof - M_I4f / 3.0 * M_Cinvk);
+    //M_deviatoric_stress += 2.0 * M_W4f * M_fof;
+    M_deviatoric_stress += 2.0 * M_W4f * ( M_fof - 1.0 / 3.0 * M_Cinvk);
+    //M_deviatoric_stress += 2.0 * M_W4f * ( M_fof - M_I4f / 3.0 * M_Cinvk);
 	// Sheet part
-    M_deviatoric_stress += 2.0 * M_W4s * ( M_sos - M_I4s / 3.0 * M_Cinvk);
+    M_deviatoric_stress += 2.0 * M_W4s * M_sos;
+    //M_deviatoric_stress += 2.0 * M_W4s * ( M_sos - M_I4s / 3.0 * M_Cinvk);
 	// Sheet part
-    M_deviatoric_stress += M_W8fs * ( M_fos + M_sof - 2.0 * M_I8fs / 3.0 * M_Cinvk);
+    M_deviatoric_stress += M_W8fs * ( M_fos + M_sof );
+    //M_deviatoric_stress += M_W8fs * ( M_fos + M_sof - 2.0 * M_I8fs / 3.0 * M_Cinvk);
 
 
 }
@@ -220,25 +224,37 @@ HolzapfelOgden::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>
     // M_deviatoric_stress += 2.0 * M_W4f * ( M_fof - M_I4f / 3.0 * M_Cinvk);
     auto dI4f = dC.contract(M_fof);
     auto dW4f = M_W44f * dI4f;
-    Jac += 2.0 * dW4f * ( M_fof - M_I4f / 3.0 * M_Cinvk );
-    Jac += 2.0 * M_W4f * ( CinvdCCinv * M_I4f/ 3.0 - dI4f / 3.0 * M_Cinvk );
+    Jac += 2.0 * dW4f * ( M_fof );
+    M_deviatoric_jacobian += M_Fk * 2.0 * dW4f * ( M_fof );
+    auto Finv = M_Fk.inverse();
+    Jac += 2.0 * M_W4f / 3.0 * ( Finv.transpose() * dF.transpose() * Finv.transpose() );
+    M_deviatoric_jacobian += M_Fk * 2.0 * dW4f * ( M_fof );
+
+//    Jac += 2.0 * dW4f * ( M_fof - M_I4f / 3.0 * M_Cinvk );
+//    Jac += 2.0 * M_W4f * ( CinvdCCinv * M_I4f/ 3.0 - dI4f / 3.0 * M_Cinvk );
 
 	// Sheet part
     // M_deviatoric_stress += 2.0 * M_W4s * ( M_sos - M_I4s / 3.0 * M_Cinvk);
 	auto dI4s = dC.contract(M_sos);
     auto dW4s = M_W44s * dI4s;
-    Jac += 2.0 * dW4s * ( M_sos - M_I4s / 3.0 * M_Cinvk );
-    Jac += 2.0 * M_W4s * ( CinvdCCinv * M_I4s/ 3.0 - dI4s / 3.0 * M_Cinvk );
+    Jac += 2.0 * dW4s * ( M_sos );
+
+//    Jac += 2.0 * dW4s * ( M_sos - M_I4s / 3.0 * M_Cinvk );
+//    Jac += 2.0 * M_W4s * ( CinvdCCinv * M_I4s/ 3.0 - dI4s / 3.0 * M_Cinvk );
 
     // Fiber Sheet part
     //  M_deviatoric_stress += M_W8fs * ( M_fos + M_sof - 2.0 * M_I8fs / 3.0 * M_Cinvk);
 	auto dI8fs = 0.5 * ( dC.contract(M_fos) + dC.contract(M_sof) );
     auto dW8fs = M_W88fs * dI8fs;
-    Jac +=  dW8fs * ( M_fos + M_sof - 2.0 * M_I8fs / 3.0 * M_Cinvk);
-    Jac += M_W8fs * (  2.0 * M_I8fs / 3.0 * CinvdCCinv - 2.0 * dI8fs / 3.0 * M_Cinvk );
+
+    Jac +=  dW8fs * ( M_fos + M_sof );
+
+//    Jac +=  dW8fs * ( M_fos + M_sof - 2.0 * M_I8fs / 3.0 * M_Cinvk);
+//    Jac += M_W8fs * (  2.0 * M_I8fs / 3.0 * CinvdCCinv - 2.0 * dI8fs / 3.0 * M_Cinvk );
 
 
-    M_deviatoric_jacobian += M_Fk * Jac;
+//    M_deviatoric_jacobian += M_Fk * Jac;
+
 }
 
 
@@ -257,7 +273,7 @@ double
 HolzapfelOgden::W4 (double a, double b, double I4, double J)
 {
     double W4 = 0.0;
-    if(I4 < 1) return 0.0;
+    if(I4 <= 1) return 0.0;
 	W4 = a * (I4 - 1) * std::exp( b * (I4-1) * (I4-1) );
     return W4;
 }
@@ -266,7 +282,7 @@ double
 HolzapfelOgden::W44(double a, double b, double I4, double J)
 {
     double W44 = 0.0;
-    if(I4 < 1) return 0.0;
+    if(I4 <= 1) return 0.0;
 	double aux = b * (I4-1) * (I4-1);
 	W44 = a * std::exp( aux ) * ( 1.0 + 2.0 * aux );
     return W44;

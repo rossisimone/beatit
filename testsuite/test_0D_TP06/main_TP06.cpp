@@ -54,6 +54,34 @@
 #include <iomanip>
 #include "Util/CTestUtil.hpp"
 
+
+struct Stimulus
+{
+        double t0;
+        double tf;
+        bool on;
+        double amp;
+        double cl;
+
+        Stimulus() : t0(0.0), tf(0.5), on(false), amp(80), cl(1000) {}
+        double get(double time)
+        {
+                if (time < t0)
+                        on = false;
+                else if (time >= t0 && time <= tf)
+                        on = true;
+                else // time > tf
+                {
+                        t0 += cl;
+                        tf += cl;
+                        on = false;
+                }
+                if(on) return amp;
+                else return 0.0;
+        }
+};
+
+
 int main()
 {
     BeatIt::printBanner(std::cout);
@@ -68,22 +96,23 @@ int main()
 
 	double dt = 0.005;
 	int save_iter = 0.5 / dt;
-	double TF = 600.0;
+    double TF = 180*1000;
 	double Ist = 0;
 	double time = 0.0;
 	BeatIt::saveData(0.0, variables, output);
 
 	int iter = 0;
-
+	Stimulus stimulus;
 	// for ctest purposes
 	double solution_norm = 0.0;
 	while( time <= TF )
 	{
-		if(time >= 0. && time <= 0.5)
-		{
-			Ist = 80.0;
-		}
-		else Ist = 0.0;
+		Ist = stimulus.get(time);
+//		if(time >= 0. && time <= 0.5)
+//		{
+//			Ist = 80.0;
+//		}
+//		else Ist = 0.0;
 
 		pORd->solve(variables, Ist, dt);
 		time += dt;

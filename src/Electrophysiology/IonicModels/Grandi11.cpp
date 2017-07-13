@@ -63,7 +63,7 @@ IonicModel* createGrandi11()
 
 
 Grandi11::Grandi11()
- : super(57, 0, "Grandi11", CellType::Endocardial)
+ : super(57, 0, "Grandi11", CellType::MCell)
 {
     // The name refer to the comments below the lines
     M_variablesNames[0] = "m";

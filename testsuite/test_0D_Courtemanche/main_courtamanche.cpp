@@ -11,8 +11,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+//#define bcl 1000     /* Basic cycle length (ms) */
 #define bcl 1000     /* Basic cycle length (ms) */
-#define beats 50     /* Number of Beats */
+#define beats 180     /* Number of Beats */
 #define S2 1000
 
 /* List of variables and paramaters (this code uses all global variables) */
@@ -338,7 +339,8 @@ int main ()
         /* Time Loop Conditions */
         t = 0;           /* Time (ms) */
         udt = 0.01;     /* Time step (ms) */
-        steps = (S2 + bcl*beats)/udt; /* Number of ms */
+//        steps = (S2 + bcl*beats)/udt; /* Number of ms */
+        steps = (180*1000)/udt; /* Number of ms */
         st = -200;        /* Stimulus */
         tstim = 10;       /* Time to begin stimulus */
         stimtime = 10;   /* Initial Condition for Stimulus */
