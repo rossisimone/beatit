@@ -48,13 +48,12 @@
  */
 
 #include <memory>
-#include "Electrophysiology/IonicModels/TP06.hpp"
+#include "Electrophysiology/IonicModels/Courtemanche.hpp"
 #include "Util/IO/io.hpp"
 #include <cmath>
 #include <iomanip>
 #include "Util/CTestUtil.hpp"
-#include "Electromechanics/Activation/NegroniLascano.hpp"
-#include "libmesh/getpot.h"
+
 
 struct Stimulus
 {
@@ -64,8 +63,7 @@ struct Stimulus
         double amp;
         double cl;
 
-        Stimulus() : t0(0.0), tf(0.5), on(false), amp(80), cl(500) {}
-        Stimulus(double T0, double TF,  double cycleLength) : t0(T0), tf(TF), on(false), amp(80), cl(cycleLength) {}
+        Stimulus() : t0(0.0), tf(0.5), on(false), amp(80), cl(1000) {}
         double get(double time)
         {
                 if (time < t0)
@@ -84,58 +82,42 @@ struct Stimulus
 };
 
 
-int main( int argc, char ** argv)
+int main()
 {
     BeatIt::printBanner(std::cout);
-    auto data = BeatIt::readInputFile(argc, argv);
 
-    double t0 = data("t0", 0.0);
-    double tf = data("tf", 1000.0);
-    double cl = data("cl", 1000.0);
-	double dt =data("dt", 0.00025);
-	std::string ionic_model = data("model", "NONE");
-	std::string output_name = data("output", "results");
-
-	std::unique_ptr<BeatIt::IonicModel> pORd( BeatIt::IonicModel::IonicModelFactory::Create("TP06") );
+	std::unique_ptr<BeatIt::IonicModel> pORd( BeatIt::IonicModel::IonicModelFactory::Create("Courtemanche") );
 	int numVar = pORd->numVariables();
 	std::vector<double> variables(numVar, 0.0);
-	std::ofstream output(output_name+".txt");
+
+	std::ofstream output("results.txt");
 	pORd->initializeSaveData(output);
 	pORd->initialize(variables);
 
-
-	BeatIt::NegroniLascano nl;
-	std::ofstream output_nl(output_name+"_nl.txt");
-	int nlVar = nl.numVariables();
-	std::vector<double> nl_variables(nlVar, 0.0);
-	nl.initializeSaveData(output_nl);
-
+	double dt = 0.005;
 	int save_iter = 0.5 / dt;
-    double TF = 60*1000;
+    double TF = 180*1000;
 	double Ist = 0;
 	double time = 0.0;
 	BeatIt::saveData(0.0, variables, output);
-	BeatIt::saveData(0.0, nl_variables, output_nl);
 
 	int iter = 0;
-	Stimulus stimulus(t0, tf, cl);
+	Stimulus stimulus;
 	// for ctest purposes
 	double solution_norm = 0.0;
 	while( time <= TF )
 	{
 		Ist = stimulus.get(time);
+//		if(time >= 0. && time <= 0.5)
+//		{
+//			Ist = 80.0;
+//		}
+//		else Ist = 0.0;
+
 		pORd->solve(variables, Ist, dt);
-		double Cai = 1e3*variables[1];
-		double I4f = 1.0;
-		double Cai_diast = 0.0;
-		nl.solve(nl_variables, Cai, dt, I4f, Cai_diast);
 		time += dt;
 		++iter;
-		if( 0 == iter%save_iter )
-		{
-			BeatIt::saveData(time, variables, output);
-			BeatIt::saveData(time, nl_variables, output_nl);
-		}
+		if( 0 == iter%save_iter ) BeatIt::saveData(time, variables, output);
 
 		// for ctest purposes
 		solution_norm += variables[0];

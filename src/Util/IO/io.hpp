@@ -23,6 +23,9 @@ class Communicator;
 }
 }
 
+class GetPot;
+
+
 namespace BeatIt
 {
 
@@ -47,6 +50,8 @@ bool  readList(std::string& list, std::vector<std::string>& container );
 
 void createOutputFolder(const libMesh::Parallel::Communicator & comm,
 		                                          std::string& output_folder );
+
+GetPot readInputFile( int argc, char ** argv);
 
 } // namespace BeatIt
 

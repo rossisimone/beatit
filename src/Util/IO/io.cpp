@@ -1,6 +1,7 @@
 #include "Util/IO/io.hpp"
 #include <sys/stat.h>
 #include "libmesh/parallel.h"
+#include "libmesh/getpot.h"
 
 namespace BeatIt
 {
@@ -57,6 +58,12 @@ void createOutputFolder(const libMesh::Parallel::Communicator & comm,
 
 
 
+GetPot readInputFile( int argc, char ** argv)
+{
+	GetPot cl(argc, argv);
+   std::string datafile_name = cl.follow ( "data.beat", 2, "-i", "--input" );
+      return GetPot(datafile_name);
+}
 
 } // namespace BeatIt
 
