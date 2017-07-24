@@ -45,12 +45,20 @@ IF ( ${CMAKE_CURRENT_SOURCE_DIR}/nh_TRI3_stabilized_incompressible.beat  IS_NEWE
      CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/nh_TRI3_stabilized_incompressible.beat  ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/nh_TRI3_stabilized_incompressible.beat  IS_NEWER_THAN ${GetPotFile} )
 
+
+SET(GetPotFile "${CMAKE_CURRENT_BINARY_DIR}/trans_iso_TRI3_stabilized_incompressible.beat")
+IF ( ${CMAKE_CURRENT_SOURCE_DIR}/trans_iso_TRI3_stabilized_incompressible.beat  IS_NEWER_THAN ${GetPotFile} )
+     CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/trans_iso_TRI3_stabilized_incompressible.beat  ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/trans_iso_TRI3_stabilized_incompressible.beat  IS_NEWER_THAN ${GetPotFile} )
+
+
 add_test(${TESTNAMEV}_linear_TRI3 mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i linear_TRI3.beat -pc_type lu)
 add_test(${TESTNAMEV}_linear_TRI3_stabilized mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i linear_TRI3_stabilized.beat -pc_type lu)
 add_test(${TESTNAMEV}_linear_TRI3_stabilized_incompressible mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i linear_TRI3_stabilized_incompressible.beat -pc_type lu)
 add_test(${TESTNAMEV}_nh_TRI3 mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i nh_TRI3.beat -pc_type lu)
 add_test(${TESTNAMEV}_nh_TRI3_stabilized mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i nh_TRI3_stabilized.beat -pc_type lu)
 add_test(${TESTNAMEV}_nh_TRI3_stabilized_incompressible mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i nh_TRI3_stabilized_incompressible.beat -pc_type lu)
+add_test(${TESTNAMEV}_trans_iso_TRI3_stabilized_incompressible mpirun -n 1 ${CMAKE_CURRENT_BINARY_DIR}/test_quasistatic_elasticity -i trans_iso_TRI3_stabilized_incompressible.beat -pc_type lu)
 
 
 

@@ -50,7 +50,7 @@
 
 
 enum Formulation { Primal,  Mixed, Incompressible };
-enum CL { Linear,  NH };
+enum CL { Linear,  NH, Hexagonal };
 
 double reference_norm(Formulation f, CL cl);
 
@@ -125,6 +125,13 @@ int main (int argc, char ** argv)
             cl = Linear;
             nu = data("elasticity/materials/linear/nu", -1.0);
         }
+        // Hexagonal coded only for the incompressible mixed formulation
+        else if(cl_name == "hexagonal")
+        {
+            cl = Hexagonal;
+            //
+            nu = 0.5;
+        }
         else
         {
             cl = NH;
@@ -141,6 +148,7 @@ int main (int argc, char ** argv)
     elas->init_exo_output("solution.exo");
     std::cout << "Solving ... " << std::endl;
     elas->newton();
+    if(Hexagonal == cl) elas->evaluate_nodal_I4f();
     elas->save_exo("solution.exo", 1, 1.0);
     libMesh::LinearImplicitSystem& system  =  elas->M_equationSystems.get_system<libMesh::LinearImplicitSystem>(elas->M_myName);
 
@@ -214,6 +222,24 @@ double reference_norm(Formulation f, CL cl)
                 }
             }
             break;
+        }
+        case Hexagonal:
+        {
+            switch(f)
+            {
+				case Incompressible:
+				{
+					norm = 717138.49841777875554;
+					break;
+				}
+                default:
+                {
+                    std::cout << "Formulation not set correctly!" << std::endl;
+                    std::runtime_error("Formulation not set correctly!");
+                    break;
+                }
+            }
+        	break;
         }
         default:
         {

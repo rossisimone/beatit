@@ -86,11 +86,14 @@ TransverselyIsoytopicMaterial::setup(GetPot& data, std::string section)
     std::string type = data(section+"/hexagonal", "UNKNOWN");
     std::map<std::string, HexagonalCL> hexagonal_cl_map;
     hexagonal_cl_map["murphy"] = HexagonalCL::Murphy;
+    hexagonal_cl_map["exponential"] = HexagonalCL::Exponential;
     auto it_cl = hexagonal_cl_map.find(type);
     if( it_cl != hexagonal_cl_map.end() ) M_hexagonalCL = it_cl->second;
     else
     {
         std::cout << "--- TransverselyIsoytopicMaterial: hexagonal type " << type << " is not known" << std::endl;
+        std::cout << "    available hexagonal types: " << std::endl;
+        for(auto& j : hexagonal_cl_map) std::cout << "     " << j.first << std::endl;
         throw std::runtime_error("TransverselyIsoytopicMaterial setup error");
     }
 
@@ -106,6 +109,14 @@ TransverselyIsoytopicMaterial::setup(GetPot& data, std::string section)
         }
         default:
         {
+        case HexagonalCL::Exponential:
+        {
+            double af = data(section+"/af", 0.0);
+            double bf = data(section+"/bf", 0.0);
+            M_parameters[3] = af;
+            M_parameters[4] = bf;
+            break;
+        }
             break;
         }
     }
@@ -252,6 +263,13 @@ TransverselyIsoytopicMaterial::W4 (double I4, double I5, double J)
             W4 = mu5 + mu4 * (I4 - 1);
             break;
         }
+        case HexagonalCL::Exponential:
+        {
+            double af = M_parameters[3];
+            double bf = M_parameters[4];
+            W4 = af * ( I4 - 1 ) * std::exp( bf * ( I4 - 1 ) * ( I4 - 1 ) );
+            break;
+        }
         default:
         {
             break;
@@ -270,6 +288,14 @@ TransverselyIsoytopicMaterial::W44(double I4, double I5, double J)
         case HexagonalCL::Murphy:
         {
             W44 = M_parameters[3]; // mu4
+            break;
+        }
+        case HexagonalCL::Exponential:
+        {
+            double af = M_parameters[3];
+            double bf = M_parameters[4];
+            double aux = bf * ( I4 - 1 ) * ( I4 - 1 );
+            W44 = (1 + 2 *  aux ) * af * std::exp( aux );
             break;
         }
         default:

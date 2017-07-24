@@ -67,7 +67,17 @@ enum class HexagonalCL
     // W5 = - mu5 /2
     // W44 = mu4
     // W45 = W54 = W55 = 0
-    Murphy
+    Murphy,
+	// Several law, see e.g. Holzapfel ( 2000 )
+	// A new constitutive framework for arterial wall mechanics and a comparative study of material models
+    // W = mu * (I_1 - 3)  : Isotropic Part
+    //   + af / ( 2 bf )  ( exp( bf *  ( I4f - 1 )^2 ) - 1 )
+    // W4 =  af * ( I4f - 1 ) * exp( bf *  ( I4f - 1 )^2 )
+	// W5 = 0
+    // W44 =  (1 + 2 * bf * ( I4f - 1 )^2 ) * af * exp( bf *  ( I4f - 1 )^2 )
+	// W45 = W54 = W55 = 0
+	Exponential
+
 };
 /*!
  *

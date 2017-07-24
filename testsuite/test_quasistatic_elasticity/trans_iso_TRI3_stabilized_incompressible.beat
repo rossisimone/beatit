@@ -1,0 +1,63 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+# Mesh Part
+elX = 8
+elY = 8
+elType = TRI3
+
+[elasticity]
+    # Output Folder
+    output_folder = ctest_trans_iso_incompressible_TRI3
+    rhs = '0.0, 0.0'
+    order = 1
+    fefamily = lagrange
+    p_order = 1
+    p_fefamily = lagrange
+
+    fibers = '1.0, 0.0, 0.0'
+    sheets = '0.0, 1.0, 0.0'
+    xfibers ='0.0, 0.0, 1.0'
+
+    formulation = 'mixed'
+    stabilize = true
+    materials = hexagonal
+    [./materials]
+        [./hexagonal]
+            matID = 0 
+            rho = 1.0
+            type = neohookean
+            hexagonal = exponential
+            E   = 6.66e6
+            af = 6.4052e6
+            bf = 4.78            
+            nu  = 0.5
+        [../]       
+    [../]
+ 
+    [./newton]
+        max_iter = 10
+    [../]
+
+    [./BC]
+        list = 'zero, one'
+        [./zero]
+            flag = 3
+            type = Dirichlet
+            mode = Full
+            component  = All
+            function = '0.0, 0.0'
+        [../]
+        [./one]
+            flag = 1
+            type = Neumann
+            mode = Full
+            component  = All
+            function = '0.0, 62500'
+        [../]
+    [../]
+[../]
