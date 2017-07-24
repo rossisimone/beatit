@@ -95,7 +95,7 @@ int main()
 
 	double dt = 0.005;
 	int save_iter = 1. / dt;
-    double TF = 180*1000;
+    double TF = 0.5*1000;
 	double Ist = 0;
 	double time = 0.0;
 	BeatIt::saveData(0.0, variables, output);

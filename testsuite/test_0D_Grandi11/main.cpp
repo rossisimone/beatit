@@ -88,10 +88,10 @@ int main()
     pORd->initializeSaveData(output);
     pORd->initialize(variables);
 
-    double dt = 5e-3;
+    double dt = 6e-3;
 
     int save_iter = 1. / dt;
-    double TF = 180*1000;
+    double TF = 0.3*1000;
     double Ist = 0;
     double time = 0.0;
     BeatIt::saveData(0.0, variables, output);

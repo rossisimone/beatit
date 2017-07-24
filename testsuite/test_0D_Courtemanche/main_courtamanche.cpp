@@ -10,10 +10,11 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <fstream>
 
 //#define bcl 1000     /* Basic cycle length (ms) */
 #define bcl 1000     /* Basic cycle length (ms) */
-#define beats 180     /* Number of Beats */
+#define beats 2     /* Number of Beats */
 #define S2 1000
 
 /* List of variables and paramaters (this code uses all global variables) */
@@ -22,7 +23,7 @@
         FILE *ap;
         FILE *fmaxs;
         FILE *fpara;
-        void prttofile ();
+        void prttofile (std::ostream& output);
         int printdata;
         int printval;
 
@@ -325,6 +326,7 @@ int main ()
         fpara = fopen("fpara", "w");
         fmaxs = fopen("fmaxs", "w");
 */
+    	std::ofstream output("courtemanche.txt");
 
         /* Cell Geometry */
         vcell = 1000*pi*a*a*l;     /*   3.801e-5 uL */
@@ -340,7 +342,8 @@ int main ()
         t = 0;           /* Time (ms) */
         udt = 0.01;     /* Time step (ms) */
 //        steps = (S2 + bcl*beats)/udt; /* Number of ms */
-        steps = (180*1000)/udt; /* Number of ms */
+        steps = (2*1000)/udt; /* Number of ms */
+        //steps = 1;
         st = -200;        /* Stimulus */
         tstim = 10;       /* Time to begin stimulus */
         stimtime = 10;   /* Initial Condition for Stimulus */
@@ -384,6 +387,7 @@ int main ()
 		yach = 2.54e-2;
         iky = 0.6;
 		i=-1;
+		prttofile(output);
 
         /* Beginning of Time Loop */
         for (increment = 0; increment < steps; increment++)
@@ -414,7 +418,7 @@ int main ()
                 utsc = 0;
                 dt = udt;
 
-	prttofile();
+	prttofile(output);
 
         vnew = v-it*udt;
         dvdtnew = (vnew-v)/udt;
@@ -651,29 +655,36 @@ void comp_inab ()
 /* Total sum of currents is calculated here, if the time is between stimtime = 0 and stimtime = 0.5, a stimulus is applied */
 void comp_it ()
 {
-        naiont = ina+inab+3*inak+3*inaca+1.5e-2;
-        kiont = ikr+iks+iki-2*inak+ito+ikur+ikach+1.5e-2;
-        caiont = ilca+icab+ipca-2*inaca;
+	naiont = ina + inab + 3 * inak + 3 * inaca + 1.5e-2;
+	kiont = ikr + iks + iki - 2 * inak + ito + ikur + ikach + 1.5e-2;
+	caiont = ilca + icab + ipca - 2 * inaca;
 
-        if (t>=tstim && t<(tstim+dt))
-        {stimtime = 0;
-        i = i+1;
-        if (i < beats-1)
-            tstim = tstim+bcl;
-        else tstim = tstim+S2;
-        printf ("Stimulus %d applied, ", i+1);
-        printf ("Time = %f\n", t);
-        boolien = 0;
-        rmbp[i]=v;
-        nair[i] = nai;
-        cair[i] = cai;}
+	if (t >= tstim && t < (tstim + dt))
+	{
+		stimtime = 0;
+		i = i + 1;
+		if (i < beats - 1)
+			tstim = tstim + bcl;
+		else
+			tstim = tstim + S2;
+		printf("Stimulus %d applied, ", i + 1);
+		printf("Time = %f\n", t);
+		boolien = 0;
+		rmbp[i] = v;
+		nair[i] = nai;
+		cair[i] = cai;
+	}
 
-        if(stimtime>=0 && stimtime<0.5)
-        {it = st+naiont+kiont+caiont;}
-        else
-        {it = naiont+kiont+caiont;}
+	if (stimtime >= 0 && stimtime < 0.5)
+	{
+		it = st + naiont + kiont + caiont;
+	}
+	else
+	{
+		it = naiont + kiont + caiont;
+	}
 
-        stimtime = stimtime+dt;
+	stimtime = stimtime + dt;
 }
 
 /* Functions that calculate intracellular ion concentrations begins here */
@@ -749,9 +760,39 @@ void conc_cai ()
 
 /* Values are printed to a file called ap. The voltage and currents can be plotted versus time using graphing software. */
 
-void prttofile ()
+void prttofile (std::ostream& output)
 {
-if(increment%100 == 0)
-   fprintf (ap, "%.3f\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", t, v, ikr, ilca, iks, ito, cai, iki, ina);
+   if(increment%100 == 0)
+   {
+//   fprintf (ap, "%.3f\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\t%g\n", t, v, ikr, ilca, iks, ito, cai, iki, ina, trpn);
+	output << t << " ";
+	output << v << " ";
+	output << nai << " ";
+	output << ki << " ";
+	output << cai << " ";
+	output << m << " ";
+	output << h << " ";
+	output << j << " ";
+	output << d << " ";
+	output << f << " ";
+	output << xs << " ";
+	output << xr << " ";
+	output << ato << " ";
+	output << iito << " ";
+	output << uakur << " ";
+	output << uikur << " ";
+	output << fca << " ";
+	output << ireljsrol << " ";
+	output << jsr << " ";
+	output << nsr << " ";
+	output << trpn << " ";
+	output << cmdn << " ";
+	output << csqn << " ";
+	output << urel << " ";
+	output << vrel << " ";
+	output << wrel << " ";
+	output << yach << " ";
+	output << iky << std::endl;
+   }
 }
 

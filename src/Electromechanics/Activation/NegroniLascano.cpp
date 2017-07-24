@@ -42,7 +42,7 @@ NegroniLascano::solve(std::vector<double>& variables, double Cai, double dt, dou
 
 	 TCa_eff  = TCa * std::exp(-R*(I4f - La)*(I4f - La)) ;
 	 T = Tt - TCa - TCas - Ts;
-	 dX = B * (I4f - X - hc); // dX/dt
+	 dX = B * (I4f*L0 - X - hc); // dX/dt
 	 Qb = Y1 * Cai * T - Z1 * TCa;
 	 Qa = Y2 * TCa_eff - Z2 * TCas;
 	 Qr = Y3 * TCas - Z3 * Ts * Cai ;

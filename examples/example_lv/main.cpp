@@ -150,7 +150,7 @@ int main (int argc, char ** argv)
 				std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
 				error = checkConfiguration(elas);
 			}
-		    generate_fibers(es, data);
+		    //generate_fibers(es, data);
 		}
 		//elas->save("solution.gmv", save_iter);
 		elas->save_exo("solution.exo", save_iter, time);

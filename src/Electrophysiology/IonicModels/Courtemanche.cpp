@@ -215,7 +215,7 @@ void Courtemanche::updateVariables(std::vector<double>& variables,
 		double appliedCurrent, double dt)
 {
 	this->dt = dt;
-	st = appliedCurrent;
+	st = -appliedCurrent;
 	v = variables[0];
 	/*  Ion Concentrations */
 	nai = variables[1];
