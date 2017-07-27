@@ -75,6 +75,7 @@ public:
      *  \param [in] dt        Timestep
      */
     void solve(std::vector<double>& variables, double appliedCurrent, double dt);
+    void setup(GetPot& data, std::string section);
 
     //! Update all the variables in the ionic model
     /*!
@@ -130,7 +131,7 @@ private:
     constexpr static double Temp = T;
     constexpr static double FoRT = Frdy/R/Temp;
     // should it be 1.381?
-    constexpr static double Cmem = 1.3810e-10;  // membrane capacitance 1.3810e-10 [F/m^2];%
+    constexpr static double Cmem = 1.1e-10; // 1.3810e-10;  // membrane capacitance 1.3810e-10 [F/m^2];%
     constexpr static double Qpow = (Temp-310.0)/10.0;
 
     /// Cell geometry
@@ -305,6 +306,8 @@ private:
 
     double I_Na_tot, I_Cl_tot, I_Ca_tot;
     double I_tot;
+    bool set_resting_conditions;
+    bool markov_iks;
 };
 
 
