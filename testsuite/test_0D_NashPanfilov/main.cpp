@@ -51,7 +51,7 @@
 #include "Util/CTestUtil.hpp"
 #include <iomanip>
 /*
- * We start by definig an object that will help us keeping track of the pacing protocol
+ * We start by defining an object that will help us keeping track of the pacing protocol
  * In this case we use a simple S1 protocol, that is we apply the same stimulus every time
  * and the time between two stimuli is always the same.
  */
