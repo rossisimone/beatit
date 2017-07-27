@@ -1,0 +1,12 @@
+
+output = results.txt
+threshold = -65
+dt = 5e-3
+savedt = 1
+end = 10000
+amplitude = 80
+ti = 0
+duration = 0.5
+cl = 1000
+
+
