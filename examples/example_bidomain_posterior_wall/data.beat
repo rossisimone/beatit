@@ -1,0 +1,74 @@
+# FILE:    "data.pot"
+# PURPOSE: Example 1D
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    # number of elements per side
+    elX = 100
+    elY = 4
+    elZ = 2
+
+    maxX = 1.0
+    # For Adaptive Mesh Refinement (AMR)
+    # if max_num_mesh_ref = 0 then we use no AMR
+    max_num_mesh_ref = 0
+    step = 25
+    refine_fraction = 0.7
+    coarsen_fraction = 0.3
+    error_estimator = kelly  # kelly, laplacian
+[../]
+
+
+[monodomain]
+
+    # Output Folder
+    output_folder = ctest_nash_panfilov_output
+
+    # If we want to impose an initial conditions on the potential
+    # we can use the parameter ic. For example
+    # ic = 'x + y * t'
+
+    # This can be made a function
+    Dff = 1.3342
+    Dss = 0.17606
+    Dnn = 0.17606
+    Chi = 1400.0
+
+    # Ionic Model
+    # For now: NashPanfilov or ORd
+    ionic_model = NashPanfilov
+
+    # In reaction step: use mass or  lumped_mass
+    reaction_mass = mass
+    diffusion_mass = mass
+
+    # fiber fields
+    fibers  = '1.0, 0.0, 0.0'
+    sheets  = '0.0, 1.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
+
+    # Applied Stimulus
+    [./pacing]
+        function = '10. * ( x<0.15 ) * ( y<0.15 ) * ( z<0.15 ) * ( t<2 )'
+    [../]
+
+    # Time Data
+    [./time]
+        use_midpoint = true
+        dt = 0.01
+        init_time = 0.0
+        final_time= 80.0
+        max_iter  = 2000000
+        save_iter = 10
+    [../]
+
+    # Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
+    [../]
+
+[../]
