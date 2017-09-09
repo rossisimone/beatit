@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include "libmesh/parallel.h"
 #include "libmesh/getpot.h"
+#include <iomanip>
 
 namespace BeatIt
 {
@@ -24,11 +25,13 @@ void saveData( double time,
 		       std::vector<double>& var,
 			   std::ostream& output)
 {
+	output << std::fixed << std::setprecision(15);
 	output << time;
 	for(const auto& v : var)
 	{
 		output << " " << v;
 	}
+	output << std::defaultfloat;
 	output << "\n";
 }
 

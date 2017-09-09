@@ -51,6 +51,8 @@
 #include "Util/CTestUtil.hpp"
 #include <iomanip>
 #include "libmesh/getpot.h"
+#include <algorithm>
+
 /*
  * We start by defining an object that will help us keeping track of the pacing protocol
  * In this case we use a simple S1 protocol, that is we apply the same stimulus every time
@@ -63,6 +65,7 @@ struct Pacing
      * @param t current time
      * @return amplitue of the stimulus
      */
+	Pacing() : on(false) {}
     double istim(double t)
     {
         // First update the Pacing object
@@ -111,6 +114,51 @@ struct Pacing
 
 };
 
+struct APD
+{
+	APD(double percent = 90) : percentage(90) {}
+	double tinit;
+	double tf;
+	double treshold;
+	double percentage;
+	std::vector<std::pair<double, double> > v_history;
+	std::vector<double> apd;
+	bool is_on;
+
+	void find_treshold()
+	{
+		double vmin = v_history.at(0).second;
+		double vmax = v_history.at(v_history.size()-1).second;
+		//std::cout << "min: " << vmin << ", vmax: " << vmax << ", %: " << percentage << ", size history: " << v_history.size() << std::endl;
+ 		treshold = (vmax-vmin)*(1-percentage*0.01)+vmin;
+	}
+
+	void find_tinit()
+	{
+		for(int i = 0; i < v_history.size(); ++i)
+		{
+			if(v_history[i].second >= treshold)
+			{
+				tinit = v_history[i].first;
+			}
+		}
+		is_on = true;
+	}
+
+	void update(double v, double time)
+	{
+		//std::cout << "v: " << v << ", treshold: " << treshold << std::endl;
+		if(v <= treshold && is_on == true)
+		{
+			tf = time;
+			double duration = tf-tinit;
+			apd.push_back(duration);
+			is_on = false;
+		}
+
+
+	}
+};
 /*! Computes the APD and it saves it in a vector
  *  Example: we want to measure the time interval between to V = 0.5 (APD50)
  *
@@ -174,22 +222,22 @@ int main(int argc, char** argv)
 	pNP->initializeSaveData(output);
     // set the default initial conditions in the ionic model
 	pNP->setup(data, "model");
-	bool rv = data("model/Grandi11.resting_values", false);
+	bool rv = data("model/Grandi11/resting_values", false);
 	std::cout << "RV: " << rv << std::endl;
 	pNP->initialize(variables);
 
 
     // We check the APD90
-    bool on90 = false;
-    std::vector<double> APD90;
-    double APD90_time = 0.0;
-    // the thershold is 0.1  because we want 90% of the action potential
-    double APD90_threshold = data("threshold90", -60);
-    bool on30 = false;
-    std::vector<double> APD30;
-    double APD30_time = 0.0;
-    // the thershold is 0.1  because we want 90% of the action potential
-    double APD30_threshold = data("threshold30", -30);
+//    bool on90 = false;
+//    std::vector<double> APD90;
+//    double APD90_time = 0.0;
+//    // the thershold is 0.1  because we want 90% of the action potential
+//    double APD90_threshold = data("threshold90", -60);
+//    bool on30 = false;
+//    std::vector<double> APD30;
+//    double APD30_time = 0.0;
+//    // the thershold is 0.1  because we want 90% of the action potential
+//    double APD30_threshold = data("threshold30", -30);
 
 
     // timestep
@@ -220,23 +268,70 @@ int main(int argc, char** argv)
     pacing.cycle_length= data("cl", 1000);
     pacing.on = false;
 
+    double diastolic_v = 0.0;
+    double max_v = 0.0;
 
+    APD apd90(90);
     // loop over time
+    bool eval_tinit = false;
+
     while( time <= TF )
 	{
+		time += dt;
+
         // compute external stimulus
+    	bool was_stimulus_on = pacing.on;
 	    Ist = pacing.istim(time);
+    	bool is_stimulus_on = pacing.on;
+
+    	//if(is_stimulus_on) v_history.push_back(vold);
+    	if(was_stimulus_on == false && is_stimulus_on == true)
+		{
+    		//std::cout << "resetting apd" << std::endl;
+			eval_tinit = false;
+    		max_v = -100;
+    		apd90.v_history.clear();
+    		apd90.v_history.push_back(std::pair<double, double>(time-dt,  variables[0]));
+		}
+
+    	//if(was_stimulus_on == true && is_stimulus_on == false) diastolic_v = variables[0];
 	    // solve one timestep
 		pNP->solve(variables, Ist, dt);
+
+
+    	if(variables[0] > max_v)
+		{
+    		//std::cout << "upstroke" << std::endl;
+
+    		max_v = variables[0];
+    		apd90.v_history.push_back(std::pair<double, double>(time, variables[0]) );
+    		eval_tinit = true;
+		}
+    	else
+    	{
+    		if(eval_tinit)
+    		{
+        		//std::cout << "upstroke done" << std::endl;
+				apd90.find_treshold();
+				apd90.find_tinit();
+				eval_tinit = false;
+    		}
+    		else
+    		{
+        		//std::cout << "check apd" << std::endl;
+    			apd90.update(variables[0], time);
+    		}
+
+    	}
+
 		// update the current time
-		time += dt;
 		// update current iteration
 		++iter;
 		// if we want to output we can
 		if( 0 == iter%save_iter ) BeatIt::saveData(time, variables, output);
 		// update the APD
-		checkAPD(on90, APD90_threshold, time, APD90, APD90_time, variables[0]);
-		checkAPD(on30, APD30_threshold, time, APD30, APD30_time, variables[0]);
+		//checkAPD(on90, APD90_threshold, time, APD90, APD90_time, variables[0]);
+		//checkAPD(on30, APD30_threshold, time, APD30, APD30_time, variables[0]);
 	}
     // close output file
 	output.close();
@@ -244,16 +339,17 @@ int main(int argc, char** argv)
 	//up to the 16th digit
 	const double reference_solution_norm = 25.3500000005533;
 
-	std::cout << "APD90 size: " << APD90.size() << std::endl;
+	std::cout << "APD90 size: " << apd90.apd.size() << std::endl;
 	//std::cout << std::setprecision(15) << APD90[APD90.size()-1] << std::endl;
 
     std::string output_apd90 = data("outputAPD90", "APD90.txt");
 	std::ofstream outputAPD90(output_apd90);
-	for(auto && apd90 : APD90) outputAPD90 << apd90 << std::endl;
-    std::string output_apd30 = data("outputAPD30", "APD30.txt");
-	std::ofstream outputAPD30(output_apd30);
-	for(auto && apd30 : APD30) outputAPD30 << apd30 << std::endl;
+	for(auto && apd : apd90.apd) outputAPD90 << apd << std::endl;
+	outputAPD90.close();
+//    std::string output_apd30 = data("outputAPD30", "APD30.txt");
+//	std::ofstream outputAPD30(output_apd30);
+//	for(auto && apd30 : APD30) outputAPD30 << apd30 << std::endl;
 
-	return BeatIt::CTest::check_test(APD90[APD90.size()-1], reference_solution_norm, 1e-12);
+	return BeatIt::CTest::check_test(apd90.apd[apd90.apd.size()-1], reference_solution_norm, 1e-12);
 }
 

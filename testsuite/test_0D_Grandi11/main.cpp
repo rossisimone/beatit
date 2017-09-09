@@ -58,7 +58,7 @@ struct Stimulus
         double amp;
         double cl;
 
-        Stimulus() : t0(0.0), tf(0.5), on(false), amp(80), cl(1000) {}
+        Stimulus() : t0(0.0), tf(0.5), on(false), amp(0), cl(1000) {}
         double get(double time)
         {
                 if (time < t0)
@@ -91,7 +91,7 @@ int main()
     double dt = 6e-3;
 
     int save_iter = 1. / dt;
-    double TF = 0.3*1000;
+    double TF = 1.0*1000;
     double Ist = 0;
     double time = 0.0;
     BeatIt::saveData(0.0, variables, output);

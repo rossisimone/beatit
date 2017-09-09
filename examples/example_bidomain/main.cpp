@@ -144,12 +144,13 @@ int main(int argc, char ** argv)
 		orderMap["QUAD9"] = QUAD9;
 		std::string mesh_type = data("mesh/type", "TRI3");
 		auto elType = orderMap.find(mesh_type)->second;
+		if(numElementsZ > 0) elType = TET4;
 
 		//      MeshTools::Generation::build_line ( mesh,
 		//    		  	  	  	  	  	  	  	  	  	  	  	  	  	      numElementsX,
 		//                                                                      0., maxX );
-		MeshTools::Generation::build_square(mesh, numElementsX, numElementsY,
-				0., maxX, 0.0, maxY, elType);
+		MeshTools::Generation::build_cube(mesh, numElementsX, numElementsY, numElementsZ,
+				0., maxX, 0.0, maxY, 0.0, maxZ, elType);
 		MeshTools::Modification::rotate(mesh, rotation);
 		MeshTools::Modification::translate(mesh, x_translation, y_translation,
 				z_translation);

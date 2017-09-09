@@ -84,12 +84,15 @@ void
 FentonKarma::setup(GetPot& data, std::string sect)
 {
 	std::string section = sect + "/FentonKarma";
-    int parameter_set = data(section+"/param_set",       1);
-
+	// From Fenton: Mechanisms of Spiral break up
+    // parameter set 1, 3, 4, 5, 6, 8, 9, 10
+	// Parameter set 100 for the Right Atria
+	// from: A simple model of the right atrium of the human heart with the sinoatrial and atrioventricular nodes included
+	//
+	int parameter_set = data(section+"/param_set",       1);
     switch(parameter_set)
     {
         case 1:
-        default:
         {
             M_tau_v_p = 3.33;
             M_tau_v1_m = 19.6;
@@ -218,6 +221,30 @@ FentonKarma::setup(GetPot& data, std::string sect)
             M_V_c = 0.13;
             M_V_v = 0.025;
             break;
+        }
+        // Right Atria
+        case 100:
+        {
+            M_tau_v_p = 10.;
+            M_tau_v1_m = 18.2;
+            M_tau_v2_m = 18.2;
+            M_tau_w_p = 1020.0;
+            M_tau_w_m = 80.0;
+            M_tau_d = 51.0/4.4;
+            M_tau_0 = 12.5;
+            M_tau_r = 130.;
+            M_tau_si = 127;
+            M_kappa = 10.0;
+            M_V_c_si = 0.85;
+            M_V_c = 0.13;
+            M_V_v = 0.025;
+            break;
+        }
+        default:
+        {
+        	std::cout << "Fenton Karma parameter set " << parameter_set << "not found" << std::endl;
+        	throw std::runtime_error("Parametr set not found");
+        	break;
         }
     }
 	double tau_v_p   = data(section+"/tau_v_p",       -1.0);

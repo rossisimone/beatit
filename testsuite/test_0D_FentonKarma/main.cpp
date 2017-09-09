@@ -60,9 +60,14 @@ int main (int argc, char ** argv)
 {
     // Print BeatIt on screen
     BeatIt::printBanner(std::cout);
+	// Read the input file
+	GetPot commandLine(argc, argv);
+    std::string datafile_name = commandLine.follow ( "data.beat", 2, "-i", "--input" );
+    GetPot data(datafile_name);
 
     // Create a the Nas-Panfilov model using the Ionic Model factory
 	std::unique_ptr<BeatIt::FentonKarma> pNP( new BeatIt::FentonKarma() );
+	pNP->setup(data, "model");
 
 	// Check the number of variables in the model
 	int numVar = pNP->numVariables();

@@ -118,9 +118,9 @@ y70=[1; 0; 0];
 
 % Put everything together
 %y0  = [y10;y20;y30;y40;y50]    
- y0  = [y10;y20;y30;y40;y50;y60;y70];
-%load('yfinal'); % load output of previous simulation saved as yfinal.mat
-%y0 = yfinal;
+% y0  = [y10;y20;y30;y40;y50;y60;y70];
+load('yfinal'); % load output of previous simulation saved as yfinal.mat
+y0 = yfinal;
 
 %%
 %% Single Run Simulation
