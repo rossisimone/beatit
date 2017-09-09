@@ -285,7 +285,7 @@ Poisson::assemble_system()
      // quadrature rules.
      UniquePtr<libMesh::FEBase> fe_qp(libMesh::FEBase::build(dim, fe_type));
       // A 5th order Gauss quadrature rule for numerical integration.
-     libMesh::QGauss qrule_stiffness(dim, libMesh::FIRST);
+     libMesh::QGauss qrule_stiffness(dim, libMesh::FOURTH);
       // Tell the finite element object to use our quadrature rule.
      fe_qp->attach_quadrature_rule(&qrule_stiffness);
 
@@ -296,7 +296,7 @@ Poisson::assemble_system()
   // Boundary integration requires one quadraure rule,
   // with dimensionality one less than the dimensionality
   // of the element.
-  libMesh::QGauss qface(dim-1, libMesh::FIRST);
+  libMesh::QGauss qface(dim-1, libMesh::FOURTH);
 
   // Tell the finite element object to use our
   // quadrature rule.
@@ -402,10 +402,12 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
         for (unsigned int side=0; side<elem->n_sides(); side++)
         {
 
-            if (elem->neighbor(side) == libmesh_nullptr)
+//            if (elem->neighbor(side) == libmesh_nullptr)
+
             {
                 const unsigned int boundary_id =
                 mesh.boundary_info->boundary_id (elem, side);
+                //std::cout << "BID: " << boundary_id << std::endl;
 
                 auto bc = M_bch.get_bc(boundary_id);
 
