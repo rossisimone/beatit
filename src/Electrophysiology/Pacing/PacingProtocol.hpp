@@ -61,7 +61,7 @@ class GetPot;
 namespace BeatIt
 {
 
-enum class DistanceType { l_1,  l_2,  l_inf };
+enum class DistanceType { l_1,  l_2,  l_inf, l_2_2Dx, l_2_2Dy, l_2_2Dz };
 
 bool isPointInside(DistanceType type, double r, double x, double y = 0.0,  double z = 0.0);
 
@@ -92,6 +92,8 @@ public:
     libMesh::FunctionBase<double>* M_pacing;
     virtual double eval  (const Point & p,
                    const double time = 0.);
+
+    void set_distance_type(std::string& type);
 
     static int S_beats;
     bool M_isPacingOn;

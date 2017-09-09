@@ -50,9 +50,12 @@
 #include "Electrophysiology/IonicModels/Grandi11.hpp"
 #include "libmesh/getpot.h"
 #include <cmath>
+#include "Electrophysiology/IonicModels/Grandi11LUT.hpp"
 
 namespace BeatIt
 {
+
+
 
 IonicModel* createGrandi11()
 {

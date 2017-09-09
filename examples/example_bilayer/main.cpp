@@ -60,7 +60,7 @@
 #include "libmesh/mesh_generation.h"
 #include "libmesh/mesh_modification.h"
 #include "Util/SpiritFunction.hpp"
-
+#include "libmesh/mesh_refinement.h"
 #include "libmesh/numeric_vector.h"
 
 
@@ -160,6 +160,12 @@ int main (int argc, char ** argv)
 
       std::cout << "Mesh done!" << std::endl;
 
+      int n_refinements = data("mesh/n_ref", 0);
+      if( n_refinements > 0 )
+      {
+          MeshRefinement refinement(mesh);
+          refinement.uniformly_refine(n_refinements);
+      }
      //IonicModel* M_ionicModelPtr =  BeatIt::IonicModel::IonicModelFactory::Create("NashPanfilov");
 //      std::string system_mass = data("monodomain/system_mass", "mass");
 //      std::string iion_mass = data("monodomain/iion_mass", "lumped_mass");

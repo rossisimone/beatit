@@ -222,12 +222,17 @@ void Monowave::setup(GetPot& data, std::string section)
     // therefore we loop up to num_vars-1
     for (int nv = 0; nv < num_vars-1; ++nv)
     {
+        std::cout << "* MONODOMAIN: add variable " << nv << std::endl;
+
         std::string var_name = M_ionicModelPtr->variableName(nv);
         // For the time being we use P1 for the variables
         ionic_model_system.add_variable( &var_name[0], libMesh::FIRST );
     }
+    std::cout << "* MONODOMAIN: Init ionic model " << std::endl;
     ionic_model_system.init();
     // Add the applied current to this system
+    std::cout << "* MONODOMAIN: Creating auxiliary explicit systems " << std::endl;
+
     IonicModelSystem& Iion_system = M_equationSystems.add_system<IonicModelSystem>("iion");
     Iion_system.add_variable( "iion", libMesh::FIRST);
     Iion_system.add_vector( "diion");
@@ -642,9 +647,26 @@ Monowave::update_pacing(double time)
 {
     // Add the applied current to this system
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
+
+    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+    libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+    const libMesh::MeshBase::const_node_iterator end_node =
+            mesh.local_nodes_end();
+
+
     istim_system.time = time;
     M_pacing->update(time);
-    istim_system.project_solution( &M_pacing->pacing() );
+//    istim_system.project_solution( &M_pacing->pacing() );
+    const libMesh::DofMap & dof_map = istim_system.get_dof_map();
+    std::vector < libMesh::dof_id_type > dof_indices;
+    for (; node != end_node; ++node)
+    {
+        const libMesh::Node * nn = *node;
+        dof_map.dof_indices(nn, dof_indices, 0);
+        libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
+        double istim = M_pacing->eval(p, time);
+        istim_system.solution->set(dof_indices[0], istim);
+    }
 }
 
 void

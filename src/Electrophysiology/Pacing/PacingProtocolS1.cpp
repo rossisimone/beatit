@@ -81,20 +81,7 @@ PacingProtocolS1::setup(const GetPot& data, std::string section)
     std::cout << "\t\t amplitude: " << M_amplitude << std::endl;
 
 	std::string type = data(section+"/distance", "l_2");
-    if(type == "l_1")
-	{
-    	M_type = DistanceType::l_1;
-    	std::cout << "\t\t type: diamond" << std::endl;
-	}
-    else if(type == "l_inf")
-	{
-    	M_type = DistanceType::l_inf;
-    	std::cout << "\t\t type: box" << std::endl;
-	}
-    else
-    {
-    	    	std::cout << "\t\t type: sphere" << std::endl;
-    }
+	PacingProtocol::set_distance_type(type);
 	M_pacing = this;
 	std::cout << "\t\t this: " << this << ", pacing: " << M_pacing << std::endl;
 

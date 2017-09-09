@@ -57,6 +57,9 @@ message("-- MPI LIBRARIES: ${MPI_LIBRARIES}")
 message("-- Boost Include: ${Boost_INCLUDE_DIR}")
 message("-- Boost Libraries: ${Boost_LIBRARY_DIR}")
 
+message("-- EIGEN Directory: ${EIGEN_DIR}")
+include_directories ("${EIGEN_DIR}")
+
 enable_testing()
 
 # Include source directories

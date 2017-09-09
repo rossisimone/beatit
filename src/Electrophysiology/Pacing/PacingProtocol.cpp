@@ -79,6 +79,22 @@ bool isPointInside(DistanceType type, double r, double x, double y ,  double z)
 			if( r*r >= x*x + y*y + z*z  ) isInside = true;
 			break;
 		}
+        case DistanceType::l_2_2Dx:
+        {
+            if( r*r >= y*y + z*z  ) isInside = true;
+            break;
+        }
+        case DistanceType::l_2_2Dy:
+        {
+            if( r*r >= x*x + z*z  ) isInside = true;
+            break;
+        }
+        case DistanceType::l_2_2Dz:
+        {
+            if( r*r >= x*x + y*y ) isInside = true;
+            break;
+        }
+
 	}
 	return isInside;
 }
@@ -119,6 +135,42 @@ PacingProtocol::eval(const Point & p,
 
     if(  M_stopTime > 0 && time > M_stopTime) pacing = 0.0;
     return pacing;
+}
+
+
+void
+PacingProtocol::set_distance_type(std::string& type)
+{
+    if(type == "l_1")
+    {
+        M_type = DistanceType::l_1;
+        std::cout << "\t\t type: diamond" << std::endl;
+    }
+    else if(type == "l_inf")
+    {
+        M_type = DistanceType::l_inf;
+        std::cout << "\t\t type: box" << std::endl;
+    }
+    else if(type == "l_2_2Dx")
+    {
+        M_type = DistanceType::l_2_2Dx;
+        std::cout << "\t\t type: cylinder (x)" << std::endl;
+    }
+    else if(type == "l_2_2Dy")
+    {
+        M_type = DistanceType::l_2_2Dy;
+        std::cout << "\t\t type: cylinder (y)" << std::endl;
+    }
+    else if(type == "l_2_2Dz")
+    {
+        M_type = DistanceType::l_2_2Dz;
+        std::cout << "\t\t type: cylinder (z)" << std::endl;
+    }
+    else
+    {
+        M_type = DistanceType::l_2;
+        std::cout << "\t\t type: sphere" << std::endl;
+    }
 }
 
 
