@@ -1,0 +1,97 @@
+# FILE:    "nash_panfilov.pot"
+# PURPOSE: Test for Monodomain with Nash-Panfilov Ionic Model
+#
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    # number of elements per side
+    elX = 10
+    elY = 4
+    elZ = 2
+
+    
+[../]
+
+
+[poisson]
+    # Output Folder
+    output_folder = Poisson_Output
+    rhs = 0.0
+    centerline_x = 0.0
+    centerline_y = 0.0
+    centerline_z = 1.0
+
+    epi_angle = -45.0
+    endo_angle = 90.0
+    [./BC]
+        list = left,right
+        [./left]
+        flag = 1
+        type = NitscheUnsymmetric
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./right]
+        flag = 3
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+    [../]
+[../]
+
+[monodomain]
+
+    # Output Folder
+    output_folder = ctest_fibers_output
+
+    # If we want to impose an initial conditions on the potential
+    # we can use the parameter ic. For example
+    # ic = 'x + y * t'
+
+    # This can be made a function
+    Dff = 1.3342
+    Dss = 0.17606
+    Dnn = 0.17606
+    Chi = 1400.0
+
+    # Ionic Model
+    # For now: NashPanfilov or ORd
+    ionic_model = NashPanfilov
+
+    # In reaction step: use mass or  lumped_mass
+    reaction_mass = mass
+    diffusion_mass = mass
+
+    # fiber fields
+    fibers  = '1.0, 0.0, 0.0'
+    sheets  = '0.0, 1.0, 0.0'
+    xfibers = '0.0, 0.0, 1.0'
+
+    # Applied Stimulus
+    [./pacing]
+        function = '10. * ( x<0.15 ) * ( y<0.15 ) * ( z<0.15 ) * ( t<2 )'
+    [../]
+
+    # Time Data
+    [./time]
+        use_midpoint = true
+        dt = 0.01
+        init_time = 0.0
+        final_time= 0.01
+        max_iter  = 1
+        save_iter = 1
+    [../]
+
+    # Linear Solver options
+    [./linear_solver]
+        type = cg
+        preconditioner = sor
+    [../]
+
+[../]

@@ -73,6 +73,36 @@ generate_gradient_field( libMesh::MeshBase& mesh,
 
 void project_function(std::string& function, libMesh::System& sys);
 
+void normalize(double& x, double& y, double& z,
+               double X, double Y, double Z);
+
+
+template< class Vector >
+void normalize( Vector& vec, double X = 1.0, double Y = 0.0, double Z = 0.0 )
+{
+    auto first = vec.first_local_index();
+    auto last = vec.last_local_index();
+
+    for(int i = first; i < last; )
+    {
+        int j = i;
+        double v1_x = vec(i);
+        i++;
+        double v1_y = vec(i);
+        i++;
+        double v1_z = vec(i);
+        i++;
+        normalize(v1_x,v1_y,v1_z,X,Y,Z);
+        vec.set(j,v1_x);
+        j++;
+        vec.set(j,v1_y);
+        j++;
+        vec.set(j,v1_z);
+    }
+
+}
+
+
 }
 
 }

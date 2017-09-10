@@ -88,6 +88,27 @@ project_function(std::string& function, libMesh::System& sys)
 }
 
 
+void normalize(double& x, double& y, double& z,
+               double X, double Y, double Z)
+{
+    double norm = std::sqrt( x * x + y * y + z * z);
+    if(norm >= 1e-12 )
+    {
+        x /= norm;
+        y /= norm;
+        z /= norm;
+    }
+    else
+    {
+        x = X;
+        y = Y;
+        z = Z;
+    }
+}
+
+
+
+
 
 } /* namespace Util */
 
