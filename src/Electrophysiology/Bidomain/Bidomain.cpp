@@ -1409,6 +1409,7 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 	std::vector < libMesh::dof_id_type > dof_indices_Q;
 	std::vector < libMesh::dof_id_type > dof_indices_gating;
 
+	M_pacing->update(time);
 	for (; node != end_node; ++node)
 	{
 		const libMesh::Node * nn = *node;
@@ -1418,6 +1419,7 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 		libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
 
 		double istim = M_pacing->eval(p, time);
+		//if (istim != 0 ) std::cout << istim << std::endl;
 		istim_zero = 0.0*istim;
 
 		double Iion_old = 0.0;

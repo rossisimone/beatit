@@ -114,10 +114,12 @@ int main(int argc, char ** argv)
     std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
     mesh.read (&meshfile[0]);
 
+    int scale = 0.1;
+    //MeshTools::Modification::scale(mesh, scale, scale, scale);
     perf_log.pop("mesh");
 
     libMesh::EquationSystems es(mesh);
-    es.init();
+    //es.init();
 
 
 
@@ -240,10 +242,11 @@ int main(int argc, char ** argv)
       bidomain.update_activation_time(datatime.M_time);
       if( 0 == datatime.M_iter%datatime.M_saveIter )
       {
-        bidomain.save_potential(save_iter++, datatime.M_time);
+        save_iter++;
+        bidomain.save_potential(save_iter, datatime.M_time);
+        bidomain.save_exo(save_iter, datatime.M_time);
       }
   }
-  bidomain.save_exo(2, datatime.M_time);
 
     return 0;
 }
