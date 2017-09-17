@@ -1,0 +1,255 @@
+$ cat data.beat 
+# FILE:    "data.beat"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+     input_mesh_name = duke_heart_v8.e   
+[../]
+
+[poisson0]
+    # Output Folder
+    output_folder = HeartPois0
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 101,201,301,401,501,601,701,801,901,1001,1101,1201,1301,1501,1601,1701,1801,1901,2001
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 102,202,302,402,502,602,702,802,902,1002,1102,1202,1302,1502,1602,1702,1802,1902,2002
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]
+
+
+[poisson1]
+    # Output Folder
+    output_folder = HeartPois1
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 1401
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 1402
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]
+
+[poisson2]
+    # Output Folder
+    output_folder = HeartPois2
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 1200 #1300,1800
+           type = NitscheUnsymmetric #Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 1300,1800,1900,2000
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]
+
+
+[poisson3]
+    # Output Folder
+    output_folder = HeartPois3
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 1300,600 #1800
+           type = NitscheUnsymmetric #Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 2000,700 #2000
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]
+
+
+
+[poisson4]
+    # Output Folder
+    output_folder = HeartPois4
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 1100 #1800
+           type = NitscheUnsymmetric #Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 1500 #2000
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]
+
+
+[poisson5]
+    # Output Folder
+    output_folder = HeartPois5
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 600,700 #1800
+           type = Dirichlet #Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 1000 #2000
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]
+
+
+[poisson6]
+    # Output Folder
+    output_folder = HeartPois6
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+
+    [./BC]
+    
+        list = 'endo, epi'
+
+        [./endo]
+           flag = 401 #1800
+           type = Dirichlet #Dirichlet
+           mode = Full
+           component  = All
+           function = 0.0
+        [../]
+
+        [./epi]
+           flag = 402 #2000
+           type = Dirichlet
+           mode = Full
+           component  = All
+           function = 1.0
+        [../]
+
+    [../]
+[../]

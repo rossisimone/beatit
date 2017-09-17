@@ -1315,7 +1315,7 @@ void Bidomain::assemble_matrices(double dt)
 		Vec& N = (static_cast<Vec&>(bidomain_system.get_vector("nullspace")));
         std::cout << "* BIDOMAIN: nullspace vector  " << prec_type << std::endl;
 		auto vec = N.vec();
-		std::cout << N.size() <<  ",  " <<
+		//std::cout << N.size() <<  ",  " <<
         std::cout << "* BIDOMAIN: nullspace vector 1 " << prec_type << std::endl;
 		MatNullSpaceCreate(PETSC_COMM_WORLD,PETSC_FALSE,1,&vec, &nullspace);
         std::cout << "* BIDOMAIN: nullspace vector  2" << prec_type << std::endl;
