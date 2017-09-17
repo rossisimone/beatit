@@ -51,6 +51,10 @@
 #include "Util/GenerateFibers.hpp"
 #include "libmesh/exodusII_io.h"
 
+#include <fstream>
+#include <sstream>
+
+
 const int N = 7;
 
 
@@ -85,6 +89,28 @@ int main (int argc, char ** argv)
       // Read the input mesh.
       mesh.read (&meshfile[0]);
 
+      std::ifstream right_atrium("right_atrium0.csv");
+      int objID, elID, elID2;
+      char v, v2;
+      std::string line;
+      if(right_atrium.is_open())
+      {
+          getline (right_atrium,line);
+
+            while ( getline (right_atrium,line) )
+            {
+                std::istringstream ss(line);
+                //line will have
+                ss >> objID >> v >> elID;
+//                    if(fn == 10) elID = elID2;
+                //std::cout << elID << std::endl;
+//                  if(elID == 16896) trick = true;
+//                if(fn == 10 && trick == true) elID = objID;
+                auto * elem = mesh.query_elem(elID-1);
+                elem->subdomain_id() = 21;
+            }
+      }
+      right_atrium.close();
 
       libMesh::EquationSystems es(mesh);
 
@@ -94,6 +120,10 @@ int main (int argc, char ** argv)
       typedef BeatIt::Poisson Poisson;
       typedef std::shared_ptr<Poisson> PoissonPtr;
       Poisson* pv[N];
+
+
+
+
 
       for(int i = 0; i < N; i++)
       {
@@ -227,11 +257,21 @@ int main (int argc, char ** argv)
 
         }
 
-
-		std::cout << "Calling exporter: ..."  << ". " << std::flush;
+        std::cout << "Calling exporter: ..."  << ". " << std::flush;
 
 		typedef libMesh::ExodusII_IO EXOExporter;
 		EXOExporter exporter(mesh);
+		std::vector<std::string> varname(9);
+		varname[0] = "fibersx";
+		varname[1] = "fibersy";
+        varname[2] = "fibersz";
+        varname[3] = "sheetsx";
+        varname[4] = "sheetsy";
+        varname[5] = "sheetsz";
+        varname[6] = "xfibersx";
+        varname[7] = "xfibersy";
+        varname[8] = "xfibersz";
+        exporter.set_output_variables (varname);
 		exporter.write_equation_systems("HeartPois0/poisson0.exo", es);
 		exporter.write_element_data(es);
 
@@ -345,11 +385,20 @@ void evaluate(double f[], double s[], double n[],
         }
         // left atrial appendage
         case 16:
+        // right atria appendage
+        case 8:
         {
             double cx =-0.523696611217322; //data (section+"/centerline_x", 0.0);
             double cy = 0.848062778126582; //data (section+"/centerline_y", 0.0);
             double cz =-0.0808169769028613; // (section+"/centerline_z", 1.0);
 
+
+            if(blockID == 8)
+            {
+                cx = -0.726767523370148;
+                cy =0.381478658634116;
+                cz = -0.571211869608061;
+            }
             double sx = dphi[0][0];
             double sy = dphi[0][1];
             double sz = dphi[0][2];
@@ -371,23 +420,21 @@ void evaluate(double f[], double s[], double n[],
             n[0] = xfx; n[1] = xfy; n[2] = xfz;
             break;
         }
-        // upper left pulmonary vein
-        case 13:
-        // mitral valve ring
-        case 12:
-        // lower left pulmonary vein
-        case 18:
-        // lower right pulmonary vein
-        case 19:
-        // upper right pulmonary vein
-        case 20:
+        // Left Atrium
+        case 2:
+        // inferior vena cava
+        case 6:
+        // superior vena cava
+        case 7:
+        // eustachian valve
+        case 5:
         {
             double v1_x = dphi[0][0];
-            double v2_x = dphi[2][0];
+            double v2_x = dphi[3][0];
             double v1_y = dphi[0][1];
-            double v2_y = dphi[2][1];
+            double v2_y = dphi[3][1];
             double v1_z = dphi[0][2];
-            double v2_z = dphi[2][2];
+            double v2_z = dphi[3][2];
 
             double cdot = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
             v1_x = v1_x - cdot * v2_x;
@@ -400,19 +447,31 @@ void evaluate(double f[], double s[], double n[],
             double cross_z = v1_x * v2_y - v1_y * v2_x;
             normalize(cross_x, cross_y, cross_z, 0.0, 0.0, 1.0);
 
-            f[0] = v1_x;  f[1] = v1_y;  f[2] = v1_z;
+            n[0] = v1_x;  n[1] = v1_y;  n[2] = v1_z;
             s[0] = v2_x;  s[1] = v2_y;  s[2] = v2_z;
-            n[0] = cross_x; n[1] = cross_y; n[2] = cross_z;
+            f[0] = cross_x; f[1] = cross_y; f[2] = cross_z;
             break;
         }
-        // Left Atrium
-        case 2:
+        // upper left pulmonary vein
+        case 13:
+        // mitral valve ring
+        case 12:
+        // lower left pulmonary vein
+        case 18:
+        // lower right pulmonary vein
+        case 19:
+        // upper right pulmonary vein
+        case 20:
+        // tricuspid valve ring
+        case 10:
+        // right atria roof muscle
+        case 9:
         {
-           double v1_x = dphi[3][0];
+           double v1_x = dphi[0][0];
            double v2_x = dphi[2][0];
-           double v1_y = dphi[3][1];
+           double v1_y = dphi[0][1];
            double v2_y = dphi[2][1];
-           double v1_z = dphi[3][2];
+           double v1_z = dphi[0][2];
            double v2_z = dphi[2][2];
 
            double cdot = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
@@ -426,38 +485,134 @@ void evaluate(double f[], double s[], double n[],
            double cross_z = v1_x * v2_y - v1_y * v2_x;
            normalize(cross_x, cross_y, cross_z, 0.0, 0.0, 1.0);
 
-           f[0] = v1_x;  f[1] = v1_y;  f[2] = v1_z;
+           n[0] = v1_x;  n[1] = v1_y;  n[2] = v1_z;
            s[0] = v2_x;  s[1] = v2_y;  s[2] = v2_z;
-           n[0] = cross_x; n[1] = cross_y; n[2] = cross_z;
+           f[0] = cross_x; f[1] = cross_y; f[2] = cross_z;
            break;
+        }
+        // cresta terminalis
+        case 17:
+        {
+            double potential = phi[0];
+
+            f[0] = dphi[2][0];
+            f[1] = dphi[2][1];
+            f[2] = dphi[2][2];
+            normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
+
+            s[0] = dphi[0][0];
+            s[1] = dphi[0][1];
+            s[2] = dphi[0][2];
+            normalize(s[0], s[1], s[2], 1.0, 0.0, 0.0);
+
+            double cdot = f[0] * s[0] + f[1] * s[1] + f[2] * s[2];
+            s[0] = s[0] - cdot * f[0];
+            s[1] = s[1] - cdot * f[1];
+            s[2] = s[2] - cdot * f[2];
+            normalize(s[0], s[1], s[2], 1.0, 0.0, 0.0);
+
+            n[0] = f[1] * s[2] - f[2] * s[1];
+            n[1] = f[2] * s[0] - f[0] * s[2];
+            n[2] = f[0] * s[1] - f[1] * s[0];
+            normalize(n[0], n[1], n[2], 0.0, 0.0, 1.0);
+
+            if(potential < 0.5)
+            {
+                double fx = f[0];
+                double fy = f[1];
+                double fz = f[2];
+                f[0] = n[0];
+                f[1] = n[1];
+                f[2] = n[2];
+                n[0] = fx;
+                n[1] = fy;
+                n[2] = fz;
+            }
+            break;
+        }
+        // inter atrial band
+        case 4:
+        {
+            f[0] = dphi[4][0];
+            f[1] = dphi[4][1];
+            f[2] = dphi[4][2];
+            normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
+
+            s[0] =-dphi[4][1];
+            s[1] = dphi[4][0];
+            s[2] = 0.0;
+            normalize(s[0], s[1], s[2], 1.0, 0.0, 0.0);
+
+            n[0] = f[1] * s[2] - f[2] * s[1];
+            n[1] = f[2] * s[0] - f[0] * s[2];
+            n[2] = f[0] * s[1] - f[1] * s[0];
+            normalize(n[0], n[1], n[2], 0.0, 0.0, 1.0);
+
+            break;
         }
         // Right Atrium
         case 1:
-        // inter atrial band
-        case 4:
-        // eustachian valve
-        case 5:
-        // inferior vena cava
-        case 6:
-        // superior vena cava
-        case 7:
-        // right atria appendage
-        case 8:
-        // right atria roof muscle
-        case 9:
-        // tricuspid valve ring
-        case 10:
+        {
+            double v1_x = dphi[0][0];
+            double v2_x = dphi[5][0];
+            double v1_y = dphi[0][1];
+            double v2_y = dphi[5][1];
+            double v1_z = dphi[0][2];
+            double v2_z = dphi[5][2];
+
+            double cdot = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
+
+            v1_x = v1_x - cdot * v2_x;
+            v1_y = v1_y - cdot * v2_y;
+            v1_z = v1_z - cdot * v2_z;
+            normalize(v1_x, v1_y, v1_z, 0.0, 0.0, 1.0);
+            double cross_x = v1_y * v2_z - v1_z * v2_y;
+            double cross_y = v1_z * v2_x - v1_x * v2_z;
+            double cross_z = v1_x * v2_y - v1_y * v2_x;
+            normalize(cross_x, cross_y, cross_z, 0.0, 0.0, 1.0);
+
+            n[0] = v1_x;  n[1] = v1_y;  n[2] = v1_z;
+            s[0] = v2_x;  s[1] = v2_y;  s[2] = v2_z;
+            f[0] = cross_x; f[1] = cross_y; f[2] = cross_z;
+            break;
+            break;
+        }
         // aorta
         case 11:
         // pulmonary artery
         case 15:
-        // cresta terminalis
-        case 17:
+        // right atrium top
+        {
+           double v1_x = dphi[0][0];
+           double v2_x = dphi[4][0];
+           double v1_y = dphi[0][1];
+           double v2_y = dphi[4][1];
+           double v1_z = dphi[0][2];
+           double v2_z = dphi[4][2];
+
+           double cdot = v1_x * v2_x + v1_y * v2_y + v1_z * v2_z;
+
+           v1_x = v1_x - cdot * v2_x;
+           v1_y = v1_y - cdot * v2_y;
+           v1_z = v1_z - cdot * v2_z;
+           normalize(v1_x, v1_y, v1_z, 0.0, 0.0, 1.0);
+           double cross_x = v1_y * v2_z - v1_z * v2_y;
+           double cross_y = v1_z * v2_x - v1_x * v2_z;
+           double cross_z = v1_x * v2_y - v1_y * v2_x;
+           normalize(cross_x, cross_y, cross_z, 0.0, 0.0, 1.0);
+
+           n[0] = v1_x;  n[1] = v1_y;  n[2] = v1_z;
+           s[0] = v2_x;  s[1] = v2_y;  s[2] = v2_z;
+           f[0] = cross_x; f[1] = cross_y; f[2] = cross_z;
+           break;
+        }
+        case 21:
         default:
         {
             s[0] = dphi[0][0];
             s[1] = dphi[0][1];
             s[2] = dphi[0][2];
+            normalize(s[0], s[1], s[2], 1.0, 0.0, 0.0);
 
             f[0] =-dphi[0][1];
             f[1] = dphi[0][0];
