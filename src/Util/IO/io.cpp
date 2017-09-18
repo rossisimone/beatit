@@ -25,13 +25,14 @@ void saveData( double time,
 		       std::vector<double>& var,
 			   std::ostream& output)
 {
+        std::streamsize ss = std::cout.precision();
 	output << std::fixed << std::setprecision(15);
 	output << time;
 	for(const auto& v : var)
 	{
 		output << " " << v;
 	}
-	output << std::defaultfloat;
+	output << std::setprecision(ss);
 	output << "\n";
 }
 
