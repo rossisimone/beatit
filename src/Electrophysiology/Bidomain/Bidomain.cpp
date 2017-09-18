@@ -172,6 +172,7 @@ void Bidomain::setup(GetPot& data, std::string section)
 	bidomain_system.add_vector("ionic_currents");
 	bidomain_system.add_vector("old_solution");
 	bidomain_system.add_vector("nullspace");
+    bidomain_system.add_vector("residual");
 	M_bidomainExporterNames.insert("bidomain");
 
 //    bidomain_system.matrix->init();
@@ -1622,32 +1623,49 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
 	// WAVE
 //	bidomain_system.solution->print();
 
-	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-	const libMesh::MeshBase::const_node_iterator end_node =
-			mesh.local_nodes_end();
 
-	const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
-	const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
-
-	std::vector < libMesh::dof_id_type > dof_indices;
-	std::vector < libMesh::dof_id_type > dof_indices_V;
-	std::vector < libMesh::dof_id_type > dof_indices_Ve;
-	std::vector < libMesh::dof_id_type > dof_indices_Q;
-
-	for (; node != end_node; ++node)
-	{
-		const libMesh::Node * nn = *node;
-		dof_map.dof_indices(nn, dof_indices_Q, 0);
-		dof_map.dof_indices(nn, dof_indices_Ve, 1);
-		dof_map_V.dof_indices(nn, dof_indices_V, 0);
-		wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
-	}
-	wave_system.solution->close();
-	wave_system.solution->scale(dt);
-	*wave_system.solution += *wave_system.old_local_solution;
 //	double sol_norm = wave_system.solution->l2_norm();
 //	std::cout <<"sol norm: " << sol_norm << std::endl;
 //    wave_system.solution->print();
+	// Evaluate residual
+	bidomain_system.matrix->vector_mult_add(bidomain_system.get_vector("residual"),
+            *bidomain_system.solution);
+	bidomain_system.get_vector("residual").add_vector(-1, *bidomain_system.rhs);
+
+	double res_Q = 0;
+	double res_Ve = 0;
+
+
+    libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+    const libMesh::MeshBase::const_node_iterator end_node =
+            mesh.local_nodes_end();
+
+    const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
+    const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
+
+    std::vector < libMesh::dof_id_type > dof_indices;
+    std::vector < libMesh::dof_id_type > dof_indices_V;
+    std::vector < libMesh::dof_id_type > dof_indices_Ve;
+    std::vector < libMesh::dof_id_type > dof_indices_Q;
+
+    for (; node != end_node; ++node)
+    {
+        const libMesh::Node * nn = *node;
+        dof_map.dof_indices(nn, dof_indices_Q, 0);
+        dof_map.dof_indices(nn, dof_indices_Ve, 1);
+        dof_map_V.dof_indices(nn, dof_indices_V, 0);
+        wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
+        double qres = bidomain_system.get_vector("residual")(dof_indices_Q[0]);
+        double veres = bidomain_system.get_vector("residual")(dof_indices_Ve[0]);
+        res_Q = std::max( std::abs( qres ), res_Q );
+        res_Ve= std::max( std::abs( veres ), res_Ve );
+    }
+    bidomain_system.solution->comm().max(res_Q);
+    bidomain_system.solution->comm().max(res_Ve);
+    std::cout << "Res Q: " << res_Q << ", Res Ve: " << res_Ve << std::endl;
+    wave_system.solution->close();
+    wave_system.solution->scale(dt);
+    *wave_system.solution += *wave_system.old_local_solution;
 
 
 }
