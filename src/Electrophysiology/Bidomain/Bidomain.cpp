@@ -1628,9 +1628,10 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
 //	std::cout <<"sol norm: " << sol_norm << std::endl;
 //    wave_system.solution->print();
 	// Evaluate residual
+       bidomain_system.get_vector("residual").zero();
 	bidomain_system.matrix->vector_mult_add(bidomain_system.get_vector("residual"),
             *bidomain_system.solution);
-	bidomain_system.get_vector("residual").add_vector(-1, *bidomain_system.rhs);
+	bidomain_system.get_vector("residual").add(-1, *bidomain_system.rhs);
 
 	double res_Q = 0;
 	double res_Ve = 0;
