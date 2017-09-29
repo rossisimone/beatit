@@ -70,6 +70,7 @@ PacingProtocolS1::setup(const GetPot& data, std::string section)
     M_decrementBeats = data( section+"/decrement_beats", 5);
     M_minCycleLength = data( section+"/cycle_length_min", 10.0);
     M_stopTime = data( section+"/stop_time", -1.0);
+    M_boundaryID = data( section+"/boundary", -1);
     M_x0 = data( section+"/x0", 0.0);
     M_y0 = data( section+"/y0", 0.0);
     M_z0 = data( section+"/z0", 0.0);

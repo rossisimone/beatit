@@ -76,6 +76,7 @@
 //#include "libmesh/vtk_io.h"
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
+#include "libmesh/exodusII_io_helper.h"
 
 
 int main(int argc, char ** argv)
@@ -111,102 +112,24 @@ int main(int argc, char ** argv)
     GetPot data(datafile_name);
 
     // We may need XDR support compiled in to read binary .xdr files
-    std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
-    mesh.read (&meshfile[0]);
+    //std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
 
-    int scale = 0.1;
-    //MeshTools::Modification::scale(mesh, scale, scale, scale);
-    perf_log.pop("mesh");
+    // Empty mesh
+    // Importer
+    libMesh::ExodusII_IO importer(mesh);
+    std::string restart_file = data("bidomain/restart/restart_file", "NONE");
+    importer.read(restart_file);
+    mesh.prepare_for_use();
+
+    libMesh::MeshTools::Modification::scale(mesh, 0.1, 0.1, 0.1);
 
     libMesh::EquationSystems es(mesh);
-    //es.init();
-
-
-
-    std::string pois1 = "poisson1";
-    BeatIt::Poisson poisson1(es, pois1);
-
-    std::cout << "Calling setup: ..." << std::flush;
-    poisson1.setup(data, pois1);
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling assemble system: ..." << std::flush;
-    poisson1.assemble_system();
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling solve system: ..." << std::flush;
-    poisson1.solve_system();
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling gradient: ..." << std::flush;
-    poisson1.compute_elemental_solution_gradient();
-    std::cout << " Done!" << std::endl;
-
-    std::string pois2 = "poisson2";
-    BeatIt::Poisson poisson2(es, pois2);
-
-    std::cout << "Calling setup: ..." << std::flush;
-    poisson2.setup(data, pois2);
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling assemble system: ..." << std::flush;
-    poisson2.assemble_system();
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling solve system: ..." << std::flush;
-    poisson2.solve_system();
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling gradient: ..." << std::flush;
-    poisson2.compute_elemental_solution_gradient();
-    std::cout << " Done!" << std::endl;
-
-
-    std::string pois3 = "poisson3";
-    BeatIt::Poisson poisson3(es, pois3);
-
-    std::cout << "Calling setup: ..." << std::flush;
-    poisson3.setup(data, pois3);
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling assemble system: ..." << std::flush;
-    poisson3.assemble_system();
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling solve system: ..." << std::flush;
-    poisson3.solve_system();
-    std::cout << " Done!" << std::endl;
-    std::cout << "Calling gradient: ..." << std::flush;
-    poisson3.compute_elemental_solution_gradient();
-    std::cout << " Done!" << std::endl;
-
-
-    // Create Fiber fields
-    //  long direction
-    auto& grad1 = poisson1. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois1+"_gradient").solution;
-    // through thickness
-    auto& grad2 = poisson2. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois2+"_gradient").solution;
-    // short direction
-    auto& grad3 = poisson3. M_equationSystems.get_system<libMesh::ExplicitSystem>(pois3+"_gradient").solution;
-
-    BeatIt::Util::normalize(*grad1, 1.0, 0.0, 0.0);
-    BeatIt::Util::normalize(*grad2, 0.0, 1.0, 0.0);
-    BeatIt::Util::normalize(*grad3, 0.0, 0.0, 1.0);
-
-    poisson1.save_exo("poisson1.exo");
 
     //
     BeatIt::Bidomain bidomain(es);
     bidomain.setup(data, "bidomain");
-    bidomain.init(0.0);
 
-    // Fibers
-    auto& fibers = bidomain.M_equationSystems.get_system<libMesh::ExplicitSystem>("fibers").solution;
-    // Sheets
-    auto& sheets = bidomain.M_equationSystems.get_system<libMesh::ExplicitSystem>("sheets").solution;
-    // XFibers
-    auto& xfibers = bidomain.M_equationSystems.get_system<libMesh::ExplicitSystem>("xfibers").solution;
-
-    // Set fibers;
-    *fibers = *grad1;
-    *sheets = *grad2;
-    *xfibers = *grad3;
-
-    poisson1.deleteSystems();
-    poisson2.deleteSystems();
-    poisson3.deleteSystems();
+    bidomain.restart(importer, 1, true);
 
     // DATA TIME
     BeatIt::TimeData datatime;
@@ -225,6 +148,8 @@ int main(int argc, char ** argv)
     int save_iter = 1;
     std::cout << "Init Output" << std::endl;
     bidomain.init_exo_output();
+    bidomain.M_bidomainEXOExporter->write_element_data(es);
+
     bidomain.save_exo(save_iter++, datatime.M_time);
 
     bool useMidpointMethod = false;

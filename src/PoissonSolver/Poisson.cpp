@@ -164,7 +164,7 @@ Poisson::setup(const GetPot& data, std::string section )
 //    prec_map["ilu"] =  libMesh::ILU_PRECOND;
 //    prec_map["amg"] =  libMesh::AMG_PRECOND;
     M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
-    M_linearSolver->set_solver_type(libMesh::GMRES);
+    M_linearSolver->set_solver_type(libMesh::CG);
     M_linearSolver->set_preconditioner_type( libMesh::AMG_PRECOND);
     M_linearSolver->init();
 

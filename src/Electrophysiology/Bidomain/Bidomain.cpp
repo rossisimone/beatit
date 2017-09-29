@@ -220,10 +220,40 @@ void Bidomain::setup(GetPot& data, std::string section)
 	IonicModelSystem& istim_system = M_equationSystems.add_system
 			< IonicModelSystem > ("istim");
 	istim_system.add_variable("istim", libMesh::FIRST);
+    istim_system.add_vector("surface_stim");
 	istim_system.init();
 	M_ionicModelExporterNames.insert("ionic_model");
 	M_ionicModelExporterNames.insert("iion");
 	M_ionicModelExporterNames.insert("istim");
+
+
+	// Create vector for surface pacing
+    libMesh::MeshBase::const_element_iterator el_start =
+            mesh.active_local_elements_begin();
+    libMesh::MeshBase::const_element_iterator el =
+            mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el =
+            mesh.active_local_elements_end();
+    const libMesh::DofMap & dof_map = istim_system.get_dof_map();
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+    libMesh::DenseVector<libMesh::Number> Fe;
+    for (; el != end_el; ++el)
+    {
+        const libMesh::Elem * elem = *el;
+        dof_map.dof_indices(elem, dof_indices);
+        for (unsigned int side=0; side<elem->n_sides(); side++)
+        {
+            const unsigned int boundary_id = mesh.boundary_info->boundary_id (elem, side);
+            if(boundary_id == M_pacing->M_boundaryID )
+            {
+                for (int k = 0 ; k < dof_indices.size(); ++k )
+                {
+                    istim_system.get_vector("surface_stim").set(dof_indices[k],1.0);
+                }
+            }
+        }
+    }
 
 	// ///////////////////////////////////////////////////////////////////////
 	// ///////////////////////////////////////////////////////////////////////
@@ -364,25 +394,42 @@ void Bidomain::restart(EXOExporter& importer, int step, bool restart)
 {
 	if (restart)
 	{
-		std::cout << "* BIDOMAIN: restarting from step: " << step << std::endl;
-		BidomainSystem& bidomain_system  =  M_equationSystems.get_system<BidomainSystem>("bidomain");
-		IonicModelSystem& ionic_model_system =  M_equationSystems.get_system<IonicModelSystem>("ionic_model");
-		BidomainSystem& wave_system =  M_equationSystems.get_system<BidomainSystem>("wave");
-//
-	    auto names = importer.get_nodal_var_names();
-	    std::cout << "* Bidomain: Importer available nodal fields" << std::endl;
-	    for(auto && n : names) std::cout << n << std::endl;
-//
-		std::cout << "* Bidomain: Importing  V"<< std::endl;
-		importer.copy_nodal_solution(wave_system, "V", step);
-		std::cout << "* Bidomain: Importing  Q"<< std::endl;
-		importer.copy_nodal_solution(bidomain_system, "Q", step);
-		std::cout << "* Bidomain: Importing  Ve"<< std::endl;
-		importer.copy_nodal_solution(bidomain_system, "Ve", step);
-		unsigned int n_vars = ionic_model_system.n_vars();
-		std::cout << "* Bidomain: Importing  Ionic Model: num_vars: "<< n_vars <<  std::endl;
-		for(unsigned int i = 0; i < n_vars; ++i)
-		importer.copy_nodal_solution(ionic_model_system, ionic_model_system.variable_name(i), step);
+	    auto& nodal_var_names = importer.get_nodal_var_names ();
+	    auto nodal_first = nodal_var_names.begin();
+        auto nodal_end = nodal_var_names.end();
+        auto& elem_var_names = importer.get_elem_var_names ();
+        auto elem_first = elem_var_names.begin();
+        auto elem_end = elem_var_names.end();
+
+        int num_systems = M_equationSystems.n_systems();
+        for (int  k = 0; k < num_systems; ++k)
+        {
+            libMesh::System& system = M_equationSystems.get_system(k);
+            std::string name = system.name();
+            std::cout << "Importing System: " << name << std::endl;
+            int n_vars = system.n_vars();
+            for(int l = 0; l < n_vars; ++l)
+            {
+                std::string var_name =  system.variable_name (l);
+
+                auto elem_it = std::find(elem_first, elem_end, var_name);
+                if(elem_it != elem_end)
+                {
+                    std::cout << "\t elemental variable: " << *elem_it << std::endl;
+                    importer.copy_elemental_solution(system, *elem_it, *elem_it, step);
+                }
+                else
+                {
+                    auto nodal_it = std::find(nodal_first, nodal_end, var_name);
+                    if(nodal_it != nodal_end)
+                    {
+                        std::cout << "\t nodal variable: " << *nodal_it << std::endl;
+                        importer.copy_nodal_solution(system, *nodal_it, *nodal_it, step);
+                    }
+                }
+
+            }
+        }
 	}
 }
 
@@ -1190,6 +1237,12 @@ void Bidomain::assemble_matrices(double dt)
 		D0i /= Chi;
 		D0e /= Chi;
 
+//		std::cout << "Dffe: " << Dffe << std::endl;
+//        std::cout << "Dsse: " << Dsse << std::endl;
+//        std::cout << "Dnne: " << Dnne << std::endl;
+//        std::cout << "Dffi: " << Dffi << std::endl;
+//        std::cout << "Dssi: " << Dssi << std::endl;
+//        std::cout << "Dnni: " << Dnni << std::endl;
 //    	 std::cout << "f  = [" << f0[0] << "," << f0[1]  << ", " << f0[2]  << "]"<< std::endl;
 //    	 std::cout << "s = [" << s0[0] << "," << s0[1]  << ", " << s0[2]  << "]"<< std::endl;
 //    	 std::cout << "n = [" << n0[0] << "," << n0[1]  << ", " << n0[2]  << "]"<< std::endl;
@@ -1208,7 +1261,6 @@ void Bidomain::assemble_matrices(double dt)
 				DigradV = D0i * dphi_qp1[i][qp];
 				DigradVe = D0i * dphi_qp1[i][qp];
 				DiegradVe = (D0i + D0e) * dphi_qp1[i][qp];
-
 				for (unsigned int j = 0; j < phi_qp1.size(); j++)
 				{
 					// Q Mass term
@@ -1247,6 +1299,8 @@ void Bidomain::assemble_matrices(double dt)
 					Ke(i + n_Q_dofs, j + n_Q_dofs) += JxW_qp1[qp] * DiegradVe
 							* dphi_qp1[j][qp];
 					// Ki
+
+					//std::cout << std::endl;
 					Kie(i, j) += JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 
 				}
@@ -1326,6 +1380,10 @@ void Bidomain::assemble_matrices(double dt)
 		MatSetNullSpace(mat->mat(), nullspace);
 		MatNullSpaceDestroy(&nullspace);
 
+//		PetscBool  isSymmetric;
+//		double tol = 1e-12;
+//		auto code =  MatIsSymmetric(mat->mat(), tol, &isSymmetric);
+		std::cout << "The bidomain matrix is symmetric? " << isSymmetric << std::endl;
 		typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
 		M_linearSolver->init(
 				dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
@@ -1419,7 +1477,10 @@ void Bidomain::solve_reaction_step(double dt, double time, int step,
 		dof_map_V.dof_indices(nn, dof_indices_V, 0);
 		libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
 
+		double bd_stim = istim_system.get_vector("surface_stim")(dof_indices_V[0]); //
 		double istim = M_pacing->eval(p, time);
+        if(M_pacing->M_boundaryID >= 0 ) istim *= bd_stim;
+
 		//if (istim != 0 ) std::cout << istim << std::endl;
 		istim_zero = 0.0*istim;
 
@@ -1506,6 +1567,8 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	//       So the vector still stores V^n
 	wave_system.get_matrix("Ki").vector_mult_add(wave_system.get_vector("KiV"),
 			*wave_system.old_local_solution);
+	//wave_system.get_matrix("Ki").print();
+	//wave_system.get_vector("KiV").print();
 
 	// Evaluate
 	// RHS_Q  = M * (tau_i * Cm * Q^n + dt * Iion + dt * tau_i * dIion )
@@ -1545,8 +1608,8 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 		Iion = (*iion_system.solution)(dof_indices_V[0]); //Iion^* (it contains Istim)
 		dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
 
-		rhsq = dt * (Iion + tau_i * dIion + 0.0*istim);
-		rhsve = (tau_i - tau_e) * dIion + istim;
+		rhsq = dt * (Iion + tau_i * dIion + istim);
+		rhsve = (tau_e - tau_i) * dIion + 0.0*istim;
 
 		rhs_oldq = tau_i * Cm * Qn;
 		rhs_oldve = (tau_i - tau_e) / dt * Cm * Qn;
@@ -1566,6 +1629,8 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 	bidomain_system.rhs->add_vector(
 			bidomain_system.get_vector("ionic_currents"),
 			bidomain_system.get_matrix("mass"));
+	//bidomain_system.get_vector("ionic_currents").print();
+	//bidomain_system.rhs->print();
 	bidomain_system.rhs->add_vector(bidomain_system.get_vector("old_solution"),
 			bidomain_system.get_matrix("lumped_mass"));
 
@@ -1633,8 +1698,11 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
             *bidomain_system.solution);
 	bidomain_system.get_vector("residual").add(-1, *bidomain_system.rhs);
 
+
 	double res_Q = 0;
 	double res_Ve = 0;
+    double norm_RHS_Q = 0;
+    double norm_RHS_Ve = 0;
 
 
     libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
@@ -1658,12 +1726,17 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
         wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
         double qres = bidomain_system.get_vector("residual")(dof_indices_Q[0]);
         double veres = bidomain_system.get_vector("residual")(dof_indices_Ve[0]);
+        double rhs_q = (*bidomain_system.rhs)(dof_indices_Q[0]);
+        double rhs_ve = (*bidomain_system.rhs)(dof_indices_Ve[0]);
         res_Q = std::max( std::abs( qres ), res_Q );
         res_Ve= std::max( std::abs( veres ), res_Ve );
+        norm_RHS_Q= std::max( std::abs( rhs_q ), norm_RHS_Q );
+        norm_RHS_Ve= std::max( std::abs( rhs_ve ), norm_RHS_Ve );
     }
     bidomain_system.solution->comm().max(res_Q);
     bidomain_system.solution->comm().max(res_Ve);
-    std::cout << "Res Q: " << res_Q << ", Res Ve: " << res_Ve << std::endl;
+    std::cout << "Res Q: " << res_Q <<  ", norm RHS Q: " << norm_RHS_Q
+              << ", Res Ve: " << res_Ve << ", norm RHS Ve: " << norm_RHS_Ve << std::endl;
     wave_system.solution->close();
     wave_system.solution->scale(dt);
     *wave_system.solution += *wave_system.old_local_solution;

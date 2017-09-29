@@ -107,6 +107,7 @@ public:
     double M_y0;
     double M_z0;
     double M_duration;
+    int M_boundaryID;
 };
 
 } /* namespace BeatIt */
