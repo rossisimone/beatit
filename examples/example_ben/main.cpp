@@ -40,6 +40,7 @@
 #include "libmesh/wrapped_functor.h"
 #include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"
+ #include "libmesh/mesh_modification.h"
 #include "Util/SpiritFunction.hpp"
 
 #include "libmesh/numeric_vector.h"
@@ -75,23 +76,31 @@ int main (int argc, char ** argv)
 
     int elX = data("elX", 10);
     int elY = data("elY", 2);
-    //std::string elTypeName = data("elType", "TRI6");
+    std::string elTypeName = data("elType", "TRI6");
     //std::map<std::string, ElemType> orderMap;
     //orderMap["TRI6"] = TRI6;
     //auto elType = orderMap.find(elTypeName)->second;
-    auto elType = TRI6;
-    auto order = FIRST;
-    if(elType == TRI6 || elType == QUAD9 ) order = SECOND;
-    auto elType2 = TRI3;
-    if( elType == QUAD9 ) elType2 = QUAD4;
+    auto elType = TRI3;
+    if(elTypeName == "TRI6") elType = TRI6;
+//    auto order = FIRST;
+//    if(elType == TRI6 || elType == QUAD9 ) order = SECOND;
+//    auto elType2 = TRI3;
+//    if( elType == QUAD9 ) elType2 = QUAD4;
 
+    double maxX = data("maxX", 1.);
+    double maxY = data("maxY", 1.);
     std::cout << "Element type chosen:  " << elType << std::endl;
+    std::cout << "Max x:  " << maxX << std::endl;
+    std::cout << "Max y:  " << maxY << std::endl;
     MeshTools::Generation::build_square ( mesh,
                                           elX, elY,
-                                          0., 1.,
-                                          0., 1.,
+                                          0., maxX,
+                                          0., maxY,
                                           elType );
 
+    bool cm = data("cm_mesh", true);
+
+    if(cm)
     {
       //Map unit square onto cook's membrane
       MeshBase::const_node_iterator nd = mesh.nodes_begin();
@@ -103,6 +112,11 @@ int main (int argc, char ** argv)
         (**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
       }
 
+      std::string units = data("units", "cm");
+      if(units == "mm")
+      {
+          libMesh::MeshTools::Modification::scale (mesh, 10, 10);
+      }
     }
 
     libMesh::EquationSystems es(mesh);
