@@ -67,7 +67,7 @@ public:
     double d3U( double J = 1.0);
 
 
-    enum class U { Quadratic, Liu };
+    enum class U { Quadratic, Liu, Reese };
 
     U M_volumetricEnergy;
 

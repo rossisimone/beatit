@@ -76,6 +76,10 @@ Neohookean::setup(GetPot& data, std::string section)
 	    {
 	        M_volumetricEnergy = U::Liu;
 	    }
+	    else if(u == "reese")
+	    {
+            M_volumetricEnergy = U::Reese;
+	    }
 
     }
 	else
@@ -98,8 +102,10 @@ Neohookean::setup(GetPot& data, std::string section)
     }
     M_density = M_parameters[0];
 
+    double ctau = data(section+"/ctau",1.0); // rho
 
-    M_tau = 0.5 /  M_parameters[1];
+    M_tau = ctau * 0.5 /  M_parameters[1];
+    std::cout << "\t tau = " << M_tau << std::endl;
 }
 
 
@@ -126,6 +132,10 @@ Neohookean::evaluateDeviatoricStress()
 	double W1 = mu / 2.0;
 
 	double Jm23 = std::pow(M_Jk, -2.0/3.0);
+	if(M_volumetricEnergy == U::Reese)
+	{
+	    Jm23 = 1.0;
+	}
 
 	double I1 = M_Ck.tr();
 	M_deviatoric_stress = 2.0 * W1 * Jm23 * ( M_identity - I1 / 3.0 * M_Cinvk);
@@ -253,6 +263,11 @@ Neohookean::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  d
 	double W1 = mu / 2.0;
 
 	double Jm23 = std::pow(M_Jk, -2.0/3.0);
+    if(M_volumetricEnergy == U::Reese)
+    {
+        Jm23 = 1.0;
+    }
+
 	auto  dF = dU;
 	auto  dC = M_Fk.transpose() * dF + dF.transpose() * M_Fk;
 	double I1 = M_Ck.tr();
@@ -268,6 +283,11 @@ Neohookean::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  d
      *  dS2 = 2 * W1 * dJ^(-2/3)/dC * ( I - I1 / 3 * C^-1)
      */
     auto dJm23dC = - Jm23 / 3.0 * M_Cinvk.contract(dC);
+    if(M_volumetricEnergy == U::Reese)
+    {
+        dJm23dC = 0.0;
+    }
+
 	auto Jac = 2.0 * W1 * dJm23dC * ( M_identity - I1 / 3.0 * M_Cinvk);
 
 	/*
@@ -331,6 +351,10 @@ Neohookean::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double 
 	double W1 = mu / 2.0;
 
 	double Jm23 = std::pow(M_Jk, -2.0/3.0);
+    if(M_volumetricEnergy == U::Reese)
+    {
+        Jm23 = 1.0;
+    }
 	auto  dF = dU;
 	auto  dC = M_Fk.transpose() * dF + dF.transpose() * M_Fk;
 	double I1 = M_Ck.tr();
@@ -346,6 +370,10 @@ Neohookean::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double 
      *  dS2 = 2 * W1 * dJ^(-2/3)/dC * ( I - I1 / 3 * C^-1)
      */
     auto dJm23dC = - Jm23 / 3.0 * M_Cinvk.contract(dC);
+    if(M_volumetricEnergy == U::Reese)
+    {
+        dJm23dC = 0.0;
+    }
 	auto Jac = 2.0 * W1 * dJm23dC * ( M_identity - I1 / 3.0 * M_Cinvk);
 
 	/*
@@ -380,6 +408,11 @@ Neohookean::evaluatePressure()
         case U::Liu:
         {
             dU = std::log(M_Jk);
+            break;
+        }
+        case U::Reese:
+        {
+            dU = 0.5 * (M_Jk - 1.0 / M_Jk );
             break;
         }
         case U::Quadratic:
@@ -447,6 +480,12 @@ Neohookean::d2U( double J)
             d2U = 1.0 / M_Jk;
             break;
         }
+        case U::Reese:
+        {
+            d2U = 0.5 * (1.0 + 1.0 / M_Jk / M_Jk );
+            break;
+        }
+
         case U::Quadratic:
         default:
         {
@@ -465,7 +504,12 @@ Neohookean::d3U( double J)
     {
         case U::Liu:
         {
-            d3U =-0.0 / M_Jk  / M_Jk;
+            d3U =-1.0 / M_Jk  / M_Jk;
+            break;
+        }
+        case U::Reese:
+        {
+            d3U = - 0.5 / M_Jk / M_Jk / M_Jk;
             break;
         }
         case U::Quadratic:
