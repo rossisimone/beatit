@@ -284,6 +284,10 @@ int main(int argc, char ** argv)
     BeatIt::Timer timer;
     timer.start();
 
+    unsigned int  bID = data("monodomain/bID", 333);
+    std::cout << "bID: " << bID << std::endl;
+    monodomain.set_potential_on_boundary(bID);
+
 
     for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
     {
@@ -329,11 +333,11 @@ int main(int argc, char ** argv)
         if (0 == datatime.M_iter % datatime.M_saveIter)
         {
             std::cout << "* Test Monowave: Time: " << datatime.M_time << std::endl;
-//             monodomain.save_potential(save_iter++, datatime.M_time);
             save_iter++;
             perf_log.push("output");
 
-            monodomain.save(save_iter);
+            monodomain.save_potential(save_iter, datatime.M_time);
+            //monodomain.save(save_iter);
             perf_log.pop("output");
         }
         if (cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)
@@ -350,8 +354,11 @@ int main(int argc, char ** argv)
     monodomain.save_parameters();
     perf_log.pop("export parameters");
     perf_log.push("export solution");
-    monodomain.save_exo(1, datatime.M_time);
+    save_iter++;
+    monodomain.save_exo(save_iter, datatime.M_time);
+    monodomain.save_potential(save_iter, datatime.M_time);
     perf_log.pop("export solution");
+    monodomain.save_activation_times();
 //      double last_activation_time = monodomain.last_activation_time();
 //      double potential_norm = monodomain.potential_norm();
 //      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;

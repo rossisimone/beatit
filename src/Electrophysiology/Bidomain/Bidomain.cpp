@@ -116,7 +116,7 @@ typedef libMesh::ExplicitSystem ParameterSystem;
 
 Bidomain::Bidomain(libMesh::EquationSystems& es) :
 		M_equationSystems(es), M_bidomainExporter(), M_bidomainExporterNames(), M_ionicModelExporter(), M_ionicModelExporterNames(), M_parametersExporter(), M_parametersExporterNames(), M_outputFolder(), M_datafile(), M_pacing(), M_linearSolver(), M_anisotropy(
-				Anisotropy::Orthotropic), M_equationType(
+				BidomainAnisotropy::Orthotropic), M_equationType(
 				BidomainEquationType::ParabolicEllipticBidomain), M_artificialDiffusion(
 				false), M_penalty(false), M_timeIntegratorType(
 				DynamicTimeIntegratorType::Implicit)
@@ -227,33 +227,33 @@ void Bidomain::setup(GetPot& data, std::string section)
 	M_ionicModelExporterNames.insert("istim");
 
 
-	// Create vector for surface pacing
-    libMesh::MeshBase::const_element_iterator el_start =
-            mesh.active_local_elements_begin();
-    libMesh::MeshBase::const_element_iterator el =
-            mesh.active_local_elements_begin();
-    const libMesh::MeshBase::const_element_iterator end_el =
-            mesh.active_local_elements_end();
-    const libMesh::DofMap & dof_map = istim_system.get_dof_map();
-    std::vector<libMesh::dof_id_type> dof_indices;
-
-    libMesh::DenseVector<libMesh::Number> Fe;
-    for (; el != end_el; ++el)
-    {
-        const libMesh::Elem * elem = *el;
-        dof_map.dof_indices(elem, dof_indices);
-        for (unsigned int side=0; side<elem->n_sides(); side++)
-        {
-            const unsigned int boundary_id = mesh.boundary_info->boundary_id (elem, side);
-            if(boundary_id == M_pacing->M_boundaryID )
-            {
-                for (int k = 0 ; k < dof_indices.size(); ++k )
-                {
-                    istim_system.get_vector("surface_stim").set(dof_indices[k],1.0);
-                }
-            }
-        }
-    }
+//	// Create vector for surface pacing
+//    libMesh::MeshBase::const_element_iterator el_start =
+//            mesh.active_local_elements_begin();
+//    libMesh::MeshBase::const_element_iterator el =
+//            mesh.active_local_elements_begin();
+//    const libMesh::MeshBase::const_element_iterator end_el =
+//            mesh.active_local_elements_end();
+//    const libMesh::DofMap & dof_map = istim_system.get_dof_map();
+//    std::vector<libMesh::dof_id_type> dof_indices;
+//
+//    libMesh::DenseVector<libMesh::Number> Fe;
+//    for (; el != end_el; ++el)
+//    {
+//        const libMesh::Elem * elem = *el;
+//        dof_map.dof_indices(elem, dof_indices);
+//        for (unsigned int side=0; side<elem->n_sides(); side++)
+//        {
+//            const unsigned int boundary_id = mesh.boundary_info->boundary_id (elem, side);
+//            if(boundary_id == M_pacing->M_boundaryID )
+//            {
+//                for (int k = 0 ; k < dof_indices.size(); ++k )
+//                {
+//                    istim_system.get_vector("surface_stim").set(dof_indices[k],1.0);
+//                }
+//            }
+//        }
+//    }
 
 	// ///////////////////////////////////////////////////////////////////////
 	// ///////////////////////////////////////////////////////////////////////
@@ -347,10 +347,10 @@ void Bidomain::setup(GetPot& data, std::string section)
 	M_equationSystems.parameters.set<double>("tau_e") = tau_e;
 
 	std::string anisotropy = M_datafile(section + "/anisotropy", "orhotropic");
-	std::map<std::string, Anisotropy> aniso_map;
-	aniso_map["orthotropic"] = Anisotropy::Orthotropic;
-	aniso_map["isotropic"] = Anisotropy::Isotropic;
-	aniso_map["transverse"] = Anisotropy::TransverselyIsotropic;
+	std::map<std::string, BidomainAnisotropy> aniso_map;
+	aniso_map["orthotropic"] = BidomainAnisotropy::Orthotropic;
+	aniso_map["isotropic"] = BidomainAnisotropy::Isotropic;
+	aniso_map["transverse"] = BidomainAnisotropy::TransverselyIsotropic;
 	std::cout << "* BIDOMAIN: Parameters: " << std::endl;
 	std::cout << "              Chi = " << Chi << std::endl;
 	std::cout << "              Dffi = " << Dffi << std::endl;
@@ -1188,7 +1188,7 @@ void Bidomain::assemble_matrices(double dt)
 
 		switch (M_anisotropy)
 		{
-		case Anisotropy::Isotropic:
+		case BidomainAnisotropy::Isotropic:
 		{
 			for (int idim = 0; idim < max_dim; ++idim)
 			{
@@ -1199,7 +1199,7 @@ void Bidomain::assemble_matrices(double dt)
 			break;
 		}
 
-		case Anisotropy::TransverselyIsotropic:
+		case BidomainAnisotropy::TransverselyIsotropic:
 		{
 			for (int idim = 0; idim < max_dim; ++idim)
 			{
@@ -1215,7 +1215,7 @@ void Bidomain::assemble_matrices(double dt)
 			break;
 		}
 
-		case Anisotropy::Orthotropic:
+		case BidomainAnisotropy::Orthotropic:
 		default:
 		{
 			for (int idim = 0; idim < max_dim; ++idim)
@@ -1383,7 +1383,7 @@ void Bidomain::assemble_matrices(double dt)
 //		PetscBool  isSymmetric;
 //		double tol = 1e-12;
 //		auto code =  MatIsSymmetric(mat->mat(), tol, &isSymmetric);
-		std::cout << "The bidomain matrix is symmetric? " << isSymmetric << std::endl;
+//		std::cout << "The bidomain matrix is symmetric? " << isSymmetric << std::endl;
 		typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
 		M_linearSolver->init(
 				dynamic_cast<PetscMatrix *>(bidomain_system.matrix));

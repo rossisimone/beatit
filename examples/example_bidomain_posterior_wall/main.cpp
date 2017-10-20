@@ -51,6 +51,7 @@
 #include "PoissonSolver/Poisson.hpp"
 #include "Electrophysiology/Bidomain/Bidomain.hpp"
 #include "Electrophysiology/Monodomain/MonodomainUtil.hpp"
+#include "Electrophysiology/Monodomain/Monowave.hpp"
 
 #include "libmesh/linear_implicit_system.h"
 #include "libmesh/transient_system.h"
@@ -115,9 +116,11 @@ int main(int argc, char ** argv)
     //std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
 
     // Empty mesh
+    std::string solver = data("solver", "monodomain");
+
     // Importer
     libMesh::ExodusII_IO importer(mesh);
-    std::string restart_file = data("bidomain/restart/restart_file", "NONE");
+    std::string restart_file = data(solver+"/restart/restart_file", "NONE");
     importer.read(restart_file);
     mesh.prepare_for_use();
 
@@ -126,53 +129,121 @@ int main(int argc, char ** argv)
     libMesh::EquationSystems es(mesh);
 
     //
-    BeatIt::Bidomain bidomain(es);
-    bidomain.setup(data, "bidomain");
-
-    bidomain.restart(importer, 1, true);
-
-    // DATA TIME
     BeatIt::TimeData datatime;
-    datatime.setup(data, "bidomain");
-    datatime.print();
 
-    std::string system_mass = data("bidomain/diffusion_mass", "mass");
-    std::string iion_mass = data("bidomain/reaction_mass", "lumped_mass");
+    if(solver == "bidomain")
+    {
+        BeatIt::Bidomain bidomain(es);
+        bidomain.setup(data, "bidomain");
 
-    std::cout << "Assembling matrices ... " << std::flush;
+        bidomain.restart(importer, 1, true);
 
-    bidomain.assemble_matrices(datatime.M_dt);
-    std::cout << "Done" << std::endl;
+        // DATA TIME
+        datatime.setup(data, "bidomain");
+        datatime.print();
+
+        std::string system_mass = data("bidomain/diffusion_mass", "mass");
+        std::string iion_mass = data("bidomain/reaction_mass", "lumped_mass");
+
+        std::cout << "Assembling matrices ... " << std::flush;
+
+        bidomain.assemble_matrices(datatime.M_dt);
+        std::cout << "Done" << std::endl;
 
 
-    int save_iter = 1;
-    std::cout << "Init Output" << std::endl;
-    bidomain.init_exo_output();
-    bidomain.M_bidomainEXOExporter->write_element_data(es);
+        int save_iter = 1;
+        std::cout << "Init Output" << std::endl;
+        bidomain.init_exo_output();
+        bidomain.M_bidomainEXOExporter->write_element_data(es);
 
-    bidomain.save_exo(save_iter++, datatime.M_time);
+        bidomain.save_exo(save_iter++, datatime.M_time);
 
-    bool useMidpointMethod = false;
-    int step0 = 0;
-    int step1 = 1;
+        bool useMidpointMethod = false;
+        int step0 = 0;
+        int step1 = 1;
 
-    std::cout << "Time loop starts:" << std::endl;
-  for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
-  {
-      datatime.advance();
-      std::cout << "Time:" << datatime.M_time << std::endl;
-      bidomain.advance();
-      bidomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
-      bidomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
-      bidomain.update_activation_time(datatime.M_time);
-      if( 0 == datatime.M_iter%datatime.M_saveIter )
-      {
-        save_iter++;
-        bidomain.save_potential(save_iter, datatime.M_time);
-        bidomain.save_exo(save_iter, datatime.M_time);
-      }
-  }
+        std::cout << "Time loop starts:" << std::endl;
+        for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
+        {
+            datatime.advance();
+            std::cout << "Time:" << datatime.M_time << std::endl;
+            bidomain.advance();
+            bidomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
+            bidomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
+            bidomain.update_activation_time(datatime.M_time);
+            if( 0 == datatime.M_iter%datatime.M_saveIter )
+            {
+                save_iter++;
+                bidomain.save_potential(save_iter, datatime.M_time);
+                bidomain.save_exo(save_iter, datatime.M_time);
+            }
+        }
+    }
+    else
+    {
+        BeatIt::Monowave monodomain(es);
+        monodomain.setup(data, "monodomain");
+        monodomain.init(0.0);
 
+        monodomain.restart(importer, 1, true);
+
+        // DATA TIME
+        datatime.setup(data, "monodomain");
+        datatime.print();
+
+        std::string system_mass = data("monodomain/diffusion_mass", "mass");
+        std::string iion_mass = data("monodomain/reaction_mass", "lumped_mass");
+
+        std::cout << "Assembling matrices ... " << std::flush;
+
+        monodomain.assemble_matrices();
+        monodomain.form_system_matrix(datatime.M_dt, false);
+        std::cout << "Done" << std::endl;
+
+
+        int save_iter = 1;
+        std::cout << "Init Output" << std::endl;
+        monodomain.init_exo_output();
+        monodomain.M_monodomainEXOExporter->write_element_data(es);
+        monodomain.save_parameters();
+        monodomain.save_exo(save_iter++, datatime.M_time);
+
+        bool useMidpointMethod = false;
+        int step0 = 0;
+        int step1 = 1;
+
+        std::cout << "Time loop starts:" << std::endl;
+        for( ; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime ; )
+        {
+            datatime.advance();
+            std::cout << "Time:" << datatime.M_time << std::endl;
+            monodomain.advance();
+            monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
+            monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
+            monodomain.update_activation_time(datatime.M_time);
+            if( 0 == datatime.M_iter%datatime.M_saveIter )
+            {
+                save_iter++;
+                monodomain.save_potential(save_iter, datatime.M_time);
+                monodomain.save_exo(save_iter, datatime.M_time);
+            }
+        }
+        monodomain.save_activation_times();
+
+        //monodomain.save_parameters();
+    }
+//    save_iter++;
+//    monodomain.save_exo(save_iter, datatime.M_time);
+//    libMesh::ExodusII_IO at_exporter(mesh);
+//    std::vector<std::string> output;
+//    output.push_back("activation_times");
+//    output.push_back("fibersx");
+//    output.push_back("fibersy");
+//    output.push_back("fibersz");
+//    at_exporter.set_output_variables(output);
+//    at_exporter.write_equation_systems ("activation_times.exo", es);
+//    at_exporter.write_timestep(  "activation_times.exo", es, 1, datatime.M_time);
+//    at_exporter.write_element_data(es);
     return 0;
 }
 

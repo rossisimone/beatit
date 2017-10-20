@@ -93,6 +93,7 @@
 
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
 #include "Electrophysiology/IonicModels/Grandi11.hpp"
+#include "Electrophysiology/IonicModels/Grandi11NoMarkov.hpp"
 #include "Electrophysiology/IonicModels/ORd.hpp"
 #include "Electrophysiology/IonicModels/TP06.hpp"
 #include "Electrophysiology/Monodomain/Monowave.hpp"
@@ -307,20 +308,6 @@ void Monowave::setup(GetPot& data, std::string section)
     aniso_map["orthotropic"] = Anisotropy::Orthotropic;
     aniso_map["isotropic"] = Anisotropy::Isotropic;
     aniso_map["transverse"] = Anisotropy::TransverselyIsotropic;
-    aniso_map["user"] = Anisotropy::UserDefined;
-    M_anisotropy = aniso_map.find(anisotropy)->second;
-    //if( Anisotropy::UserDefined == M_anisotropy)
-    {
-    	M_conductivity.push_back(Dff);
-    	M_conductivity.push_back(Dss);
-    	M_conductivity.push_back(Dnn);
-        double Dns = M_datafile( section+"/Dns", 0.0);
-        double Dnf = M_datafile( section+"/Dnf", 0.0);
-        double Dsf = M_datafile( section+"/Dsf", 0.0);
-    	M_conductivity.push_back(Dns);
-    	M_conductivity.push_back(Dnf);
-    	M_conductivity.push_back(Dsf);
-	}
     std::cout << "* MONODOMAIN: Parameters: " << std::endl;
     std::cout << "              Chi = " << Chi << std::endl;
     std::cout << "              Dff = " << Dff << std::endl;
@@ -360,9 +347,6 @@ void Monowave::setup(GetPot& data, std::string section)
     else         std::cout << "* MONODOMAIN type: Wave " << std::endl;
 
     M_artificialDiffusion = M_datafile(section+"/artificial_diffusion", false);
-
-    M_shellCorrection =  M_datafile(section+"/shell", false);
-    std::cout << "* MONODOMAIN: Shell Correction: " << M_shellCorrection << std::endl;
 
 }
 
@@ -439,25 +423,45 @@ Monowave::readFibers( EXOExporter& importer, int step)
 void
 Monowave::restart( EXOExporter& importer, int step, bool restart  )
 {
-	if(restart)
-	{
-		MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
-		IonicModelSystem& ionic_model_system =  M_equationSystems.get_system<IonicModelSystem>("ionic_model");
-		IonicModelSystem& wave_system =  M_equationSystems.get_system<IonicModelSystem>("wave");
+    if (restart)
+    {
+        auto& nodal_var_names = importer.get_nodal_var_names ();
+        auto nodal_first = nodal_var_names.begin();
+        auto nodal_end = nodal_var_names.end();
+        auto& elem_var_names = importer.get_elem_var_names ();
+        auto elem_first = elem_var_names.begin();
+        auto elem_end = elem_var_names.end();
 
-	    auto names = importer.get_nodal_var_names();
-	    std::cout << "* MONOWAVE: Importer available nodal fields" << std::endl;
-	    for(auto && n : names) std::cout << n << std::endl;
+        int num_systems = M_equationSystems.n_systems();
+        for (int  k = 0; k < num_systems; ++k)
+        {
+            libMesh::System& system = M_equationSystems.get_system(k);
+            std::string name = system.name();
+            std::cout << "Importing System: " << name << std::endl;
+            int n_vars = system.n_vars();
+            for(int l = 0; l < n_vars; ++l)
+            {
+                std::string var_name =  system.variable_name (l);
 
-		std::cout << "* MONOWAVE: Importing  V"<< std::endl;
-		importer.copy_nodal_solution(wave_system, "V", step);
-		std::cout << "* MONOWAVE: Importing  Q"<< std::endl;
-		importer.copy_nodal_solution(monodomain_system, "Q", step);
-		unsigned int n_vars = ionic_model_system.n_vars();
-		std::cout << "* MONOWAVE: Importing  Ionic Model: num_vars: "<< n_vars <<  std::endl;
-		for(unsigned int i = 0; i < n_vars; ++i)
-		importer.copy_nodal_solution(ionic_model_system, ionic_model_system.variable_name(i), step);
-	}
+                auto elem_it = std::find(elem_first, elem_end, var_name);
+                if(elem_it != elem_end)
+                {
+                    std::cout << "\t elemental variable: " << *elem_it << std::endl;
+                    importer.copy_elemental_solution(system, *elem_it, *elem_it, step);
+                }
+                else
+                {
+                    auto nodal_it = std::find(nodal_first, nodal_end, var_name);
+                    if(nodal_it != nodal_end)
+                    {
+                        std::cout << "\t nodal variable: " << *nodal_it << std::endl;
+                        importer.copy_nodal_solution(system, *nodal_it, *nodal_it, step);
+                    }
+                }
+
+            }
+        }
+    }
 }
 
 void
@@ -490,8 +494,9 @@ Monowave::init(double time)
     }
     std::cout << "done " << std::endl;
 
-    std::string v_ic = M_datafile("monodomain/ic", "");
-    if(v_ic != "")
+    std::string v_ic = M_datafile("monodomain/ic", "NOIC");
+    std::cout << "IC: " << v_ic << std::endl;
+    if(v_ic != "NOIC")
     {
         std::cout << "* MONODOMAIN: Found monodomain initial condition: " << v_ic << std::endl;
         SpiritFunction monodomain_ic;
@@ -1043,6 +1048,25 @@ Monowave::save_parameters()
     std::cout << "done " << std::endl;
 }
 
+
+void
+Monowave::save_activation_times(double time)
+{
+    std::cout << "* MONODOMAIN: EXODUSII::Exporting activation times in: "  << M_outputFolder << " ... " << std::flush;
+    libMesh::ExodusII_IO at_exporter(M_equationSystems.get_mesh());
+    std::vector<std::string> output;
+    output.push_back("activation_times");
+    output.push_back("fibersx");
+    output.push_back("fibersy");
+    output.push_back("fibersz");
+    at_exporter.set_output_variables(output);
+    at_exporter.write_equation_systems (M_outputFolder+"activation_times.exo", M_equationSystems);
+    at_exporter.write_timestep(  M_outputFolder+"activation_times.exo", M_equationSystems, 1, time);
+    at_exporter.write_element_data(M_equationSystems);
+    std::cout << "done " << std::endl;
+}
+
+
 void
 Monowave::evaluate_mesh_size()
 {
@@ -1325,20 +1349,6 @@ Monowave::assemble_matrices()
 				 }
 				 break;
 			 }
-			 case Anisotropy::UserDefined:
-			 {
-    			 D0(0, 0) = M_conductivity[0]; //Dff
-    			 D0(1, 1) = M_conductivity[1]; //Dss
-    			 D0(2, 2) = M_conductivity[2]; //Dnn
-    			 D0(2, 1) = M_conductivity[3]; //Dns
-    			 D0(1, 2) = M_conductivity[3]; //Dns
-    			 D0(0, 2) = M_conductivity[4]; //Dnf
-    			 D0(2, 0) = M_conductivity[4]; //Dnf
-    			 D0(0, 1) = M_conductivity[5]; //Dsf
-    			 D0(1, 0) = M_conductivity[5]; //Dsf
-				 break;
-			 }
-
 
 			 case Anisotropy::Orthotropic:
 			 default:
@@ -1635,9 +1645,6 @@ Monowave::solve_reaction_step( double dt,
     //iion_system.old_local_solution->zero();
     iion_system.get_vector("diion").zero();
 
-    // get Dnn from setup method for shell approximation
-    double D33 = M_conductivity[2];
-
     double Cm = M_ionicModelPtr->membraneCapacitance();
 
     auto first_local_index = wave_system.solution->first_local_index();
@@ -1694,11 +1701,6 @@ Monowave::solve_reaction_step( double dt,
         }
         Iion += Isac;
 //        monodomain_system.get_vector("ionic_currents").set(i,Iion);
-        if(M_shellCorrection)
-        {
-        	double Lambda = 1.0;
-        	Iion += ( old_values[0] > 0 ) ? D33*Lambda*old_values[0] : 0.0;
-        }
         iion_system.solution->set(i,Iion);
         //iion_system.old_local_solution->set(i,Iion);
 		if(M_equationType == EquationType::Wave)
@@ -1931,7 +1933,8 @@ std::cout << "* MONODOMAIN: WARNING:  set_potential_on_boundary works only for T
      libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 	  const unsigned int dim = mesh.mesh_dimension();
 
-    MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
+    IonicModelSystem& monodomain_system =  M_equationSystems.add_system<IonicModelSystem>("wave");
+    //MonodomainSystem& monodomain_system  =  M_equationSystems.get_system<MonodomainSystem>("monodomain");
     const libMesh::DofMap & dof_map = monodomain_system.get_dof_map();
     std::vector<libMesh::dof_id_type> dof_indices;
 
@@ -1979,7 +1982,7 @@ std::cout << "* MONODOMAIN: WARNING:  set_potential_on_boundary works only for T
         }
     }
     monodomain_system.solution->close();
-
+    monodomain_system.update();
 }
 
 

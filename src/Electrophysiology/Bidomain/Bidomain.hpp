@@ -72,7 +72,7 @@ namespace BeatIt
 class IonicModel;
 class PacingProtocol;
 
-enum class Anisotropy {Isotropic, TransverselyIsotropic, Orthotropic };
+enum class BidomainAnisotropy {Isotropic, TransverselyIsotropic, Orthotropic };
 enum class BidomainEquationType { ParabolicEllipticBidomain,
 	                              ParabolicEllipticHyperbolic,
 								  ParabolicParabolicHyperbolic };
@@ -170,7 +170,7 @@ public:
     std::vector<double>  M_intraConductivity;
     std::vector<double>  M_extraConductivity;
 
-    Anisotropy M_anisotropy;
+    BidomainAnisotropy M_anisotropy;
     BidomainEquationType M_equationType;
     DynamicTimeIntegratorType M_timeIntegratorType;
 

@@ -96,6 +96,7 @@ public:
     void init_exo_output();
     void save_potential(int step, double time = 0.0);
     void save_parameters();
+    void save_activation_times(double time = 100.0);
 
     void amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& type = "kelly" );
     void reinit_linear_solver();
