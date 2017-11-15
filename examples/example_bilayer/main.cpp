@@ -175,6 +175,11 @@ int main (int argc, char ** argv)
       int step0 = 0;
       int step1 = 1;
 
+      BeatIt::TimeData datatime;
+      datatime.setup(data, "monodomain");
+      datatime.print();
+
+
       // Constructor
       std::cout << "Create monodomain ..." << std::endl;
       libMesh::EquationSystems es1(mesh);
@@ -186,7 +191,7 @@ int main (int argc, char ** argv)
       // Setup the equation systems
       monodomain.init(0.0);
       std::cout << "Assembling monodomain ..." << std::endl;
-      monodomain.assemble_matrices();
+      monodomain.assemble_matrices(datatime.M_dt);
       if(do_restart)
       {
   		int restart_step = data("monodomain/restart/step", 2);
@@ -199,9 +204,6 @@ int main (int argc, char ** argv)
 //      return 0;
       save_iter++;
 
-      BeatIt::TimeData datatime;
-      datatime.setup(data, "monodomain");
-      datatime.print();
       libMesh::PerfLog perf_log ("Solving");
 
       monodomain.form_system_matrix(datatime.M_dt,useMidpointMethod, system_mass);
@@ -216,7 +218,7 @@ int main (int argc, char ** argv)
 		  datatime.advance();
 		  monodomain.advance();
 
-		  monodomain.update_pacing(datatime.M_time);
+//		  monodomain.update_pacing(datatime.M_time);
 		  monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
 //          if( 0 == datatime.M_iter%datatime.M_saveIter )
 //          {
@@ -249,7 +251,7 @@ int main (int argc, char ** argv)
 
 
       monodomain.save_parameters();
-      monodomain.save_exo(1, datatime.M_time);
+      monodomain.save_exo_timestep(1, datatime.M_time);
       return 0;
 }
 

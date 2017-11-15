@@ -152,7 +152,7 @@ int main (int argc, char ** argv)
       int step1 = 1;
 
       std::cout << "Assembling monodomain ..." << std::endl;
-      em.M_monowave->assemble_matrices();
+      em.M_monowave->assemble_matrices(datatime.M_dt);
       em.M_monowave->form_system_matrix(datatime.M_dt,false, system_mass);
       std::cout << " done" << std::endl;
 
@@ -169,7 +169,7 @@ int main (int argc, char ** argv)
 
           em.M_monowave->advance();
 
-          em.M_monowave->update_pacing(datatime.M_time);
+          //em.M_monowave->update_pacing(datatime.M_time);
           em.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
           em.M_monowave->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
 
@@ -201,7 +201,7 @@ int main (int argc, char ** argv)
 
       std::cout << "Saving monodomain parameters ..." << std::endl;
       em.M_monowave->save_parameters();
-      em.M_monowave->save_exo(1, datatime.M_time);
+      em.M_monowave->save_exo_timestep(1, datatime.M_time);
       //double last_activation_time = em.M_monowave->last_activation_time();
       //double potential_norm = em.M_monowave->potential_norm();
       //std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;

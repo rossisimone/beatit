@@ -54,6 +54,8 @@
 #include <string>
 #include <memory>
 #include <cmath>
+#include <vector>
+
 #include "Util/Factory.hpp"
 
 class GetPot;
@@ -95,7 +97,7 @@ public:
 
     void set_distance_type(std::string& type);
 
-    static int S_beats;
+    int S_beats;
     bool M_isPacingOn;
     double M_amplitude;
     double M_stopTime;

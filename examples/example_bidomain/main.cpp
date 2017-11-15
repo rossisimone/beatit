@@ -184,7 +184,7 @@ int main(int argc, char ** argv)
       int save_iter = 1;
   	std::cout << "Init Output" << std::endl;
       bidomain.init_exo_output();
-      bidomain.save_exo(save_iter++, datatime.M_time);
+      bidomain.save_exo_timestep(save_iter++, datatime.M_time);
 
 ////      return 0;
 //      save_iter++;
@@ -243,7 +243,7 @@ int main(int argc, char ** argv)
 //		        bidomain.save(save_iter++);
           }
 
-      bidomain.save_exo(2, datatime.M_time);
+      bidomain.save_exo_timestep(2, datatime.M_time);
 
 //		  if(cut && datatime.M_time >= cut_time && datatime.M_time - datatime.M_dt <= cut_time)
 //		  {

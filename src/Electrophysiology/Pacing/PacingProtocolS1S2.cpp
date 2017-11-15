@@ -80,6 +80,7 @@ PacingProtocolS1S2::setup(const GetPot& data, std::string section)
     M_stopTime = data( section+"/stop_time", -1.0);
     M_numS1Stimuli = data( section+"/num_s1", 1);
     M_numS2Stimuli = data( section+"/num_s2", 1);
+    M_boundaryID = data( section+"/boundary", -1);
 
     M_x0 = data( section+"/x0", 0.0);
     M_y0 = data( section+"/y0", 0.0);
@@ -91,7 +92,7 @@ PacingProtocolS1S2::setup(const GetPot& data, std::string section)
     std::cout << "\t\t radius: " << M_radius << std::endl;
     std::cout << "\t\t center: " << M_x0 << ", " << M_y0 << ", " << M_z0 << std::endl;
     std::cout << "\t\t amplitude: " << M_amplitude << std::endl;
-
+    std::cout << "\t\t boundary: " << M_boundaryID << std::endl;
     std::string type = data(section+"/distance", "l_2");
     PacingProtocol::set_distance_type(type);
 

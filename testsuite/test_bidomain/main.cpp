@@ -177,7 +177,7 @@ int main(int argc, char ** argv)
       int save_iter = 1;
   	std::cout << "Init Output" << std::endl;
       bidomain.init_exo_output();
-      bidomain.save_exo(save_iter++, datatime.M_time);
+      bidomain.save_exo_timestep(save_iter++, datatime.M_time);
 
 
     	std::cout << "Time loop starts:" << std::endl;
@@ -195,11 +195,13 @@ int main(int argc, char ** argv)
           {
 
 	        bidomain.save_potential(save_iter++, datatime.M_time);
+	        bidomain.save_exo_timestep(save_iter, datatime.M_time);
 
           }
           }
 
-      bidomain.save_exo(2, datatime.M_time);
+      bidomain.save_exo_timestep(save_iter++, datatime.M_time);
+
 
       typedef libMesh::TransientLinearImplicitSystem BidomainSystem;
   	BidomainSystem& bidomain_system = es1.get_system

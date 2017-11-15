@@ -18,4 +18,4 @@ IF ( ${CMAKE_CURRENT_SOURCE_DIR}/fibers.beat  IS_NEWER_THAN ${GetPotFile} )
      CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/fibers.beat  ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/fibers.beat  IS_NEWER_THAN ${GetPotFile} )
 
-add_test(${TESTNAME} mpirun -n 4 ${CMAKE_CURRENT_BINARY_DIR}/test_fibers -i fibers.beat)
+add_test(${TESTNAME} mpirun -n 4 ${CMAKE_CURRENT_BINARY_DIR}/test_heart_fibers -i fibers.beat)

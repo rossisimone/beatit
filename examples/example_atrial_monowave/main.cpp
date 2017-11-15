@@ -383,7 +383,7 @@ int main(int argc, char ** argv)
     datatime.setup(data, "monodomain");
     datatime.print();
     std::cout << "\nSaving: ..." << std::flush;
-    monodomain.assemble_matrices();
+    monodomain.assemble_matrices(datatime.M_dt);
     monodomain.form_system_matrix(datatime.M_dt, false);
     std::cout << "\nDatatime: ..." << std::flush;
     std::string reaction_mass = data("monodomain/reaction_mass", "mass");
@@ -405,7 +405,7 @@ int main(int argc, char ** argv)
 
         datatime.advance();
         monodomain.advance();
-        monodomain.update_pacing(datatime.M_time);
+        //monodomain.update_pacing(datatime.M_time);
         monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time, 0, false, reaction_mass);
         monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, false, reaction_mass);
         monodomain.update_activation_time(datatime.M_time);
@@ -431,7 +431,7 @@ int main(int argc, char ** argv)
     timer2.restart();
 
     monodomain.save_parameters();
-    monodomain.save_exo(1, datatime.M_time);
+    monodomain.save_exo_timestep(1, datatime.M_time);
     timer2.stop();
     std::cout << "EXO time: " << std::endl;
     timer2.print(std::cout);

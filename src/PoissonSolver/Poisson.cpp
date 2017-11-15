@@ -390,7 +390,6 @@ Poisson::assemble_system()
      }
 }
 
-
 void
 Poisson::apply_BC( const libMesh::Elem*& elem,
                    libMesh::DenseMatrix<libMesh::Number>& Ke,

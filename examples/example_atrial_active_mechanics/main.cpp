@@ -538,7 +538,7 @@ int main(int argc, char ** argv)
 	int step1 = 1;
 
 	std::cout << "Assembling monodomain ..." << std::endl;
-	em.M_monowave->assemble_matrices();
+	em.M_monowave->assemble_matrices(datatime.M_dt);
 	em.M_monowave->form_system_matrix(datatime.M_dt, false, system_mass);
 	std::cout << " done" << std::endl;
 
@@ -585,7 +585,7 @@ int main(int argc, char ** argv)
 
 	std::cout << "Saving monodomain parameters ..." << std::endl;
 	em.M_monowave->save_parameters();
-	em.M_monowave->save_exo(1, datatime.M_time);
+	em.M_monowave->save_exo_timestep(1, datatime.M_time);
 
 	return 0;
 }

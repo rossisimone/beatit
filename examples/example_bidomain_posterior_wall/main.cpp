@@ -77,7 +77,7 @@
 //#include "libmesh/vtk_io.h"
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
-#include "libmesh/exodusII_io_helper.h"
+//#include "libmesh/exodusII_io_helper.h"
 
 
 int main(int argc, char ** argv)
@@ -154,9 +154,9 @@ int main(int argc, char ** argv)
         int save_iter = 1;
         std::cout << "Init Output" << std::endl;
         bidomain.init_exo_output();
-        bidomain.M_bidomainEXOExporter->write_element_data(es);
+        bidomain.M_EXOExporter->write_element_data(es);
 
-        bidomain.save_exo(save_iter++, datatime.M_time);
+        bidomain.save_exo_timestep(save_iter++, datatime.M_time);
 
         bool useMidpointMethod = false;
         int step0 = 0;
@@ -175,7 +175,7 @@ int main(int argc, char ** argv)
             {
                 save_iter++;
                 bidomain.save_potential(save_iter, datatime.M_time);
-                bidomain.save_exo(save_iter, datatime.M_time);
+                bidomain.save_exo_timestep(save_iter, datatime.M_time);
             }
         }
     }
@@ -196,7 +196,7 @@ int main(int argc, char ** argv)
 
         std::cout << "Assembling matrices ... " << std::flush;
 
-        monodomain.assemble_matrices();
+        monodomain.assemble_matrices(datatime.M_dt);
         monodomain.form_system_matrix(datatime.M_dt, false);
         std::cout << "Done" << std::endl;
 
@@ -204,9 +204,9 @@ int main(int argc, char ** argv)
         int save_iter = 1;
         std::cout << "Init Output" << std::endl;
         monodomain.init_exo_output();
-        monodomain.M_monodomainEXOExporter->write_element_data(es);
+        monodomain.M_EXOExporter->write_element_data(es);
         monodomain.save_parameters();
-        monodomain.save_exo(save_iter++, datatime.M_time);
+        monodomain.save_exo_timestep(save_iter++, datatime.M_time);
 
         bool useMidpointMethod = false;
         int step0 = 0;
@@ -225,10 +225,10 @@ int main(int argc, char ** argv)
             {
                 save_iter++;
                 monodomain.save_potential(save_iter, datatime.M_time);
-                monodomain.save_exo(save_iter, datatime.M_time);
+                monodomain.save_exo_timestep(save_iter, datatime.M_time);
             }
         }
-        monodomain.save_activation_times();
+        monodomain.save_activation_times(1);
 
         //monodomain.save_parameters();
     }

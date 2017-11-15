@@ -76,12 +76,14 @@ int main (int argc, char ** argv)
 
     int elX = data("elX", 10);
     int elY = data("elY", 2);
+    int elZ = data("elZ", 0);
     std::string elTypeName = data("elType", "TRI6");
     //std::map<std::string, ElemType> orderMap;
     //orderMap["TRI6"] = TRI6;
     //auto elType = orderMap.find(elTypeName)->second;
     auto elType = TRI3;
     if(elTypeName == "TRI6") elType = TRI6;
+    if(elZ > 0) elType = TET4;
 //    auto order = FIRST;
 //    if(elType == TRI6 || elType == QUAD9 ) order = SECOND;
 //    auto elType2 = TRI3;
@@ -89,19 +91,31 @@ int main (int argc, char ** argv)
 
     double maxX = data("maxX", 1.);
     double maxY = data("maxY", 1.);
+    double maxZ = data("maxZ", 1.);
     std::cout << "Element type chosen:  " << elType << std::endl;
     std::cout << "Max x:  " << maxX << std::endl;
     std::cout << "Max y:  " << maxY << std::endl;
-    MeshTools::Generation::build_square ( mesh,
-                                          elX, elY,
-                                          0., maxX,
-                                          0., maxY,
-                                          elType );
+
+    // Build grid mesh
+    MeshTools::Generation::build_cube(mesh,
+            elX,
+            elY,
+            elZ,
+              0.0,maxX,
+              0.0,maxY,
+              0.0,maxZ,
+              elType );
+
+    //Map unit square onto cook's membrane
+//    int idx = 0;
+
 
     bool cm = data("cm_mesh", true);
 
+
     if(cm)
     {
+
       //Map unit square onto cook's membrane
       MeshBase::const_node_iterator nd = mesh.nodes_begin();
       const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
@@ -110,12 +124,14 @@ int main (int argc, char ** argv)
         libMesh::Point s = **nd;
         (**nd)(0) =  4.8 * s(0) + 2.6;
         (**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
+        if(elZ > 0 ) (**nd)(2) = s(2) + 4.5;
+
       }
 
       std::string units = data("units", "cm");
       if(units == "mm")
       {
-          libMesh::MeshTools::Modification::scale (mesh, 10, 10);
+          libMesh::MeshTools::Modification::scale (mesh, 10, 10, 10);
       }
     }
 

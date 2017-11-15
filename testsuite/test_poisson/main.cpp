@@ -119,7 +119,8 @@ int main (int argc, char ** argv)
 
       double solution_norm = poisson.get_solution_norm();
       std::cout << std::setprecision(25) << "pot norm = " << solution_norm << std::endl;
-      const double reference_value = 23.94608063311363110869934;
+      //const double reference_value = 23.94608063311363110869934; // GMRES, FIRST ORDER QUADRATURE
+      const double reference_value = 23.90604168711833210636541; // CG, FOURTH ORDER QUADRATURE
 
       //We check only up to 12th
         //We check only up to 12th

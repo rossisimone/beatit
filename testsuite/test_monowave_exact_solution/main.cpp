@@ -190,9 +190,12 @@ int main (int argc, char ** argv)
 
           monodomain.advance();
 
-          monodomain.update_pacing(datatime.M_time);
+          //monodomain.update_pacing(datatime.M_time);
+          std::cout << "Reaction" << std::endl;
           monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
+          std::cout << "Diffusion" << std::endl;
           monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
+          std::cout << "save" << std::endl;
 
           if(compute_error) set_at_exact_solution( mu, alpha, datatime.M_time, es);
           else monodomain.update_activation_time(datatime.M_time, 0.9);
@@ -210,7 +213,7 @@ int main (int argc, char ** argv)
              std::cout << "* Test EM: Time: " << datatime.M_time << std::endl;
              //monodomain.save_potential(save_iter+1, datatime.M_time);
              save_iter++;
-             monodomain.save_exo(save_iter, datatime.M_time);
+             monodomain.save_exo_timestep(save_iter, datatime.M_time);
           }
 
       }
@@ -295,12 +298,12 @@ void set_exact_ic(double mu, double alpha, double time, libMesh::EquationSystems
 	const libMesh::MeshBase::const_node_iterator end_node =
 			mesh.local_nodes_end();
 
-	typedef libMesh::TransientLinearImplicitSystem     MonodomainSystem;
+	typedef libMesh::TransientLinearImplicitSystem     ElectroSystem;
 	typedef libMesh::TransientExplicitSystem           IonicModelSystem;
 	typedef libMesh::ExplicitSystem                     ParameterSystem;
 
-	MonodomainSystem& monodomain_system  =  es.get_system<MonodomainSystem>("monodomain");//Q
-	IonicModelSystem& wave_system =  es.get_system<IonicModelSystem>("wave");//V
+	ElectroSystem& monodomain_system  =  es.get_system<ElectroSystem>("monowave");//Q
+	ElectroSystem& wave_system =  es.get_system<ElectroSystem>("wave");//V
 
 	const libMesh::DofMap& dof_map = monodomain_system.get_dof_map();
 
@@ -360,16 +363,16 @@ void eval_l2_err(double& l2_V_err,
 				 double dt, double mu, double alpha, double time,
 				 libMesh::EquationSystems & es)
 {
-	typedef libMesh::TransientLinearImplicitSystem     MonodomainSystem;
+	typedef libMesh::TransientLinearImplicitSystem     ElectroSystem;
 	typedef libMesh::TransientExplicitSystem           IonicModelSystem;
 	typedef libMesh::ExplicitSystem                     ParameterSystem;
 
     const libMesh::MeshBase & mesh = es.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
 
-	MonodomainSystem& monodomain_system  =  es.get_system<MonodomainSystem>("monodomain");//Q
+    ElectroSystem& monodomain_system  =  es.get_system<ElectroSystem>("monowave");//Q
 	monodomain_system.update();
-	IonicModelSystem& wave_system =  es.get_system<IonicModelSystem>("wave");//V
+	ElectroSystem& wave_system =  es.get_system<ElectroSystem>("wave");//V
 	wave_system.update();
     const libMesh::DofMap & dof_map_monodomain = monodomain_system.get_dof_map();
     libMesh::FEType fe_type = dof_map_monodomain.variable_type(0);
