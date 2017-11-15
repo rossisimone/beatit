@@ -215,17 +215,17 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     Iion_system.add_variable("iion", libMesh::FIRST);
     Iion_system.add_vector("diion");
     Iion_system.init();
-    IonicModelSystem& istim_system = M_equationSystems.add_system
-            < IonicModelSystem > ("istim");
-    istim_system.add_variable("istim", libMesh::FIRST);
-    istim_system.add_vector("stim_i");
-    istim_system.add_vector("stim_e");
-    istim_system.add_vector("surf_stim_i");
-    istim_system.add_vector("surf_stim_e");
-    istim_system.init();
+//    IonicModelSystem& istim_system = M_equationSystems.add_system
+//            < IonicModelSystem > ("istim");
+//    istim_system.add_variable("istim", libMesh::FIRST);
+//    istim_system.add_vector("stim_i");
+//    istim_system.add_vector("stim_e");
+//    istim_system.add_vector("surf_stim_i");
+//    istim_system.add_vector("surf_stim_e");
+//    istim_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
     M_ionicModelExporterNames.insert("iion");
-    M_ionicModelExporterNames.insert("istim");
+
 
 
     // ///////////////////////////////////////////////////////////////////////

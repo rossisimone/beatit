@@ -190,12 +190,12 @@ void Monowave::setupSystems(GetPot& data, std::string section)
     Iion_system.add_variable( "iion", libMesh::FIRST);
     Iion_system.add_vector( "diion");
     Iion_system.init();
-    IonicModelSystem& istim_system = M_equationSystems.add_system<IonicModelSystem>("istim");
-    istim_system.add_variable( "istim", libMesh::FIRST);
-    istim_system.init();
+//    IonicModelSystem& istim_system = M_equationSystems.add_system<IonicModelSystem>("istim");
+//    istim_system.add_variable( "istim", libMesh::FIRST);
+//    istim_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
     M_ionicModelExporterNames.insert("iion");
-    M_ionicModelExporterNames.insert("istim");
+//    M_ionicModelExporterNames.insert("istim");
     IonicModelSystem& cut_system = M_equationSystems.add_system<IonicModelSystem>("cut");
     cut_system.add_variable( "cut", libMesh::FIRST);
     cut_system.init();

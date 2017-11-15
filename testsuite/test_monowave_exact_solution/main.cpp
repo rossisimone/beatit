@@ -175,6 +175,7 @@ int main (int argc, char ** argv)
           std::string err_output = "error_" + std::to_string(numElementsX)
                                  + "_mu_" + std::to_string(mu)
           	  	  	  	  	  	 + "_alpha_" + std::to_string(alpha) + ".txt";
+          std::cout << "Writing errors in " << err_output << std::endl;
           errfile.open (err_output);
           errfile << "Time  err_V  err_Q\n";
       }

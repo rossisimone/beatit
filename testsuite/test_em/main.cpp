@@ -175,8 +175,9 @@ int main (int argc, char ** argv)
 
           if( 0 == datatime.M_iter%datatime.M_saveIter )
           {
-             //em.M_monowave->save_potential(save_iter+1, datatime.M_time);
-             save_iter++;
+              save_iter++;
+             // em.M_monowave->save_potential(save_iter, datatime.M_time);
+              em.M_monowave->save_exo_timestep(save_iter, datatime.M_time);
              em.save_gmv(save_iter, datatime.M_time);
           }
 
@@ -184,7 +185,8 @@ int main (int argc, char ** argv)
 
       std::cout << "Saving monodomain parameters ..." << std::endl;
       em.M_monowave->save_parameters();
-      em.M_monowave->save_exo_timestep(1, datatime.M_time);
+//      save_iter
+//      em.M_monowave->save_exo_timestep(1, datatime.M_time);
       double last_activation_time = em.M_monowave->last_activation_time();
       double potential_norm = em.M_monowave->potential_norm();
 

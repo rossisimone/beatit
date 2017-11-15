@@ -304,7 +304,7 @@ double get_reference_value(const BeatIt::Monodomain& monodomain, bool usingAMR)
 		std::string im = monodomain.get_ionic_model_name();
 		if("ORd" == im) return 129127.4632047053601127118;
 		else if("TP06" == im) return 120756.6560228370362892747;
-		else if("Grandi11" == im) return 107227.4708425408462062478;
+		else if("Grandi11" == im) return 107207.7281702340114861727;
 		else return  56.92915449886483258978842;
 	}
 }
