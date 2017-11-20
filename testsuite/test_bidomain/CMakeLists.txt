@@ -23,7 +23,7 @@ IF ( ${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 
 
-add_test(${TESTNAMEV} mpirun -n 2 ${CMAKE_CURRENT_BINARY_DIR}/test_bidomain -i data.beat -ksp_type  bcgs -ksp_converged_reason -pc_type asm)
+add_test(${TESTNAMEV} mpirun -n 2 ${CMAKE_CURRENT_BINARY_DIR}/test_bidomain -i data.beat  -ksp_type cg -pc_type fieldsplit -pc_fieldsplit_block_size 2 -pc_fieldsplit_2_fields 0,1 -fieldsplit_0_pc_type sor -fieldsplit_0_ksp_type preonly -fieldsplit_1_pc_type hypre  -fieldsplit_1_ksp_type preonly -pc_fieldsplit_type symmetric_multiplicative)
 
 
 

@@ -165,6 +165,7 @@ int main(int argc, char ** argv)
 	libMesh::EquationSystems es1(mesh);
 	BeatIt::Bidomain bidomain(es1);
 	bidomain.setup(data, "bidomain");
+	//return 0;
 	bidomain.init(0.0);
 	std::cout << "Assembling matrices" << std::endl;
     bidomain.assemble_matrices(datatime.M_dt);
@@ -205,10 +206,10 @@ int main(int argc, char ** argv)
 
       typedef libMesh::TransientLinearImplicitSystem BidomainSystem;
   	BidomainSystem& bidomain_system = es1.get_system
-  			< BidomainSystem > ("bidomain");
+  			< BidomainSystem > ("wave");
   	double sol_norm = bidomain_system.solution->l2_norm();
     std::cout << std::setprecision(25) << "pot norm = " << sol_norm << std::endl;
-    const double reference_value = 53.26755679280705635392223;
+    const double reference_value = 353.483846437377621896303;
     return BeatIt::CTest::check_test(sol_norm, reference_value, 1e-8);
 }
 

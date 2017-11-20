@@ -189,6 +189,9 @@ int main (int argc, char ** argv)
 //      em.M_monowave->save_exo_timestep(1, datatime.M_time);
       double last_activation_time = em.M_monowave->last_activation_time();
       double potential_norm = em.M_monowave->potential_norm();
+      typedef libMesh::TransientLinearImplicitSystem ElectroSystem;
+      libMesh::LinearImplicitSystem& pot_system  =  em.M_equationSystems.get_system< ElectroSystem > ("wave");
+      pot_system.solution->print();
 
       typedef libMesh::TransientExplicitSystem           ActivationSystem;
       std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;

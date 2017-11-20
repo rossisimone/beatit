@@ -1333,6 +1333,8 @@ Monowave::form_system_rhs(double dt, bool useMidpoint , const std::string& mass)
 	    // WAVE
     ElectroSystem& wave_system =  M_equationSystems.add_system<ElectroSystem>("wave");
     IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
+    IonicModelSystem& istim_system = M_equationSystems.get_system< IonicModelSystem > ("istim");
+
     double Cm = M_ionicModelPtr->membraneCapacitance();
     std::cout << "getting tau" << std::endl;
 
@@ -1351,7 +1353,8 @@ Monowave::form_system_rhs(double dt, bool useMidpoint , const std::string& mass)
    monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
                                                        *iion_system.solution );
 
-
+   monodomain_system.get_matrix(mass).vector_mult_add( *monodomain_system.rhs,
+                                                       *istim_system.solution );
    if(M_equationType == EquationType::Wave)
    {
        std::cout << "Equation type: Wave" <<  std::endl;

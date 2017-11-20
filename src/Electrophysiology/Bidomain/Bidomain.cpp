@@ -160,23 +160,14 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     M_exporterNames.insert(M_model);
 
     bidomain_system.init();
-    M_constraint_dof_id = -1;
-    if( 0 == M_equationSystems.comm().rank())
-    {
-        std::cout << "* BIDOMAIN: adding constraint" << std::endl;
-        libMesh::MeshBase::const_node_iterator first_node = bidomain_system.get_mesh().local_nodes_begin();
-        std::vector < libMesh::dof_id_type > dof_indices_Ve;
-        libMesh::DofMap bidomain_dofmap =  bidomain_system.get_dof_map();
-        bidomain_dofmap.dof_indices(*first_node, dof_indices_Ve, 1);
-        M_constraint_dof_id = dof_indices_Ve[0];
-        std::cout << "* BIDOMAIN: adding constraint done" << std::endl;
 
-    }
-    M_equationSystems.comm().max(M_constraint_dof_id);
+    M_constraint_dof_id = -1;
+
 //  bidomain_system.reinit_constraints();
     std::cout << "* BIDOMAIN: reinitialized constraints" << std::endl;
 
     // WAVE
+
     BidomainSystem& wave_system = M_equationSystems.add_system < BidomainSystem
             > ("wave");
     wave_system.add_variable("V", libMesh::FIRST);
@@ -288,6 +279,8 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     intra_conductivity_system.init();
     extra_conductivity_system.init();
     procID_system.init();
+
+
 //    M_equationSystems.init();
     //M_equationSystems.print_info();
 
@@ -473,6 +466,8 @@ void Bidomain::assemble_matrices(double dt)
     BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
             > ("wave");
 
+
+
     unsigned int Q_var = bidomain_system.variable_number("Q");
     unsigned int Ve_var = bidomain_system.variable_number("Ve");
 
@@ -625,6 +620,26 @@ void Bidomain::assemble_matrices(double dt)
     libMesh::RealGradient DiegradVe;
     libMesh::TensorValue<double> D0i;
     libMesh::TensorValue<double> D0e;
+
+    //ground dof ID
+    if(M_ground_ve)
+    {
+        if( 0 == M_equationSystems.comm().rank() )
+        {
+            std::cout << "* BIDOMAIN: adding constraint" << std::endl;
+            const libMesh::Elem * elem = *el;
+            dof_map_bidomain.dof_indices(elem, dof_indices_Ve, Ve_var);
+
+            //libMesh::MeshBase::const_node_iterator first_node = mesh.local_nodes_begin();
+            //std::vector < libMesh::dof_id_type > dof_indices_Ve;
+            //libMesh::DofMap bidomain_dofmap =  bidomain_system.get_dof_map();
+            //bidomain_dofmap.dof_indices(*first_node, dof_indices_Ve, 1);
+            M_constraint_dof_id = static_cast<int>( dof_indices_Ve[0] );
+            std::cout << "* BIDOMAIN: adding constraint done" << std::endl;
+        }
+        M_equationSystems.comm().max(M_constraint_dof_id);
+        std::cout << "* BIDOMAIN: Ground node ID: "<< M_constraint_dof_id << std::endl;
+    }
 
     std::cout << "start loop over elements" << std::endl;
     for (; el != end_el; ++el)
@@ -1027,7 +1042,7 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
         const std::string& mass)
 {
     BidomainSystem& bidomain_system = M_equationSystems.get_system
-            < BidomainSystem > ("bidomain");
+            < BidomainSystem > (M_model);
     // WAVE
     BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
             > ("wave");
@@ -1107,7 +1122,7 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
         dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
 
         rhsq = dt * (Iion + tau_i * dIion + istim);
-        rhsve = (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e );
+        rhsve = (tau_e - tau_i) * dIion - 0*(stim_i + stim_e );
 //        std::cout << "Iion: " << Iion << std::endl;
 
         rhs_oldq = tau_i * Cm * Qn;
@@ -1125,6 +1140,10 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 
     bidomain_system.get_vector("old_solution").close();
     bidomain_system.get_vector("ionic_currents").close();
+//    std::cout << "I ion" << std::endl;
+//
+//    bidomain_system.get_vector("ionic_currents").print();
+//    std::cout << "I ion" << std::endl;
     bidomain_system.rhs->add_vector(
             bidomain_system.get_vector("ionic_currents"),
             bidomain_system.get_matrix("mass"));
@@ -1152,6 +1171,10 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 
     //bidomain_system.rhs->set(M_constraint_dof_id, 0.0);
     bidomain_system.rhs->close();
+    if(M_ground_ve)
+    {
+        bidomain_system.rhs->set(static_cast<libMesh::dof_id_type>(M_constraint_dof_id), 0.0);
+    }
 
 }
 
@@ -1162,19 +1185,15 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 
     BidomainSystem& bidomain_system = M_equationSystems.get_system
-            < BidomainSystem > ("bidomain"); // Q and Ve
+            < BidomainSystem > (M_model); // Q and Ve
     BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
             > ("wave");// V
 
     form_system_rhs(dt, useMidpoint, mass);
-    if(M_ground_ve)
-    {
-        bidomain_system.rhs->set(M_constraint_dof_id, 0.0);
-    }
 
 
-//  bidomain_system.matrix->print();
-//    bidomain_system.rhs->print();
+ // bidomain_system.matrix->print();
+   // bidomain_system.rhs->print();
     double tol = 1e-12;
     double max_iter = 2000;
 
