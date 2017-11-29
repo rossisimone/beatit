@@ -724,19 +724,43 @@ ElectroSolver::update_activation_time(double time, double threshold)
     // WAVE
     ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
 
-    auto first = wave_system.solution->first_local_index();
-    auto last = wave_system.solution->last_local_index();
+
+    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+
+    libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+    const libMesh::MeshBase::const_node_iterator end_node =
+            mesh.local_nodes_end();
+
+    const libMesh::DofMap & dof_map = wave_system.get_dof_map();
+    const libMesh::DofMap & dof_map_at = activation_times_system.get_dof_map();
+
+    std::vector < libMesh::dof_id_type > dof_indices_V;
+    std::vector < libMesh::dof_id_type > dof_indices_at;
+
     double v = 0.0;
     double at = 0.0;
-    for (int index = first; index < last; index++)
+
+    for (; node != end_node; ++node)
     {
-        v = (*wave_system.solution)(index);
-        at = (*activation_times_system.solution)(index);
-        if (v > threshold && at < 0.0)
+        const libMesh::Node * nn = *node;
+        // Are we in the bath?
+
+        dof_map.dof_indices(nn, dof_indices_V, 0);
+        dof_map_at.dof_indices(nn, dof_indices_at, 0);
+
+        if(dof_indices_V.size() > 0 )
         {
-            activation_times_system.solution->set(index, time);
+            v = (*wave_system.solution)(dof_indices_V[0]);
+            at = (*activation_times_system.solution)(dof_indices_at[0]);
+            if (v > threshold && at < 0.0)
+            {
+                activation_times_system.solution->set(dof_indices_at[0], time);
+            }
+
         }
     }
+
+
     activation_times_system.solution->close();
 }
 
@@ -897,12 +921,6 @@ void ElectroSolver::solve_reaction_step( double dt,
 //            > ("tau_i");
 
     int num_vars = ionic_model_system.n_vars();
-    double istim = 0.0;
-    double istim_zero = 0.0;
-    double stim_i = 0.0;  double surf_stim_i = 0.0;
-    double stim_e = 0.0;  double surf_stim_e = 0.0;
-
-    double dIion = 0.0;
     std::vector<double> values(num_vars + 1, 0.0);
     std::vector<double> old_values(num_vars + 1, 0.0);
     int var_index = 0;
@@ -914,12 +932,14 @@ void ElectroSolver::solve_reaction_step( double dt,
     const libMesh::DofMap & dof_map = system.get_dof_map();
     const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
     const libMesh::DofMap & dof_map_gating = ionic_model_system.get_dof_map();
+    const libMesh::DofMap & dof_map_istim = istim_system.get_dof_map();
 
     std::vector < libMesh::dof_id_type > dof_indices;
     std::vector < libMesh::dof_id_type > dof_indices_V;
     std::vector < libMesh::dof_id_type > dof_indices_Ve;
     std::vector < libMesh::dof_id_type > dof_indices_Q;
     std::vector < libMesh::dof_id_type > dof_indices_gating;
+    std::vector < libMesh::dof_id_type > dof_indices_istim;
 
     M_pacing->update(time);
     if(M_pacing_i) M_pacing_i->update(time);
@@ -927,74 +947,95 @@ void ElectroSolver::solve_reaction_step( double dt,
     if(M_surf_pacing_i) M_surf_pacing_i->update(time);
     if(M_surf_pacing_e) M_surf_pacing_e->update(time);
 
+    int c = 0;
     for (; node != end_node; ++node)
     {
+        double istim = 0.0;
+        double istim_zero = 0.0;
+        double stim_i = 0.0;  double surf_stim_i = 0.0;
+        double stim_e = 0.0;  double surf_stim_e = 0.0;
+
+        double dIion = 0.0;
+
         const libMesh::Node * nn = *node;
-        dof_map.dof_indices(nn, dof_indices_Q, 0);
-        //dof_map.dof_indices(nn, dof_indices_Ve, 1);
-        dof_map_V.dof_indices(nn, dof_indices_V, 0);
+        // Are we in the bath?
+        auto n_var = nn->n_vars(system.number() );
+        auto n_dofs = nn->n_dofs(system.number() );
         libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
-
-        //double bd_stim = istim_system.get_vector("surface_stim")(dof_indices_V[0]); //
-        //if(M_pacing->M_boundaryID >= 0 ) istim *= bd_stim;
-        if(M_pacing_i) stim_i = M_pacing_i->eval(p, time);
-        if(M_pacing_e) stim_e = M_pacing_e->eval(p, time);
-        if(M_surf_pacing_i) surf_stim_i = M_surf_pacing_i->eval(p, time);
-        if(M_surf_pacing_e) surf_stim_e = M_surf_pacing_e->eval(p, time);
-        istim = M_pacing->eval(p, time);;
-        // istim_zero = istim;
-        //std::cout << "istim: " << istim << std::endl;
-        //if (istim != 0 ) std::cout << istim << std::endl;
-
-        double Iion_old = 0.0;
-        values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
-        old_values[0] = (*system.old_local_solution)(dof_indices_Q[0]); //Q^n
-        Iion_old = (*iion_system.old_local_solution)(dof_indices_V[0]); // gating
-
-        for (int nv = 0; nv < num_vars; ++nv)
+        if(n_var == n_dofs)
         {
-            var_index = dof_indices_V[0] * num_vars + nv;
-            values[nv + 1] = (*ionic_model_system.old_local_solution)(
-                    var_index);
-            old_values[nv + 1] = values[nv + 1];
+            dof_map.dof_indices(nn, dof_indices_Q, 0);
+            dof_map.dof_indices(nn, dof_indices_Ve, 1);
+            dof_map_V.dof_indices(nn, dof_indices_V, 0);
+            dof_map_istim.dof_indices(nn, dof_indices_istim, 0);
+            dof_map_gating.dof_indices(nn, dof_indices_gating);
+
+            //double bd_stim = istim_system.get_vector("surface_stim")(dof_indices_V[0]); //
+            //if(M_pacing->M_boundaryID >= 0 ) istim *= bd_stim;
+            if(M_pacing_i) stim_i = M_pacing_i->eval(p, time);
+            if(M_pacing_e) stim_e = M_pacing_e->eval(p, time);
+            if(M_surf_pacing_i) surf_stim_i = M_surf_pacing_i->eval(p, time);
+            if(M_surf_pacing_e) surf_stim_e = M_surf_pacing_e->eval(p, time);
+            istim = M_pacing->eval(p, time);
+
+            // istim_zero = istim;
+            //std::cout << "istim: " << istim << std::endl;
+            //if (istim != 0 ) std::cout << istim << std::endl;
+            //std::cout << "c: " << c << "(x,y,z) = (" << p(0) << "," << p(1) << "," << p(2) << "); istim: " << istim << std::endl;
+
+            double Iion_old = 0.0;
+            values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
+            old_values[0] = (*system.old_local_solution)(dof_indices_Q[0]); //Q^n
+            Iion_old = (*iion_system.old_local_solution)(dof_indices_istim[0]); // gating
+
+            for (int nv = 0; nv < num_vars; ++nv)
+            {
+                var_index = dof_indices_gating[nv];
+                values[nv + 1] = (*ionic_model_system.old_local_solution)(
+                        var_index);
+                old_values[nv + 1] = values[nv + 1];
+            }
+
+            M_ionicModelPtr->updateVariables(values, istim_zero, dt);
+
+            //for(auto&& v:values) std::cout << v << ", " << std::flush;
+            double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero,
+                    dt);
+            //std::cout << "\nIion: " << Iion << std::endl;
+    //        std::cout << "Iion: " << Iion << std::endl;
+            dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, old_values, dt,
+                    M_meshSize);
+            double Isac = 0.0;
+            if (I4f_ptr)
+            {
+                double I4f = (*I4f_ptr)(dof_indices_V[0]);
+                Isac = M_ionicModelPtr->evaluateSAC(values[0], I4f);
+            }
+            Iion += Isac;
+
+            iion_system.solution->set(dof_indices_istim[0], Iion); // contains Istim
+            istim_system.solution->set(dof_indices_istim[0], istim);
+            istim_system.get_vector("stim_i").set(dof_indices_istim[0], stim_i); //Istim^n+1
+            istim_system.get_vector("surf_stim_i").set(dof_indices_istim[0], surf_stim_i); //Istim^n+1
+            istim_system.get_vector("stim_e").set(dof_indices_istim[0], stim_e); //Istim^n+1
+            istim_system.get_vector("surf_stim_e").set(dof_indices_istim[0], surf_stim_e); //Istim^n+1
+
+            iion_system.get_vector("diion").set(dof_indices_istim[0], dIion);
+            for (int nv = 0; nv < num_vars; ++nv)
+            {
+                var_index = dof_indices_gating[nv];
+
+                ionic_model_system.solution->set(var_index, values[nv + 1]);
+            }
         }
+        c++;
 
-        M_ionicModelPtr->updateVariables(values, istim_zero, dt);
-
-        //for(auto&& v:values) std::cout << v << ", " << std::flush;
-        double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero,
-                dt);
-        //std::cout << "\nIion: " << Iion << std::endl;
-//        std::cout << "Iion: " << Iion << std::endl;
-        dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, old_values, dt,
-                M_meshSize);
-        double Isac = 0.0;
-        if (I4f_ptr)
-        {
-            double I4f = (*I4f_ptr)(dof_indices_V[0]);
-            Isac = M_ionicModelPtr->evaluateSAC(values[0], I4f);
-        }
-        Iion += Isac;
-
-        iion_system.solution->set(dof_indices_V[0], Iion); // contains Istim
-        istim_system.solution->set(dof_indices_V[0], istim);
-        istim_system.get_vector("stim_i").set(dof_indices_V[0], stim_i); //Istim^n+1
-        istim_system.get_vector("surf_stim_i").set(dof_indices_V[0], surf_stim_i); //Istim^n+1
-        istim_system.get_vector("stim_e").set(dof_indices_V[0], stim_e); //Istim^n+1
-        istim_system.get_vector("surf_stim_e").set(dof_indices_V[0], surf_stim_e); //Istim^n+1
-
-        iion_system.get_vector("diion").set(dof_indices_V[0], dIion);
-        for (int nv = 0; nv < num_vars; ++nv)
-        {
-            var_index = dof_indices_V[0] * num_vars + nv;
-            ionic_model_system.solution->set(var_index, values[nv + 1]);
-        }
     }
-
     iion_system.solution->close();
 
     istim_system.solution->close();
-//    std::cout << "Istim sol: " << std::endl;
+//    std::cout << "Iion sol: " << std::endl;
+//    iion_system.solution->print();
 //    istim_system.solution->print();
 //    std::cout << "Iion sol: " << std::endl;
 
