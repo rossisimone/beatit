@@ -1,9 +1,9 @@
-SET(TESTNAMEV example_D2N)
+SET(TESTNAMEV example_craig)
 message("=== Adding Example : ${TESTNAMEV}")
 
-add_executable(${TESTNAMEV} main_D2N.cpp)
+add_executable(${TESTNAMEV} main.cpp)
 
-set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_D2N")
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_craig")
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 include_directories ("${LIBMESH_DIR}/include")
