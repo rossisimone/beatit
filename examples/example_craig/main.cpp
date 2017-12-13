@@ -124,6 +124,8 @@ int main (int argc, char ** argv)
   std::cout << "Creating subdomains done!" << std::endl;
 
   {
+    double z_interface = data("mesh/z_interface", 0.0);
+
     MeshBase::element_iterator       el     = mesh.elements_begin();
     const MeshBase::element_iterator end_el = mesh.elements_end();
 
@@ -131,11 +133,12 @@ int main (int argc, char ** argv)
     {
         Elem * elem = *el;
         const Point cent = elem->centroid();
-        if ( cent(0) > center_x )
+        // BATH
+        if ( cent(2) > z_interface )
         {
-            //elem->subdomain_id() = 0;
               elem->subdomain_id() = 1;
         }
+        // TISSUE
         else
         {
             elem->subdomain_id() = 0;
