@@ -203,11 +203,11 @@ int main (int argc, char ** argv)
     std::cout << "norm is mechanics: " << norm << std::endl;
     std::cout << "activation norm is mechanics: " << anorm << std::endl;
 
-    double reference_potential_norm = 6.798396710296156442154825;
-    double reference_norm = 15.94906528140608514831911;
-    double reference_anorm = 0.0696313514253144860699507;
+    double reference_potential_norm = 6.798396710086096916825227;
+    double reference_norm = 15.94906528140073476151883;
+    double reference_anorm = 0.06963135142531361176931881;
     double reference_value = reference_anorm + reference_norm + reference_potential_norm;
-    return BeatIt::CTest::check_test(norm+anorm+potential_norm, reference_value, 1e-10);
+    return BeatIt::CTest::check_test(norm+anorm+potential_norm, reference_value, 1e-9);
 
 }
 
