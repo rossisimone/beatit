@@ -91,7 +91,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
 
     M_active = data(section+"/active", false);
 
-    double nu = data(section+"/nu", -1);
+    double nu = data(section+"/nu", -1.0);
     if(nu <= -1 || nu >= 0.5) M_isIncompressible = true;
     else M_isIncompressible = false;
 
