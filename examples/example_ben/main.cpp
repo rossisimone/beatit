@@ -83,7 +83,7 @@ int main (int argc, char ** argv)
     //auto elType = orderMap.find(elTypeName)->second;
     auto elType = TRI3;
     if(elTypeName == "TRI6") elType = TRI6;
-    if(elZ > 0) elType = TET4;
+    if(elZ > 0) elType = TET10;
 //    auto order = FIRST;
 //    if(elType == TRI6 || elType == QUAD9 ) order = SECOND;
 //    auto elType2 = TRI3;
