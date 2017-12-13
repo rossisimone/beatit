@@ -87,6 +87,7 @@ TransverselyIsoytopicMaterial::setup(GetPot& data, std::string section)
     std::map<std::string, HexagonalCL> hexagonal_cl_map;
     hexagonal_cl_map["murphy"] = HexagonalCL::Murphy;
     hexagonal_cl_map["exponential"] = HexagonalCL::Exponential;
+    hexagonal_cl_map["valve"] = HexagonalCL::Valve;
     auto it_cl = hexagonal_cl_map.find(type);
     if( it_cl != hexagonal_cl_map.end() ) M_hexagonalCL = it_cl->second;
     else
@@ -107,8 +108,6 @@ TransverselyIsoytopicMaterial::setup(GetPot& data, std::string section)
             M_parameters[4] = mu5;
             break;
         }
-        default:
-        {
         case HexagonalCL::Exponential:
         {
             double af = data(section+"/af", 0.0);
@@ -117,6 +116,21 @@ TransverselyIsoytopicMaterial::setup(GetPot& data, std::string section)
             M_parameters[4] = bf;
             break;
         }
+        case HexagonalCL::Valve:
+        {
+            M_parameters.resize(9);
+            double a4 = data(section+"/a4", 0.0);
+            double a5 = data(section+"/a5", 0.0);
+            double b4 = data(section+"/b4", 0.0);
+            double b5 = data(section+"/b5", 0.0);
+            M_parameters[5] = a4;
+            M_parameters[6] = b4;
+            M_parameters[7] = a5;
+            M_parameters[8] = b5;
+            break;
+        }
+        default:
+        {
             break;
         }
     }
@@ -270,6 +284,13 @@ TransverselyIsoytopicMaterial::W4 (double I4, double I5, double J)
             W4 = af * ( I4 - 1 ) * std::exp( bf * ( I4 - 1 ) * ( I4 - 1 ) );
             break;
         }
+        case HexagonalCL::Valve:
+        {
+            double a4 = M_parameters[5];
+            double b4 = M_parameters[6];
+            W4 = a4 * ( I4 - 1 ) * std::exp( b4 * ( I4 - 1 ) * ( I4 - 1 ) );
+            break;
+        }
         default:
         {
             break;
@@ -298,6 +319,18 @@ TransverselyIsoytopicMaterial::W44(double I4, double I5, double J)
             W44 = (1 + 2 *  aux ) * af * std::exp( aux );
             break;
         }
+        case HexagonalCL::Valve:
+        {
+            double a4 = M_parameters[5];
+            double b4 = M_parameters[6];
+            double lambda = std::sqrt(I4);
+            double dlambda = 0.5 / lambda;
+            double aux = b4 * ( I4 - 1 ) * ( I4 - 1 );
+            W44 = (1 + 2 *  aux ) * a4 * std::exp( aux );
+
+            break;
+        }
+
         default:
         {
             break;
@@ -314,6 +347,7 @@ TransverselyIsoytopicMaterial::W45(double I4, double I5, double J)
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
+        case HexagonalCL::Valve:
         default:
         {
             break;
@@ -335,6 +369,13 @@ TransverselyIsoytopicMaterial::W5 (double I4, double I5, double J)
             W5 = -0.5 * M_parameters[4];
             break;
         }
+        case HexagonalCL::Valve:
+        {
+            double a5 = M_parameters[7];
+            double b5 = M_parameters[8];
+            W5 = a5 * ( I5 - 1 ) * std::exp( b5 * ( I5 - 1 ) * ( I5 - 1 ) );
+            break;
+        }
         default:
         {
             break;
@@ -351,6 +392,7 @@ TransverselyIsoytopicMaterial::W54(double I4, double I5, double J)
     switch(M_hexagonalCL)
     {
         case HexagonalCL::Murphy:
+        case HexagonalCL::Valve:
         default:
         {
             break;
@@ -366,6 +408,14 @@ TransverselyIsoytopicMaterial::W55(double I4, double I5, double J)
 //    if(I4 < 1) return 0.0;
     switch(M_hexagonalCL)
     {
+        case HexagonalCL::Valve:
+        {
+            double a5 = M_parameters[7];
+            double b5 = M_parameters[8];
+            double aux = b5 * ( I5 - 1 ) * ( I5 - 1 );
+            W55 = (1 + 2 *  aux ) * a5 * std::exp( aux );
+            break;
+        }
         case HexagonalCL::Murphy:
         default:
         {

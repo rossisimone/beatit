@@ -76,8 +76,23 @@ enum class HexagonalCL
 	// W5 = 0
     // W44 =  (1 + 2 * bf * ( I4f - 1 )^2 ) * af * exp( bf *  ( I4f - 1 )^2 )
 	// W45 = W54 = W55 = 0
-	Exponential
-
+	Exponential,
+	// Valve model of my invention
+	// W = a1 / b1 * exp( b1 * ( I1 - 3 ) )
+	//   + a2 / b2 * exp( b2 * ( I2 - 3 ) )
+    //   + a4 / b4 * exp( b4 * ( I4 - 1 )^2 )
+    //   + a5 / b5 * exp( b5 * ( I5 - 1 )^2 )
+	// In which we have
+	// W1 = a1 *  exp( b1 * ( I1 - 3 ) )
+    // W11= a1 * b1 * exp( b1 * ( I1 - 3 ) )
+    // W2 = a2 *  exp( b2 * ( I2 - 3 ) )
+    // W22= a2 * b2 * exp( b2 * ( I2 - 3 ) )
+	// W12= 0
+    // W4 = a4 * (I4-1)  exp( b4 * ( I4 - 1 )^2 )
+    // W5 = a5 * (I5-1)  exp( b5 * ( I5 - 1 )^2 )
+    // W44= a4 * b4 * (I4-1)^2  exp( b4 * ( I4 - 1 )^2 )
+    // W55= a5 * b5 * (I5-1)^2  exp( b5 * ( I5 - 1 )^2 )
+	Valve
 };
 /*!
  *
