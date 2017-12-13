@@ -80,6 +80,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
     cl_map["mooneyrivlin"] = IsotropicCL::MooneyRivlin;
     cl_map["exponential"] = IsotropicCL::Exponential;
     cl_map["fung"] = IsotropicCL::Fung;
+    cl_map["exponentialI1I2"] = IsotropicCL::ExponentialI1I2;
     auto it_cl = cl_map.find(type);
     if( it_cl != cl_map.end() ) M_cl = it_cl->second;
     else
@@ -90,13 +91,16 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
 
     M_active = data(section+"/active", false);
 
-    M_isIncompressible = true;
+    double nu = data(section+"/nu", -1);
+    if(nu <= -1 || nu >= 0.5) M_isIncompressible = true;
+    else M_isIncompressible = false;
+
     switch(M_cl)
     {
         case IsotropicCL::Neohookean:
         {
             double E = data(section+"/E", 0.0);
-            double nu = data(section+"/nu", 0.0);
+            //double nu = data(section+"/nu", 0.0);
             M_parameters[1] = E / ( 2.0 * ( 1 + nu ) );// mu
             M_parameters[2] = 1.0;// kappa
             M_kappa = M_parameters[2];
@@ -151,13 +155,37 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
 
             break;
         }
+        case IsotropicCL::ExponentialI1I2:
+        {
+            M_parameters.resize(5);
+            double a1 = data(section+"/a1", 0.0);
+            double b1 = data(section+"/b1", 0.0);
+            double a2 = data(section+"/a2", 0.0);
+            double b2 = data(section+"/b2", 0.0);
+            M_parameters[1] = a1;// a
+            M_parameters[2] = b1;// v
+            M_parameters[3] = a2;// a
+            M_parameters[4] = b2;// v
+            M_kappa = data(section+"/k", 1.0);
+
+            std::cout << "\t density = " << M_parameters[0] << std::endl;
+            std::cout << "\t a1 = " << M_parameters[1] << std::endl;
+            std::cout << "\t b1 = " << M_parameters[2] << std::endl;
+            std::cout << "\t a2 = " << M_parameters[3] << std::endl;
+            std::cout << "\t b2 = " << M_parameters[4] << std::endl;
+            M_tau = 0.5 /  (a1 + b1 ) ;
+            M_tau = 0.5;
+
+            break;
+        }
+
         default:
         {
             break;
         }
     }
     M_density = M_parameters[0];
-    double tau_coeff = data(section+"/tau", 1.0); // stabilization coefficient
+    double tau_coeff = data(section+"/ctau", 1.0); // stabilization coefficient
     M_tau *= tau_coeff; // rho
 
 }
@@ -281,8 +309,11 @@ IsotropicMaterial::evaluateStress(ElasticSolverType solverType)
         default:
         case ElasticSolverType::Primal:
         {
-            std::cout << "--- ISOTROPIC MATERIAL: Primal Formulation not coded for isotropic material!!!" << std::endl;
-            throw std::runtime_error("Primal Formulation not coded for isotropic material");
+            evaluateVolumetricStress();
+            M_total_stress += M_volumetric_stress;
+
+            //std::cout << "--- ISOTROPIC MATERIAL: Primal Formulation not coded for isotropic material!!!" << std::endl;
+            //throw std::runtime_error("Primal Formulation not coded for isotropic material");
             break;
         }
     }
@@ -358,15 +389,61 @@ IsotropicMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <doub
 void
 IsotropicMaterial::evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q)
 {
-    std::cout << "--- ISOTROPIC MATERIAL: evaluateJacobian not coded for isotropic material!!!" << std::endl;
-    throw std::runtime_error("Primal Formulation not coded for isotropic material");
+    auto  dF = dU;
+    auto  dC = M_Fk.transpose() * dF + dF.transpose() * M_Fk;
+    auto CinvdCCinv = M_Cinvk * dC * M_Cinvk;
+    double coeff_1 = M_W11 + M_W12 * M_I1 + M_W2 + M_I1 * M_W21 + M_I1 * M_I1 * M_W22;
+    double coeff_2 = M_W12 + M_I1 * M_W22;
+    auto Jac = 0.0 * M_identity;
+    if(M_active)
+    {
+        double CAinvdC = M_CAinv.contract(dC);
+        auto CCainv2 = M_Ck * M_CAinv * M_CAinv;
+        double CCainv2dC = CCainv2.contract(dC);
+
+        double IdC = M_identity.contract(dC);
+        double CdC = M_Ck.contract(dC);
+        auto dW1 = ( M_W11 + M_W12 * M_I1 ) * CAinvdC - M_W12 * CCainv2dC;
+        auto dW2 = ( M_W21 + M_W22 * M_I1 ) * CAinvdC - M_W22 * CCainv2dC;
+        auto dI1 = CAinvdC;
+        auto dJ2 = 2.0 * CCainv2dC;
+        // delta S1
+        Jac  = 2.0 * ( dW1 + dW2 * M_I1 + M_W2 * dI1) * ( M_CAinv - M_I1/ 3.0 * M_Cinvk);
+        Jac += 2.0 * ( M_W1 + M_W2 * M_I1 ) * ( CinvdCCinv * M_I1 / 3.0 - dI1 / 3.0 * M_Cinvk);
+        // delta S1
+        Jac -= 2.0 * dW2  * ( CCainv2 - M_J2 / 3.0 * M_Cinvk);
+        Jac -= 2.0 * M_W2 * ( dC * M_CAinv * M_CAinv + CinvdCCinv * M_J2 / 3.0 - dJ2 / 3.0 * M_Cinvk);
+    }
+    else
+    {
+
+        double IdC = M_identity.contract(dC);
+        double CdC = M_Ck.contract(dC);
+        auto dW1 = ( M_W11 + M_W12 * M_I1 ) * IdC - M_W12 * CdC;
+        auto dW2 = ( M_W21 + M_W22 * M_I1 ) * IdC - M_W22 * CdC;
+        auto dI1 = IdC;
+        auto dJ2 = 2.0 * CdC;
+        // delta S1
+        Jac  = 2.0 * ( dW1 + dW2 * M_I1 + M_W2 * dI1) * ( M_identity - M_I1/ 3.0 * M_Cinvk);
+        Jac += 2.0 * ( M_W1 + M_W2 * M_I1 ) * ( CinvdCCinv * M_I1 / 3.0 - dI1 / 3.0 * M_Cinvk);
+        // delta S1
+        Jac -= 2.0 * dW2  * ( M_Ck - M_J2 / 3.0 * M_Cinvk);
+        Jac -= 2.0 * M_W2 * ( dC + CinvdCCinv * M_J2 / 3.0 - dJ2 / 3.0 * M_Cinvk);
+    }
+    double p = evaluatePressure();
+    double dJp = p + M_Jk * d2U(M_Jk);
+    Jac += 0.5 * dJp * M_Jk * M_Cinvk.contract(dC) * M_Cinvk;
+    Jac -= M_Jk * p  * M_Cinvk * dC * M_Cinvk;
+    M_total_jacobian = dU * M_total_stress + M_Fk * Jac;
+    //std::cout << "--- ISOTROPIC MATERIAL: evaluateJacobian not coded for isotropic material!!!" << std::endl;
+   // throw std::runtime_error("Primal Formulation not coded for isotropic material");
 }
 
 
 double
 IsotropicMaterial::evaluatePressure()
 {
-    double kappa = M_parameters[2];
+    double kappa = M_kappa;
     M_Fk = M_identity + M_gradU;
     M_Jk = M_Fk.det();
     return kappa * ( M_Jk - 1);
@@ -388,8 +465,9 @@ IsotropicMaterial::evaluatePressureResidual()
 	}
 	else
 	{
-	    std::cout << "--- ISOTROPIC MATERIAL: evaluatePressureResidual compressible case not coded for isotropic material!!!" << std::endl;
-	    throw std::runtime_error("Primal Formulation not coded for isotropic material");
+	    RHS = evaluatePressure();
+	    //std::cout << "--- ISOTROPIC MATERIAL: evaluatePressureResidual compressible case not coded for isotropic material!!!" << std::endl;
+	    //throw std::runtime_error("Primal Formulation not coded for isotropic material");
 	}
 	return - RHS;
 
@@ -412,9 +490,10 @@ IsotropicMaterial::dpdF(const libMesh::TensorValue <double>&  dF)
 	}
 	else
 	{
-        std::cout << "--- ISOTROPIC MATERIAL: dpdF compressible case not coded for isotropic material!!!" << std::endl;
-        throw std::runtime_error("Primal Formulation not coded for isotropic material");
-		return 0.0;
+	    return - d2U(M_Jk) * cofF.contract(dF);
+        //std::cout << "--- ISOTROPIC MATERIAL: dpdF compressible case not coded for isotropic material!!!" << std::endl;
+        //throw std::runtime_error("Primal Formulation not coded for isotropic material");
+		//return 0.0;
 	}
 }
 
@@ -423,7 +502,7 @@ IsotropicMaterial::d2U( double J)
 {
     // For the time being this material is only incompressible
     // we return 1 to be compatible with the code
-    return 1.0;
+    return M_kappa;
 }
 double
 IsotropicMaterial::d3U( double J)
@@ -451,6 +530,7 @@ IsotropicMaterial::W1 (double I1, double I2, double J)
             break;
         }
         case IsotropicCL::Exponential:
+        case IsotropicCL::ExponentialI1I2:
         {
             // a = M_parameters[1]
             // b = M_parameters[2]
@@ -480,6 +560,7 @@ IsotropicMaterial::W11(double I1, double I2, double J)
     switch(M_cl)
     {
         case IsotropicCL::Exponential:
+        case IsotropicCL::ExponentialI1I2:
         {
             // a = M_parameters[1]
             // b = M_parameters[1]
@@ -528,6 +609,7 @@ IsotropicMaterial::W12(double I1, double I2, double J)
         case IsotropicCL::Exponential:
         case IsotropicCL::Neohookean:
         case IsotropicCL::MooneyRivlin:
+        case IsotropicCL::ExponentialI1I2:
         default:
         {
             break;
@@ -555,6 +637,13 @@ IsotropicMaterial::W2 (double I1, double I2, double J)
         	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
         	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
         	W2 = 0.5 * M_parameters[1] * dQdI2 * std::exp(Q);
+            break;
+        }
+        case IsotropicCL::ExponentialI1I2:
+        {
+            // a2 = M_parameters[3]
+            // b2 = M_parameters[4]
+            W2 = 0.5 * M_parameters[3] * std::exp(M_parameters[4] * (I2 - 3) );
             break;
         }
         case IsotropicCL::Neohookean:
@@ -588,6 +677,7 @@ IsotropicMaterial::W21(double I1, double I2, double J)
         case IsotropicCL::Exponential:
         case IsotropicCL::Neohookean:
         case IsotropicCL::MooneyRivlin:
+        case IsotropicCL::ExponentialI1I2:
         default:
         {
             break;
@@ -611,6 +701,13 @@ IsotropicMaterial::W22(double I1, double I2, double J)
         	//double d2QdI2 = 0.0;
         	//W22 = M_parameters[1] * ( dQdI2 * dQdI2 + d2QdI2 ) * std::exp(Q);
         	W22 = 0.5 * M_parameters[1] * ( dQdI2 * dQdI2 ) * std::exp(Q);
+            break;
+        }
+        case IsotropicCL::ExponentialI1I2:
+        {
+            // a2 = M_parameters[3]
+            // b2 = M_parameters[4]
+            W22 = 0.5 * M_parameters[3] * M_parameters[4] * std::exp(M_parameters[4] * (I2 - 3) );
             break;
         }
         case IsotropicCL::Exponential:
