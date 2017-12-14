@@ -117,7 +117,7 @@ int main (int argc, char ** argv)
                                          0., maxX,
                                          0., maxY,
                                          0., maxZ,
-                                         TRI3);
+                                         TET4);
   }
   std::cout << "Mesh done!" << std::endl;
 
