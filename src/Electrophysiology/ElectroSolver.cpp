@@ -964,17 +964,11 @@ void ElectroSolver::solve_reaction_step( double dt,
         libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
         if(n_var == n_dofs)
         {
-            std::cout << "Here 1" << std::endl;
             dof_map.dof_indices(nn, dof_indices_Q, 0);
-            std::cout << "Here 2" << std::endl;
             //dof_map.dof_indices(nn, dof_indices_Ve, 1);
-            std::cout << "Here 3" << std::endl;
             dof_map_V.dof_indices(nn, dof_indices_V, 0);
-            std::cout << "Here 4" << std::endl;
             dof_map_istim.dof_indices(nn, dof_indices_istim, 0);
-            std::cout << "Here 5" << std::endl;
             dof_map_gating.dof_indices(nn, dof_indices_gating);
-            std::cout << "Here 6" << std::endl;
 
             //double bd_stim = istim_system.get_vector("surface_stim")(dof_indices_V[0]); //
             //if(M_pacing->M_boundaryID >= 0 ) istim *= bd_stim;
