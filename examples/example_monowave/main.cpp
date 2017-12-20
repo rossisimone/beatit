@@ -298,9 +298,9 @@ int main(int argc, char ** argv)
         monodomain.advance();
         perf_log.pop("advancing");
 
-        perf_log.push("pacing");
-        monodomain.update_pacing(datatime.M_time);
-        perf_log.pop("pacing");
+        //perf_log.push("pacing");
+        //monodomain.update_pacing(datatime.M_time);
+        //perf_log.pop("pacing");
         perf_log.push("reaction");
         monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, iion_mass);
         perf_log.pop("reaction");
@@ -355,10 +355,10 @@ int main(int argc, char ** argv)
     perf_log.pop("export parameters");
     perf_log.push("export solution");
     save_iter++;
-    monodomain.save_exo(save_iter, datatime.M_time);
+    monodomain.save_exo_timestep(save_iter, datatime.M_time);
     monodomain.save_potential(save_iter, datatime.M_time);
     perf_log.pop("export solution");
-    monodomain.save_activation_times();
+    monodomain.save_activation_times(1);
 //      double last_activation_time = monodomain.last_activation_time();
 //      double potential_norm = monodomain.potential_norm();
 //      std::cout << std::setprecision(25) << "pot norm = " << potential_norm << std::endl;
