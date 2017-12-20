@@ -920,7 +920,7 @@ void BidomainWithBath::assemble_matrices(double dt)
         }
         bidomain_system.get_vector("nullspace").close();
         int size = bidomain_system.get_vector("nullspace").size();
-        bidomain_system.get_vector("nullspace") /= std::sqrt(size/2);
+        bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
         // setting solver type
         std::string solver_type = M_datafile("bidomain/linear_solver/type",
                 "gmres");
@@ -1301,9 +1301,14 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
     for (; node != end_node; ++node)
     {
         const libMesh::Node * nn = *node;
-        dof_map.dof_indices(nn, dof_indices_Q, 0);
-        dof_map_V.dof_indices(nn, dof_indices_V, 0);
-        wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
+        auto n_var = nn->n_vars(bidomain_system.number() );
+        auto n_dofs = nn->n_dofs(bidomain_system.number() );
+        if(n_var == n_dofs)
+        {
+            dof_map.dof_indices(nn, dof_indices_Q, 0);
+            dof_map_V.dof_indices(nn, dof_indices_V, 0);
+            wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
+        }
     }
     wave_system.solution->close();
     wave_system.solution->scale(dt);
