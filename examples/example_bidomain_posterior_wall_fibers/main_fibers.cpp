@@ -454,8 +454,8 @@ int main(int argc, char ** argv)
         int save_iter = 1;
         std::cout << "Init Output" << std::endl;
         bidomain.init_exo_output();
-        bidomain.M_bidomainEXOExporter->write_element_data(es);
-        bidomain.save_exo(save_iter++, datatime.M_time);
+        bidomain.M_EXOExporter->write_element_data(es);
+        bidomain.save_exo_timestep(save_iter++, datatime.M_time);
 
     }
     else
@@ -511,9 +511,9 @@ int main(int argc, char ** argv)
         int save_iter = 1;
         std::cout << "Init Output" << std::endl;
         monowave.init_exo_output();
-        monowave.M_monodomainEXOExporter->write_element_data(es);
+        monowave.M_EXOExporter->write_element_data(es);
         monowave.save_parameters();
-        monowave.save_exo(save_iter++, datatime.M_time);
+        monowave.save_exo_timestep(save_iter++, datatime.M_time);
 
         bool useMidpointMethod = false;
         int step0 = 0;
@@ -525,7 +525,6 @@ int main(int argc, char ** argv)
             datatime.advance();
             std::cout << "Time:" << datatime.M_time << std::endl;
             monowave.advance();
-            monowave.update_pacing(datatime.M_time);
 
             monowave.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
             monowave.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
@@ -534,7 +533,7 @@ int main(int argc, char ** argv)
             {
                 save_iter++;
                 monowave.save_potential(save_iter, datatime.M_time);
-                monowave.save_exo(save_iter, datatime.M_time);
+                monowave.save_exo_timestep(save_iter, datatime.M_time);
             }
         }
         monowave.save_activation_times();
