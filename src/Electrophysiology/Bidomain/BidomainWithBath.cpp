@@ -104,7 +104,7 @@
 #include "libmesh/petsc_vector.h"
 #include "libmesh/petsc_matrix.h"
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
-
+#include "Util/IO/io.hpp"
 namespace BeatIt
 {
 
@@ -439,26 +439,122 @@ void BidomainWithBath::initSystems(double time)
     xfiber_system.project_solution(&xfibers_func);
     std::cout << " done" << std::endl;
 
-    ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
-            < ParameterSystem > ("intra_conductivity");
-    std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
-    std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
-    std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
-    SpiritFunction intra_conductivity_func;
-    intra_conductivity_func.add_function(Dffi_data);
-    intra_conductivity_func.add_function(Dssi_data);
-    intra_conductivity_func.add_function(Dnni_data);
-    intra_conductivity_system.project_solution(&intra_conductivity_func);
-    ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
-            < ParameterSystem > ("extra_conductivity");
-    std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
-    std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
-    std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
-    SpiritFunction extra_conductivity_func;
-    extra_conductivity_func.add_function(Dffe_data);
-    extra_conductivity_func.add_function(Dsse_data);
-    extra_conductivity_func.add_function(Dnne_data);
-    extra_conductivity_system.project_solution(&extra_conductivity_func);
+    std::string conductivity_type = M_datafile("conductivity", "function");
+
+    if("function" == conductivity_type)
+    {
+        ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
+                < ParameterSystem > ("intra_conductivity");
+        std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
+        std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
+        std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
+        SpiritFunction intra_conductivity_func;
+        intra_conductivity_func.add_function(Dffi_data);
+        intra_conductivity_func.add_function(Dssi_data);
+        intra_conductivity_func.add_function(Dnni_data);
+        intra_conductivity_system.project_solution(&intra_conductivity_func);
+        ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
+                < ParameterSystem > ("extra_conductivity");
+        std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
+        std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
+        std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
+        SpiritFunction extra_conductivity_func;
+        extra_conductivity_func.add_function(Dffe_data);
+        extra_conductivity_func.add_function(Dsse_data);
+        extra_conductivity_func.add_function(Dnne_data);
+        extra_conductivity_system.project_solution(&extra_conductivity_func);
+    }
+    //list
+    else
+    {
+        ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
+                < ParameterSystem > ("intra_conductivity");
+        std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
+        std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
+        std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
+        std::vector<double> Dffi;
+        BeatIt::readList(Dffi_data,Dffi);
+        std::vector<double> Dssi;
+        BeatIt::readList(Dssi_data,Dssi);
+        std::vector<double> Dnni;
+        BeatIt::readList(Dnni_data,Dnni);
+
+        std::string i_IDs = M_datafile("bidomain/i_IDs", "-1");
+
+        std::vector<unsigned int> intracellular_IDs;
+        BeatIt::readList(i_IDs,intracellular_IDs);
+
+        ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
+                < ParameterSystem > ("extra_conductivity");
+        std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
+        std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
+        std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
+        std::vector<double> Dffe;
+        BeatIt::readList(Dffe_data,Dffe);
+        std::vector<double> Dsse;
+        BeatIt::readList(Dsse_data,Dsse);
+        std::vector<double> Dnne;
+        BeatIt::readList(Dnne_data,Dnne);
+
+        std::string e_IDs = M_datafile("bidomain/e_IDs", "-1");
+
+        std::vector<unsigned int> extracellular_IDs;
+        BeatIt::readList(e_IDs,extracellular_IDs);
+
+        const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+
+        libMesh::MeshBase::const_element_iterator el_start =
+                mesh.active_local_elements_begin();
+        libMesh::MeshBase::const_element_iterator el =
+                mesh.active_local_elements_begin();
+        const libMesh::MeshBase::const_element_iterator end_el =
+                mesh.active_local_elements_end();
+
+        const libMesh::DofMap & dof_map = extra_conductivity_system.get_dof_map();
+        std::vector < libMesh::dof_id_type > dof_indices;
+
+        for (; el != end_el; ++el)
+        {
+            const libMesh::Elem * elem = *el;
+            const unsigned int elem_id = elem->id();
+            int subdomain_ID = elem->subdomain_id();
+            dof_map.dof_indices(elem, dof_indices);
+
+            double cDffi = 0.;
+            double cDssi = 0.;
+            double cDnni = 0.;
+            for( int k = 0; k < intracellular_IDs.size(); ++k)
+            {
+                if(intracellular_IDs[k] == subdomain_ID)
+                {
+                    cDffi = Dffi[k];
+                    cDssi = Dssi[k];
+                    cDnni = Dnni[k];
+                    break;
+                }
+            }
+            double cDffe = 0.;
+            double cDsse = 0.;
+            double cDnne = 0.;
+            for( int k = 0; k < extracellular_IDs.size(); ++k)
+            {
+                if(extracellular_IDs[k] == subdomain_ID)
+                {
+                    cDffe = Dffe[k];
+                    cDsse = Dsse[k];
+                    cDnne = Dnne[k];
+                    break;
+                }
+            }
+            extra_conductivity_system.solution->set(dof_indices[0], cDffe);
+            extra_conductivity_system.solution->set(dof_indices[1], cDsse);
+            extra_conductivity_system.solution->set(dof_indices[2], cDnne);
+            intra_conductivity_system.solution->set(dof_indices[0], cDffi);
+            intra_conductivity_system.solution->set(dof_indices[1], cDssi);
+            intra_conductivity_system.solution->set(dof_indices[2], cDnni);
+        }
+
+    }
 
 }
 

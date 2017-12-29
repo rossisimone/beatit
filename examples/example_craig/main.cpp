@@ -102,6 +102,9 @@ int main (int argc, char ** argv)
   double center_x = 0.0;
   if ((family == "LAGRANGE") && (order == "FIRST"))
   {
+      std::string meshname =  data("mesh/input_mesh_name", "NONE");
+      if(meshname == "NONE")
+      {
       // allow us to use higher-order approximation.
         int elX = data("mesh/elX", 15);
         int elY = data("mesh/elY", 5);
@@ -118,52 +121,54 @@ int main (int argc, char ** argv)
                                          0., maxY,
                                          0., maxZ,
                                          TET4);
+
+      std::cout << "Creating subdomains!" << std::endl;
+
+      {
+        double z_interface = data("mesh/z_interface", 0.0);
+
+        MeshBase::element_iterator       el     = mesh.elements_begin();
+        const MeshBase::element_iterator end_el = mesh.elements_end();
+
+        for ( ; el != end_el; ++el)
+        {
+            Elem * elem = *el;
+            const Point cent = elem->centroid();
+            // BATH
+            if ( cent(2) > z_interface )
+            {
+                  elem->subdomain_id() = 1;
+            }
+            // TISSUE
+            else
+            {
+                elem->subdomain_id() = 0;
+            }
+
+        }
+      }
+      mesh.get_boundary_info().regenerate_id_sets();
+      std::cout << "Creating subdomains done!" << std::endl;
+
+
+      }
+      else
+      {
+          mesh.read(&meshname[0]);
+          libMesh::MeshTools::Modification::scale(mesh, 0.1, 0.1, 0.1);
+
+          int n_refinements = data("mesh/n_ref", 0);
+          for (int k = 0; k < n_refinements; ++k)
+          {
+              std::cout << "refinement: " << k << std::endl;
+              MeshRefinement refinement(mesh);
+              refinement.uniformly_refine();
+          }
+      }
   }
   std::cout << "Mesh done!" << std::endl;
 
-  std::cout << "Creating subdomains done!" << std::endl;
 
-  {
-    double z_interface = data("mesh/z_interface", 0.0);
-
-    MeshBase::element_iterator       el     = mesh.elements_begin();
-    const MeshBase::element_iterator end_el = mesh.elements_end();
-
-    for ( ; el != end_el; ++el)
-    {
-        Elem * elem = *el;
-        const Point cent = elem->centroid();
-        // BATH
-        if ( cent(2) > z_interface )
-        {
-              elem->subdomain_id() = 1;
-        }
-        // TISSUE
-        else
-        {
-            elem->subdomain_id() = 0;
-        }
-
-//        for (unsigned int side=0; side<elem->n_sides(); side++)
-//        {
-//            if ( elem->neighbor_ptr(side) )
-//            {
-//                auto * nn = elem->side(side)->get_node(0);
-//                double x = std::abs( (*nn)(0) );
-//                auto * nn2 = elem->side(side)->get_node(1);
-//                double x2 = std::abs( (*nn2)(0) );
-//                if ( x < 1e-12 && x2 < 1e-12 )
-//                {
-//                    std::cout << "x: " << x << std::endl;
-//                    mesh.get_boundary_info().add_side(elem, side, 10);
-//                }
-//            }
-//        }
-    }
-  }
-
-//  mesh.get_boundary_info().print_info();
-  mesh.get_boundary_info().regenerate_id_sets();
 
   // Print information about the mesh to the screen.
   mesh.print_info();
