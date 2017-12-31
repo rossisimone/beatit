@@ -20,6 +20,7 @@
 #include "Util/Enums.hpp"
 #include "Util/Factory.hpp"
 
+#include "libmesh/id_types.h"
 
 // Forward Definition
 namespace libMesh
@@ -35,6 +36,7 @@ class LinearImplicitSystem;
 class PacingProtocol;
 class ErrorVector;
 class  MeshRefinement;
+class BoundaryMesh;
 }
 
 namespace BeatIt
@@ -81,6 +83,7 @@ public:
     virtual void initSystems(double time) = 0;
     void save(int step);
     void save_exo_timestep(int step, double time);
+    void save_ve_timestep(int step, double time);
     void init_exo_output();
     void save_potential(int step, double time = 0.0);
     void save_parameters();
@@ -164,6 +167,8 @@ public:
     EquationType M_equationType;
     DynamicTimeIntegratorType M_timeIntegratorType;
 public:
+
+
     std::string M_model;
 
     double M_meshSize;
@@ -173,6 +178,19 @@ public:
     std::set<unsigned int> M_transmembranePotentialActiveSubdomains;
     int M_constraint_dof_id;
     bool M_ground_ve;
+
+
+    struct EndocardialVe
+    {
+        std::unique_ptr<libMesh::BoundaryMesh> M_endocardium;
+        std::unique_ptr<libMesh::EquationSystems>  M_boundary_es;
+        std::map<libMesh::dof_id_type, libMesh::dof_id_type> M_reverse_node_id_map;
+        std::map<libMesh::dof_id_type, libMesh::dof_id_type> M_node_id_map;
+
+        std::unique_ptr<EXOExporter> M_EXOExporter;
+    };
+    EndocardialVe M_boundary_ve;
+    void init_endocardial_ve(std::set<libMesh::boundary_id_type>& IDs, std::set<unsigned short>& subdomainIDs);
 };
 
 } /* namespace BeatIt */

@@ -234,7 +234,7 @@ int main(int argc, char ** argv)
         int restart_step = data("monodomain/restart/step", 2);
         monodomain.restart(importer, restart_step);
     }
-    perf_log.pop("rester");
+    perf_log.pop("restart");
 
     perf_log.push("init output");
     std::cout << "Initializing output monodomain ..." << std::endl;

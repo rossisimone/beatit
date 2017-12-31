@@ -1,0 +1,16 @@
+x = 0.12
+y = 0.0
+z = 0.5
+
+tol = 0.4
+
+[mesh]
+    # number of elements per side
+    elX = 10
+    elY = 10
+    elZ = 10
+
+    maxX = 1.0
+    maxY = 1.0
+    maxZ = 1.0
+[../]

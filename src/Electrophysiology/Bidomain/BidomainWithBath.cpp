@@ -439,25 +439,29 @@ void BidomainWithBath::initSystems(double time)
     xfiber_system.project_solution(&xfibers_func);
     std::cout << " done" << std::endl;
 
-    std::string conductivity_type = M_datafile("conductivity", "function");
+    std::string conductivity_type = M_datafile("bidomain/conductivity", "function");
+
+    std::cout << "Conductivity Type: " << conductivity_type << std::endl;
+
+    ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
+            < ParameterSystem > ("intra_conductivity");
+    std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
+    std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
+    std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
+    ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
+            < ParameterSystem > ("extra_conductivity");
+    std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
+    std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
+    std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
 
     if("function" == conductivity_type)
     {
-        ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
-                < ParameterSystem > ("intra_conductivity");
-        std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
-        std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
-        std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
         SpiritFunction intra_conductivity_func;
+        std::cout << "Dffi_data: " << Dffi_data << std::endl;
         intra_conductivity_func.add_function(Dffi_data);
         intra_conductivity_func.add_function(Dssi_data);
         intra_conductivity_func.add_function(Dnni_data);
         intra_conductivity_system.project_solution(&intra_conductivity_func);
-        ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
-                < ParameterSystem > ("extra_conductivity");
-        std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
-        std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
-        std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
         SpiritFunction extra_conductivity_func;
         extra_conductivity_func.add_function(Dffe_data);
         extra_conductivity_func.add_function(Dsse_data);
@@ -467,11 +471,6 @@ void BidomainWithBath::initSystems(double time)
     //list
     else
     {
-        ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
-                < ParameterSystem > ("intra_conductivity");
-        std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
-        std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
-        std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
         std::vector<double> Dffi;
         BeatIt::readList(Dffi_data,Dffi);
         std::vector<double> Dssi;
@@ -480,15 +479,10 @@ void BidomainWithBath::initSystems(double time)
         BeatIt::readList(Dnni_data,Dnni);
 
         std::string i_IDs = M_datafile("bidomain/i_IDs", "-1");
-
+        std::cout << "i_IDs: " << i_IDs << std::flush;
         std::vector<unsigned int> intracellular_IDs;
         BeatIt::readList(i_IDs,intracellular_IDs);
-
-        ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
-                < ParameterSystem > ("extra_conductivity");
-        std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
-        std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
-        std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
+        //for ( auto && v : i_IDs) std::cout << v << std::flush;
         std::vector<double> Dffe;
         BeatIt::readList(Dffe_data,Dffe);
         std::vector<double> Dsse;
@@ -497,9 +491,11 @@ void BidomainWithBath::initSystems(double time)
         BeatIt::readList(Dnne_data,Dnne);
 
         std::string e_IDs = M_datafile("bidomain/e_IDs", "-1");
+        std::cout << "e_IDs: " << e_IDs << std::endl;
 
         std::vector<unsigned int> extracellular_IDs;
         BeatIt::readList(e_IDs,extracellular_IDs);
+        //for ( auto && v : e_IDs) std::cout << v << std::endl;
 
         const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 

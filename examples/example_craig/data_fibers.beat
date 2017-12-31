@@ -1,0 +1,98 @@
+output_file = fibers.exo
+
+[mesh]
+    n_ref = 0 
+    input_mesh_name = folder/PW_m3_scaled.e                     
+    #input_mesh_name = folder/LA_PW2_Tet4_mesh4.e
+
+[../]
+
+[poisson1]
+    # Output Folder
+    output_folder = p1_PW_m3
+    rhs = 0.0
+    centerline_x = 0.
+    centerline_y = 0.
+    centerline_z = 0.
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+    [./BC]
+        list = left,right
+        [./left]
+        flag = '3'
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./right]
+        flag = '4'
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+    [../]
+[../]
+
+[poisson2]
+    # Output Folder
+    output_folder = p2_PW_m3
+    rhs = 0.0
+    centerline_x = 0.
+    centerline_y = 0.
+    centerline_z = 0.
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+    [./BC]
+        list = left,right
+        [./left]
+        flag = '1'
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./right]
+        flag = '2'
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+    [../]
+[../]
+
+[poisson3]
+    # Output Folder
+    output_folder = p3_PW_m3
+    rhs = 0.0
+    centerline_x = 0.
+    centerline_y = 0.
+    centerline_z = 0.
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+    [./BC]
+        list = left,right
+        [./left]
+        flag = '5' 
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./right]
+        flag = '6'
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+    [../]
+[../]
+        
+         
+        

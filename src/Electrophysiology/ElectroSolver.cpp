@@ -8,6 +8,7 @@
 
 // Basic include files needed for the mesh functionality.
 #include "libmesh/mesh.h"
+#include "libmesh/boundary_mesh.h"
 #include "libmesh/type_tensor.h"
 //#include "PoissonSolver/Poisson.hpp"
 
@@ -546,7 +547,35 @@ ElectroSolver::init(double time)
 
 }
 
+void
+ElectroSolver::init_endocardial_ve(std::set<libMesh::boundary_id_type>& IDs, std::set<unsigned short>& subdomainIDs)
+{
+    std::cout << "* ElectroSolver: Initializing endocardial mesh " << std::endl;
 
+    M_boundary_ve.M_endocardium.reset( new libMesh::BoundaryMesh(M_equationSystems.comm()) );
+    M_equationSystems.get_mesh().boundary_info->sync(IDs, *(M_boundary_ve.M_endocardium), subdomainIDs);
+    M_boundary_ve.M_endocardium->allow_renumbering(false);
+    M_boundary_ve.M_endocardium->prepare_for_use();
+    //std::map< libMesh::dof_id_type, libMesh::dof_id_type > node_id_map;
+    std::map< libMesh::dof_id_type, unsigned char > side_id_map;
+    M_equationSystems.get_mesh().boundary_info->get_side_and_node_maps(*M_boundary_ve.M_endocardium, M_boundary_ve.M_node_id_map, side_id_map);
+    for(auto it =  M_boundary_ve.M_node_id_map.begin(); it !=  M_boundary_ve.M_node_id_map.end(); ++it)
+    {
+        M_boundary_ve.M_reverse_node_id_map[it->second] = it->first;
+    }
+
+    std::cout << "* ElectroSolver: creating endocardial equation systems " << std::endl;
+    M_boundary_ve.M_boundary_es.reset(new libMesh::EquationSystems(* M_boundary_ve.M_endocardium) );
+    std::cout << "* ElectroSolver: creating new endocardial system " << std::endl;
+    auto& ve_sys = M_boundary_ve.M_boundary_es->add_system<libMesh::ExplicitSystem>("ve");
+    ve_sys.add_variable("phie", libMesh::FIRST);
+    std::cout << "* ElectroSolver: initialize endocardial equation systems " << std::endl;
+    M_boundary_ve.M_boundary_es->init();
+    std::cout << "* ElectroSolver: create new exporter only for the endocardium ... " << std::flush;
+    M_boundary_ve.M_EXOExporter.reset( new libMesh::ExodusII_IO( * M_boundary_ve.M_endocardium ) );
+    std::cout << " done." << std::endl;
+
+}
 
 void
 ElectroSolver::restart( EXOExporter& importer,
@@ -635,6 +664,7 @@ ElectroSolver::init_exo_output()
 
     M_EXOExporter->write_equation_systems (M_outputFolder + M_model +".exo", M_equationSystems);
     M_EXOExporter->append(true);
+    M_EXOExporter->write_element_data(M_equationSystems);
     std::vector<std::string> output;
     output.push_back("V");
     output.push_back("Q");
@@ -644,6 +674,86 @@ ElectroSolver::init_exo_output()
     M_potentialEXOExporter->append(true);
     std::cout << " done!" << std::endl;
 }
+
+void
+ElectroSolver::save_ve_timestep(int step, double time)
+{
+    std::cout << "* ElectroSolver: copying data to endocardial surface " << std::endl;
+
+    std::vector < libMesh::dof_id_type > dof_indices;
+    std::vector < libMesh::dof_id_type > dof_indices_endo;
+
+    ElectroSystem& system = M_equationSystems.get_system
+            < ElectroSystem > (M_model);
+    auto& boundary_sys = M_boundary_ve.M_boundary_es->get_system<libMesh::ExplicitSystem>("ve");
+    const libMesh::DofMap & dof_map = system.get_dof_map();
+    const libMesh::DofMap & dof_map_endo = boundary_sys.get_dof_map();
+
+
+//    libMesh::MeshBase::const_node_iterator node = M_boundary_ve.M_endocardium->local_nodes_begin();
+//    const libMesh::MeshBase::const_node_iterator end_node =
+//            M_boundary_ve.M_endocardium->local_nodes_end();
+//    for( ; node  != end_node; ++node)
+//    {
+//        const libMesh::Node * endo_nn = *node;
+//        dof_map_endo.dof_indices(endo_nn, dof_indices_endo, 0);
+//
+//        int endo_node_id = endo_nn->id();
+//        auto it = M_boundary_ve.M_reverse_node_id_map.find(endo_node_id);
+//        if(it != M_boundary_ve.M_reverse_node_id_map.end( ))
+//        {
+//            int id = it->second;
+//            const libMesh::Node * nn = M_equationSystems.get_mesh().node_ptr(  id );
+//            dof_map.dof_indices(nn, dof_indices, 1);
+//
+//            //std::cout << "get_ve: " << dof_indices.size() << std::endl;
+//            double ve = (*system.solution)(dof_indices[0]);
+//            //std::cout << "set_ve" << std::endl;
+//            boundary_sys.solution->set(dof_indices_endo[0], ve);
+//        }
+//
+//
+//    }
+
+    //std::cout << "* ElectroSolver: Loop over the map " << std::endl;
+    for(auto it =  M_boundary_ve.M_node_id_map.begin(); it !=  M_boundary_ve.M_node_id_map.end(); ++it)
+    {
+        //std::cout << "nn" << std::endl;
+        const libMesh::Node * nn = M_equationSystems.get_mesh().node_ptr(it->first);
+        dof_map.dof_indices(nn, dof_indices, 1);
+        if( M_equationSystems.comm().rank() == nn->processor_id() )
+        {
+
+            //std::cout << "endo_nn" << std::endl;
+            const libMesh::Node * endo_nn = M_boundary_ve.M_endocardium->node_ptr(it->second);
+            dof_map_endo.dof_indices(endo_nn, dof_indices_endo, 0);
+
+
+            //std::cout << "get_ve: " << dof_indices.size() << std::endl;
+            double ve = (*system.solution)(dof_indices[0]);
+            //std::cout << "set_ve" << std::endl;
+            boundary_sys.solution->set(dof_indices_endo[0], ve);
+        }
+    }
+    std::cout << "* ElectroSolver: Closing solution " << std::endl;
+
+    boundary_sys.solution->close();
+
+    std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << "_endo.exo at time " << time
+            << " in: " << M_outputFolder << " ... " << std::flush;
+    if(1 == step )
+    {
+        M_boundary_ve.M_EXOExporter->write_equation_systems (M_outputFolder + M_model +"_endo.exo", *M_boundary_ve.M_boundary_es);
+        M_boundary_ve.M_EXOExporter->append(true);
+    }
+    M_boundary_ve.M_EXOExporter->write_timestep(M_outputFolder + M_model +"_endo.exo",
+    *M_boundary_ve.M_boundary_es, step, time);
+
+
+    std::cout << "done " << std::endl;
+
+}
+
 
 void
 ElectroSolver::save_exo_timestep(int step, double time)
