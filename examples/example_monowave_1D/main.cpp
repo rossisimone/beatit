@@ -156,7 +156,6 @@ int main (int argc, char ** argv)
 
           monodomain.advance();
 
-          monodomain.update_pacing(datatime.M_time);
           monodomain.solve_reaction_step(datatime.M_dt, datatime.M_time,step0, useMidpointMethod, iion_mass);
           monodomain.solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
 
@@ -168,7 +167,7 @@ int main (int argc, char ** argv)
              std::cout << "* Test EM: Time: " << datatime.M_time << std::endl;
              //monodomain.save_potential(save_iter+1, datatime.M_time);
              save_iter++;
-             monodomain.save_exo(save_iter, datatime.M_time);
+             monodomain.save_exo_timestep(save_iter, datatime.M_time);
           }
 
       }
