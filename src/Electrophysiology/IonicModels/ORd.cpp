@@ -264,6 +264,16 @@ ORd::updateVariables(std::vector<double>& variables, double appliedCurrent, doub
     FBC(variables, dt);
 }
 
+
+void
+ORd::updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
+{
+    // For compatibility  with the original code where the applied stimulus in opposite
+    Ist = -appliedCurrent;
+    revpots(variables);
+    RGC(variables, dt);
+    FBC(variables, dt);
+}
 //! Evaluate total ionic current for the computation of the potential
 /*!
  *  \param [in] variables Vector containing the local value of all variables

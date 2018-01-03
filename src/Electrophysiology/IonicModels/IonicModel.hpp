@@ -44,7 +44,14 @@ public:
 	 *  \param [in] dt        Timestep
 	 */
     virtual void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt) = 0;
-    virtual void updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1,  double appliedCurrent, double dt) {}
+    //virtual void updateVariables(std::vector<double>& /*v_n*/, std::vector<double>& /*v_np1*/,  double /*appliedCurrent*/, double /*dt*/) {}
+
+    virtual void updateVariables(std::vector<double>& variables, std::vector<double>& /*rhs*/, double appliedCurrent, double dt, bool /*overwrite*/);
+    virtual bool isSecondOrderImplemented()
+    {
+        return false;
+    }
+
 	//! Update all the variables in the ionic model
 	/*!
      *  \param [in] V transmember potential
@@ -71,13 +78,14 @@ public:
         return 0.0;
     }
 
-    virtual double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0)
+    virtual double evaluateIonicCurrent(std::vector<double>& /*v_n*/, std::vector<double>& /*rhs*/,
+                                        double /*appliedCurrent = 0.0*/, double /*dt = 0.0*/)
     {
         throw std::runtime_error("Calling Base Class IonicModel::evaluateIonicCurrent");
         return 0.0;
     }
 
-    virtual double evaluateSAC(double v , double I4f)
+    virtual double evaluateSAC(double /*v*/ , double /*I4f*/)
     {
         return 0.0;
     }
@@ -102,7 +110,7 @@ public:
 	 */
     virtual void initializeSaveData(std::ostream& output) = 0;
 
-    virtual void setup(GetPot& data, std::string section) {}
+    virtual void setup(GetPot& /*data*/, std::string /*section*/) {}
 
     int numVariables()
     {
@@ -161,6 +169,11 @@ protected:
     constexpr static double F = 96485.3415;
     /// physical constants: R*T/F
     constexpr static double RTONF=(R*T)/F;
+
+    // Overwrite gating variables
+    // This is useful for Forward-Backwart Euler
+    // and other time integrators
+    bool M_overwrite;
 
 };
 

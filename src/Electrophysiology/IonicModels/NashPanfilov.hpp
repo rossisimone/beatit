@@ -86,8 +86,8 @@ public:
      *  \param [in] dt        Timestep
      */
     void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt);
-    void updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt) ;
-
+    void updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite);
+    bool isSecondOrderImplemented() { return true; }
     //! Update all the variables in the ionic model
     /*!
      *  \param [in] V transmember potential (Variables  does not include potential)
@@ -104,7 +104,7 @@ public:
      *  \param [in] dt        Timestep
      */
     double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt);
-    double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0);
+    double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& rhs, double appliedCurrent = 0.0, double dt = 0.0);
 	//! Evaluate total ionic current for the computation of the potential
 	/*!
      *  \param [in] V transmember potential
@@ -115,7 +115,7 @@ public:
      double evaluateIonicCurrent(double V, std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0);
 
      double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
-     double evaluatedIonicCurrent(std::vector<double>& variables, std::vector<double>& old_variables, double dt = 0.0, double h = 0.0);
+     double evaluatedIonicCurrent(std::vector<double>& variables, std::vector<double>& rhs, double dt = 0.0, double h = 0.0);
 
 
 

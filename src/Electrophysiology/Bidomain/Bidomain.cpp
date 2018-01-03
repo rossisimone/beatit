@@ -108,11 +108,10 @@
 namespace BeatIt
 {
 
-
- ElectroSolver* createBidomain( libMesh::EquationSystems& es )
- {
-     return new Bidomain(es);
- }
+ElectroSolver* createBidomain(libMesh::EquationSystems& es)
+{
+    return new Bidomain(es);
+}
 
 // ///////////////////////////////////////////////////////////////////////
 // ///////////////////////////////////////////////////////////////////////
@@ -122,7 +121,7 @@ typedef libMesh::TransientExplicitSystem IonicModelSystem;
 typedef libMesh::ExplicitSystem ParameterSystem;
 
 Bidomain::Bidomain(libMesh::EquationSystems& es)
- : ElectroSolver(es, "bidomain")
+        : ElectroSolver(es, "bidomain")
 {
 
 }
@@ -137,11 +136,8 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // Starts by creating the equation systems
     // 1) ADR
-    std::cout
-            << "* BIDOMAIN: Creating new System for the hyperbolic bidomain equations"
-            << std::endl;
-    BidomainSystem& bidomain_system = M_equationSystems.add_system
-            < BidomainSystem > (M_model);
+    std::cout << "* BIDOMAIN: Creating new System for the hyperbolic bidomain equations" << std::endl;
+    BidomainSystem& bidomain_system = M_equationSystems.add_system<BidomainSystem>(M_model);
     // TO DO: Generalize to higher order
     bidomain_system.add_variable("Q", libMesh::FIRST);
     bidomain_system.add_variable("Ve", libMesh::FIRST);
@@ -168,8 +164,7 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
 
     // WAVE
 
-    BidomainSystem& wave_system = M_equationSystems.add_system < BidomainSystem
-            > ("wave");
+    BidomainSystem& wave_system = M_equationSystems.add_system<BidomainSystem>("wave");
     wave_system.add_variable("V", libMesh::FIRST);
     wave_system.add_matrix("Ki");
     wave_system.add_vector("KiV");
@@ -179,15 +174,11 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // 2) ODEs
-    std::cout << "* BIDOMAIN: Creating new System for the ionic model "
-            << std::endl;
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system
-            < IonicModelSystem > ("ionic_model");
+    std::cout << "* BIDOMAIN: Creating new System for the ionic model " << std::endl;
+    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
     // Create Ionic Model
-    std::string ionic_model = M_datafile(section + "/ionic_model",
-            "NashPanfilov");
-    M_ionicModelPtr.reset(
-            BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
+    std::string ionic_model = M_datafile(section + "/ionic_model", "NashPanfilov");
+    M_ionicModelPtr.reset(BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
     M_ionicModelPtr->setup(M_datafile, section);
     int num_vars = M_ionicModelPtr->numVariables();
     // TO DO: Generalize to other conditions
@@ -200,85 +191,25 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
         ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
     }
     ionic_model_system.init();
-    // Add the applied current to this system
-    IonicModelSystem& Iion_system = M_equationSystems.add_system
-            < IonicModelSystem > ("iion");
-    Iion_system.add_variable("iion", libMesh::FIRST);
-    Iion_system.add_vector("diion");
-    Iion_system.init();
-//    IonicModelSystem& istim_system = M_equationSystems.add_system
-//            < IonicModelSystem > ("istim");
-//    istim_system.add_variable("istim", libMesh::FIRST);
-//    istim_system.add_vector("stim_i");
-//    istim_system.add_vector("stim_e");
-//    istim_system.add_vector("surf_stim_i");
-//    istim_system.add_vector("surf_stim_e");
-//    istim_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
-    M_ionicModelExporterNames.insert("iion");
-
-
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Distributed Parameters
     std::cout << "* BIDOMAIN: Creating parameters spaces " << std::endl;
-    ParameterSystem& activation_times_system = M_equationSystems.add_system
-            < ParameterSystem > ("activation_times");
-    activation_times_system.add_variable("activation_times", libMesh::FIRST);
-    ParameterSystem& fiber_system = M_equationSystems.add_system
-            < ParameterSystem > ("fibers");
-    fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.add_variable("fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& sheets_system = M_equationSystems.add_system
-            < ParameterSystem > ("sheets");
-    sheets_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheets_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheets_system.add_variable("sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& xfiber_system = M_equationSystems.add_system
-            < ParameterSystem > ("xfibers");
-    xfiber_system.add_variable("xfibersx", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    xfiber_system.add_variable("xfibersy", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    xfiber_system.add_variable("xfibersz", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    ParameterSystem& intra_conductivity_system = M_equationSystems.add_system
-            < ParameterSystem > ("intra_conductivity");
-    intra_conductivity_system.add_variable("Dffi", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    intra_conductivity_system.add_variable("Dssi", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    intra_conductivity_system.add_variable("Dnni", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    ParameterSystem& extra_conductivity_system = M_equationSystems.add_system
-            < ParameterSystem > ("extra_conductivity");
-    extra_conductivity_system.add_variable("Dffe", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    extra_conductivity_system.add_variable("Dsse", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    extra_conductivity_system.add_variable("Dnne", libMesh::CONSTANT,
-            libMesh::MONOMIAL);
-    ParameterSystem& procID_system = M_equationSystems.add_system
-            < ParameterSystem > ("ProcID");
-    procID_system.add_variable("ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
-    M_parametersExporterNames.insert("activation_times");
-    M_parametersExporterNames.insert("fibers");
-    M_parametersExporterNames.insert("sheets");
-    M_parametersExporterNames.insert("xfibers");
-    M_parametersExporterNames.insert("intra_conductivity");
-    M_parametersExporterNames.insert("extra_conductivity");
-    M_parametersExporterNames.insert("ProcID");
+    ParameterSystem& intra_conductivity_system = M_equationSystems.add_system<ParameterSystem>("intra_conductivity");
+    intra_conductivity_system.add_variable("Dffi", libMesh::CONSTANT, libMesh::MONOMIAL);
+    intra_conductivity_system.add_variable("Dssi", libMesh::CONSTANT, libMesh::MONOMIAL);
+    intra_conductivity_system.add_variable("Dnni", libMesh::CONSTANT, libMesh::MONOMIAL);
+    ParameterSystem& extra_conductivity_system = M_equationSystems.add_system<ParameterSystem>("extra_conductivity");
+    extra_conductivity_system.add_variable("Dffe", libMesh::CONSTANT, libMesh::MONOMIAL);
+    extra_conductivity_system.add_variable("Dsse", libMesh::CONSTANT, libMesh::MONOMIAL);
+    extra_conductivity_system.add_variable("Dnne", libMesh::CONSTANT, libMesh::MONOMIAL);
+
     std::cout << "* BIDOMAIN: Initializing equation systems " << std::endl;
     // Initializing
-    activation_times_system.init();
-    fiber_system.init();
-    sheets_system.init();
-    xfiber_system.init();
     intra_conductivity_system.init();
     extra_conductivity_system.init();
-    procID_system.init();
 
 
 //    M_equationSystems.init();
@@ -335,34 +266,27 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     if (tau_i == tau_e && 0 == tau_i)
         M_equationType = EquationType::ParabolicEllipticBidomain;
 
-
     M_ground_ve = data(section + "/ground_ve", false);
 }
 
 void Bidomain::initSystems(double time)
 {
     // WAVE
-    ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem
-            > ("wave");
+    ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
 
-    std::string v_ic = M_datafile("bidomain/ic", "");
+    std::string v_ic = M_datafile(M_section + "/ic", "");
     if (v_ic != "")
     {
-        std::cout << "* BIDOMAIN: Found bidomain initial condition: " << v_ic
-                << std::endl;
+        std::cout << "* BIDOMAIN: Found bidomain initial condition: " << v_ic << std::endl;
         SpiritFunction bidomain_ic;
         bidomain_ic.read(v_ic);
-        M_equationSystems.parameters.set < libMesh::Real > ("time") = time;
+        M_equationSystems.parameters.set<libMesh::Real>("time") = time;
         wave_system.time = time;
-        std::cout
-                << "* BIDOMAIN: Projecting initial condition to bidomain system ... "
-                << std::flush;
+        std::cout << "* BIDOMAIN: Projecting initial condition to bidomain system ... " << std::flush;
         wave_system.project_solution(&bidomain_ic);
         std::cout << " done" << std::endl;
     }
-    std::cout
-            << "* BIDOMAIN: Copying initial conditions to vectors at n nd at n-1... "
-            << std::flush;
+    std::cout << "* BIDOMAIN: Copying initial conditions to vectors at n nd at n-1... " << std::flush;
 
     // Close vectors and update the values in old_local_solution and older_local_solution
     wave_system.solution->close();
@@ -371,14 +295,11 @@ void Bidomain::initSystems(double time)
     advance();
     std::cout << " done" << std::endl;
 
-    IonicModelSystem& istim_system = M_equationSystems.get_system
-            < IonicModelSystem > ("istim");
-    std::cout << "* BIDOMAIN: Initializing activation times to -1  ... "
-            << std::flush;
-    ParameterSystem& activation_times_system = M_equationSystems.get_system
-            < ParameterSystem > ("activation_times");
+    IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
+    std::cout << "* BIDOMAIN: Initializing activation times to -1  ... " << std::flush;
+    ParameterSystem& activation_times_system = M_equationSystems.get_system<ParameterSystem>("activation_times");
     auto first_local_index = activation_times_system.solution->first_local_index();
-    auto  last_local_index = activation_times_system.solution->last_local_index();
+    auto last_local_index = activation_times_system.solution->last_local_index();
 
     for (auto i = first_local_index; i < last_local_index; ++i)
     {
@@ -386,9 +307,9 @@ void Bidomain::initSystems(double time)
     }
     std::cout << " done" << std::endl;
 
-    std::string fibers_data = M_datafile("bidomain/fibers", "1.0, 0.0, 0.0");
-    std::string sheets_data = M_datafile("bidomain/sheets", "0.0, 1.0, 0.0");
-    std::string xfibers_data = M_datafile("bidomain/xfibers", "0.0, 0.0, 1.0");
+    std::string fibers_data = M_datafile(M_section + "/fibers", "1.0, 0.0, 0.0");
+    std::string sheets_data = M_datafile(M_section + "/sheets", "0.0, 1.0, 0.0");
+    std::string xfibers_data = M_datafile(M_section + "/xfibers", "0.0, 0.0, 1.0");
 
     SpiritFunction fibers_func;
     SpiritFunction sheets_func;
@@ -398,41 +319,33 @@ void Bidomain::initSystems(double time)
     sheets_func.read(sheets_data);
     xfibers_func.read(xfibers_data);
 
-    ParameterSystem& fiber_system = M_equationSystems.get_system
-            < ParameterSystem > ("fibers");
-    ParameterSystem& sheets_system = M_equationSystems.get_system
-            < ParameterSystem > ("sheets");
-    ParameterSystem& xfiber_system = M_equationSystems.get_system
-            < ParameterSystem > ("xfibers");
+    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
+    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
+    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
 
-    std::cout << "* BIDOMAIN: Creating fibers from function: " << fibers_data
-            << std::flush;
+    std::cout << "* BIDOMAIN: Creating fibers from function: " << fibers_data << std::flush;
     fiber_system.project_solution(&fibers_func);
     std::cout << " done" << std::endl;
-    std::cout << "* BIDOMAIN: Creating sheets from function: " << sheets_data
-            << std::flush;
+    std::cout << "* BIDOMAIN: Creating sheets from function: " << sheets_data << std::flush;
     sheets_system.project_solution(&sheets_func);
     std::cout << " done" << std::endl;
-    std::cout << "* BIDOMAIN: Creating xfibers from function: " << xfibers_data
-            << std::flush;
+    std::cout << "* BIDOMAIN: Creating xfibers from function: " << xfibers_data << std::flush;
     xfiber_system.project_solution(&xfibers_func);
     std::cout << " done" << std::endl;
 
-    ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
-            < ParameterSystem > ("intra_conductivity");
-    std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
-    std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
-    std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
+    ParameterSystem& intra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("intra_conductivity");
+    std::string Dffi_data = M_datafile(M_section + "/Dffi", "2.0");
+    std::string Dssi_data = M_datafile(M_section + "/Dssi", "0.2");
+    std::string Dnni_data = M_datafile(M_section + "/Dnni", "0.2");
     SpiritFunction intra_conductivity_func;
     intra_conductivity_func.add_function(Dffi_data);
     intra_conductivity_func.add_function(Dssi_data);
     intra_conductivity_func.add_function(Dnni_data);
     intra_conductivity_system.project_solution(&intra_conductivity_func);
-    ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
-            < ParameterSystem > ("extra_conductivity");
-    std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
-    std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
-    std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
+    ParameterSystem& extra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("extra_conductivity");
+    std::string Dffe_data = M_datafile(M_section + "/Dffe", "1.5");
+    std::string Dsse_data = M_datafile(M_section + "/Dsse", "1.0");
+    std::string Dnne_data = M_datafile(M_section + "/Dnne", "1.0");
     SpiritFunction extra_conductivity_func;
     extra_conductivity_func.add_function(Dffe_data);
     extra_conductivity_func.add_function(Dsse_data);
@@ -450,23 +363,15 @@ void Bidomain::assemble_matrices(double dt)
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
     const unsigned int max_dim = 3;
-    const libMesh::Real Chi = M_equationSystems.parameters.get < libMesh::Real
-            > ("Chi");
-    const libMesh::Real tau_e = M_equationSystems.parameters.get < libMesh::Real
-            > ("tau_e");
-    const libMesh::Real tau_i = M_equationSystems.parameters.get < libMesh::Real
-            > ("tau_i");
+    const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
+    const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
+    const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
     double Cm = M_ionicModelPtr->membraneCapacitance();
 
     // Get a reference to the LinearImplicitSystem we are solving
-    BidomainSystem& bidomain_system = M_equationSystems.get_system
-            < BidomainSystem > ("bidomain");
-    IonicModelSystem& ionic_model_system = M_equationSystems.get_system
-            < IonicModelSystem > ("ionic_model");
-    BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
-            > ("wave");
-
-
+    BidomainSystem& bidomain_system = M_equationSystems.get_system<BidomainSystem>("bidomain");
+    IonicModelSystem& ionic_model_system = M_equationSystems.get_system<IonicModelSystem>("ionic_model");
+    BidomainSystem& wave_system = M_equationSystems.get_system<BidomainSystem>("wave");
 
     unsigned int Q_var = bidomain_system.variable_number("Q");
     unsigned int Ve_var = bidomain_system.variable_number("Ve");
@@ -477,16 +382,11 @@ void Bidomain::assemble_matrices(double dt)
     bidomain_system.get_matrix("stiffness").zero();
     bidomain_system.get_vector("lumped_mass_vector").zero();
 
-    ParameterSystem& fiber_system = M_equationSystems.get_system
-            < ParameterSystem > ("fibers");
-    ParameterSystem& sheets_system = M_equationSystems.get_system
-            < ParameterSystem > ("sheets");
-    ParameterSystem& xfiber_system = M_equationSystems.get_system
-            < ParameterSystem > ("xfibers");
-    ParameterSystem& intra_conductivity_system = M_equationSystems.get_system
-            < ParameterSystem > ("intra_conductivity");
-    ParameterSystem& extra_conductivity_system = M_equationSystems.get_system
-            < ParameterSystem > ("extra_conductivity");
+    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
+    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
+    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
+    ParameterSystem& intra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("intra_conductivity");
+    ParameterSystem& extra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("extra_conductivity");
 
     // A reference to the  DofMap object for this system.  The  DofMap
     // object handles the index translation from node and element numbers
@@ -506,8 +406,7 @@ void Bidomain::assemble_matrices(double dt)
     // of as a pointer that will clean up after itself.  Introduction Example 4
     // describes some advantages of  UniquePtr's in the context of
     // quadrature rules.
-    UniquePtr < libMesh::FEBase
-            > fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+    UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::THIRD);
@@ -527,20 +426,15 @@ void Bidomain::assemble_matrices(double dt)
     const std::vector<libMesh::Point> & q_point_qp1 = fe_qp1->get_xyz();
 
     // The element shape functions evaluated at the quadrature points.
-    const std::vector<std::vector<libMesh::Real> > & phi_qp1 =
-            fe_qp1->get_phi();
+    const std::vector<std::vector<libMesh::Real> > & phi_qp1 = fe_qp1->get_phi();
 
     // The element shape function gradients evaluated at the quadrature
     // points.
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp1 =
-            fe_qp1->get_dphi();
+    const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp1 = fe_qp1->get_dphi();
 
-    const std::vector<std::vector<libMesh::Real> > & dphidx_qp1 =
-            fe_qp1->get_dphidx();
-    const std::vector<std::vector<libMesh::Real> > & dphidy_qp1 =
-            fe_qp1->get_dphidy();
-    const std::vector<std::vector<libMesh::Real> > & dphidz_qp1 =
-            fe_qp1->get_dphidz();
+    const std::vector<std::vector<libMesh::Real> > & dphidx_qp1 = fe_qp1->get_dphidx();
+    const std::vector<std::vector<libMesh::Real> > & dphidy_qp1 = fe_qp1->get_dphidy();
+    const std::vector<std::vector<libMesh::Real> > & dphidz_qp1 = fe_qp1->get_dphidz();
 
     // Define data structures to contain the element matrix
     // and right-hand-side vector contribution.  Following
@@ -583,12 +477,12 @@ void Bidomain::assemble_matrices(double dt)
     // This vector will hold the degree of freedom indices for
     // the element.  These define where in the global system
     // the element degrees of freedom get mapped.
-    std::vector < libMesh::dof_id_type > dof_indices;
-    std::vector < libMesh::dof_id_type > dof_indices_Q;
-    std::vector < libMesh::dof_id_type > dof_indices_Ve;
-    std::vector < libMesh::dof_id_type > dof_indices_V;
+    std::vector<libMesh::dof_id_type> dof_indices;
+    std::vector<libMesh::dof_id_type> dof_indices_Q;
+    std::vector<libMesh::dof_id_type> dof_indices_Ve;
+    std::vector<libMesh::dof_id_type> dof_indices_V;
 
-    std::vector < libMesh::dof_id_type > dof_indices_fibers;
+    std::vector<libMesh::dof_id_type> dof_indices_fibers;
 
     // Now we will loop over all the elements in the mesh.
     // We will compute the element matrix and right-hand-side
@@ -602,12 +496,9 @@ void Bidomain::assemble_matrices(double dt)
     // mess it up!  In case users later modify this program to include
     // refinement, we will be safe and will only consider the active
     // elements; hence we use a variant of the active_elem_iterator.
-    libMesh::MeshBase::const_element_iterator el_start =
-            mesh.active_local_elements_begin();
-    libMesh::MeshBase::const_element_iterator el =
-            mesh.active_local_elements_begin();
-    const libMesh::MeshBase::const_element_iterator end_el =
-            mesh.active_local_elements_end();
+    libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
 
     // Loop over the elements.  Note that  ++el is preferred to
     // el++ since the latter requires an unnecessary temporary
@@ -622,9 +513,9 @@ void Bidomain::assemble_matrices(double dt)
     libMesh::TensorValue<double> D0e;
 
     //ground dof ID
-    if(M_ground_ve)
+    if (M_ground_ve)
     {
-        if( 0 == M_equationSystems.comm().rank() )
+        if (0 == M_equationSystems.comm().rank())
         {
             std::cout << "* BIDOMAIN: adding constraint" << std::endl;
             const libMesh::Elem * elem = *el;
@@ -634,11 +525,11 @@ void Bidomain::assemble_matrices(double dt)
             //std::vector < libMesh::dof_id_type > dof_indices_Ve;
             //libMesh::DofMap bidomain_dofmap =  bidomain_system.get_dof_map();
             //bidomain_dofmap.dof_indices(*first_node, dof_indices_Ve, 1);
-            M_constraint_dof_id = static_cast<int>( dof_indices_Ve[0] );
+            M_constraint_dof_id = static_cast<int>(dof_indices_Ve[0]);
             std::cout << "* BIDOMAIN: adding constraint done" << std::endl;
         }
         M_equationSystems.comm().max(M_constraint_dof_id);
-        std::cout << "* BIDOMAIN: Ground node ID: "<< M_constraint_dof_id << std::endl;
+        std::cout << "* BIDOMAIN: Ground node ID: " << M_constraint_dof_id << std::endl;
     }
 
     std::cout << "start loop over elements" << std::endl;
@@ -690,18 +581,12 @@ void Bidomain::assemble_matrices(double dt)
         n0[1] = (*xfiber_system.solution)(dof_indices_fibers[1]);
         n0[2] = (*xfiber_system.solution)(dof_indices_fibers[2]);
         // Conductivity tensor
-        double Dffe = (*extra_conductivity_system.solution)(
-                dof_indices_fibers[0]);
-        double Dsse = (*extra_conductivity_system.solution)(
-                dof_indices_fibers[1]);
-        double Dnne = (*extra_conductivity_system.solution)(
-                dof_indices_fibers[2]);
-        double Dffi = (*intra_conductivity_system.solution)(
-                dof_indices_fibers[0]);
-        double Dssi = (*intra_conductivity_system.solution)(
-                dof_indices_fibers[1]);
-        double Dnni = (*intra_conductivity_system.solution)(
-                dof_indices_fibers[2]);
+        double Dffe = (*extra_conductivity_system.solution)(dof_indices_fibers[0]);
+        double Dsse = (*extra_conductivity_system.solution)(dof_indices_fibers[1]);
+        double Dnne = (*extra_conductivity_system.solution)(dof_indices_fibers[2]);
+        double Dffi = (*intra_conductivity_system.solution)(dof_indices_fibers[0]);
+        double Dssi = (*intra_conductivity_system.solution)(dof_indices_fibers[1]);
+        double Dnni = (*intra_conductivity_system.solution)(dof_indices_fibers[2]);
 
         switch (M_anisotropy)
         {
@@ -739,13 +624,9 @@ void Bidomain::assemble_matrices(double dt)
             {
                 for (int jdim = 0; jdim < max_dim; ++jdim)
                 {
-                    D0i(idim, jdim) = Dffi * f0[idim] * f0[jdim]
-                            + Dssi * s0[idim] * s0[jdim]
-                            + Dnni * n0[idim] * n0[jdim];
+                    D0i(idim, jdim) = Dffi * f0[idim] * f0[jdim] + Dssi * s0[idim] * s0[jdim] + Dnni * n0[idim] * n0[jdim];
 
-                    D0e(idim, jdim) = Dffe * f0[idim] * f0[jdim]
-                            + Dsse * s0[idim] * s0[jdim]
-                            + Dnne * n0[idim] * n0[jdim];
+                    D0e(idim, jdim) = Dffe * f0[idim] * f0[jdim] + Dsse * s0[idim] * s0[jdim] + Dnne * n0[idim] * n0[jdim];
                 }
             }
             break;
@@ -782,39 +663,29 @@ void Bidomain::assemble_matrices(double dt)
                 {
                     // Q Mass term
                     Me(i, j) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                    Mel(i, i) += JxW_qp1[qp]
-                            * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                    Mel(i, i) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                     Fe(i) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                     // Ve Mass terms
-                    Me(i + n_Q_dofs, j + n_Q_dofs) += JxW_qp1[qp]
-                            * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                    Mel(i + n_Q_dofs, i + n_Q_dofs) += JxW_qp1[qp]
-                            * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                    Fe(i + n_Q_dofs) += JxW_qp1[qp]
-                            * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                    Me(i + n_Q_dofs, j + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                    Mel(i + n_Q_dofs, i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                    Fe(i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
 
                     // Block QQ : ( tau_i + dt ) * Cm * M_L + dt^2 * Ki
                     // Using lumped mass matrix
-                    Ke(i, i) += (tau_i + dt) * Cm * JxW_qp1[qp]
-                            * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                    Ke(i, j) += dt * dt * JxW_qp1[qp] * DigradV
-                            * dphi_qp1[j][qp];
+                    Ke(i, i) += (tau_i + dt) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                    Ke(i, j) += dt * dt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
                     // Block QVe : dt * Ki
                     // Using lumped mass matrix
-                    Ke(i, j + n_Q_dofs) += dt * JxW_qp1[qp] * DigradVe
-                            * dphi_qp1[j][qp];
+                    Ke(i, j + n_Q_dofs) += dt * JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
 
                     // Block VeQ : (tau_i-tau_e) / dt * Cm * M + dt * Ki
                     // Using lumped mass matrix
-                    Ke(i + n_Q_dofs, i) += (tau_i - tau_e) / dt * Cm
-                            * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                    Ke(i + n_Q_dofs, j) += dt * JxW_qp1[qp] * DigradV
-                            * dphi_qp1[j][qp];
+                    Ke(i + n_Q_dofs, i) += (tau_i - tau_e) / dt * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                    Ke(i + n_Q_dofs, j) += dt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 
                     // Block VeVe : Kie
                     // Using lumped mass matrix
-                    Ke(i + n_Q_dofs, j + n_Q_dofs) += JxW_qp1[qp] * DiegradVe
-                            * dphi_qp1[j][qp];
+                    Ke(i + n_Q_dofs, j + n_Q_dofs) += JxW_qp1[qp] * DiegradVe * dphi_qp1[j][qp];
                     // Ki
 
                     //std::cout << std::endl;
@@ -834,8 +705,7 @@ void Bidomain::assemble_matrices(double dt)
         }
         bidomain_system.get_matrix("mass").add_matrix(Me, dof_indices);
         bidomain_system.get_matrix("lumped_mass").add_matrix(Mel, dof_indices);
-        bidomain_system.get_vector("lumped_mass_vector").add_vector(Fe,
-                dof_indices);
+        bidomain_system.get_vector("lumped_mass_vector").add_vector(Fe, dof_indices);
         bidomain_system.matrix->add_matrix(Ke, dof_indices);
         wave_system.get_matrix("Ki").add_matrix(Kie, dof_indices_V);
     }
@@ -845,16 +715,14 @@ void Bidomain::assemble_matrices(double dt)
     bidomain_system.get_matrix("stiffness").close();
     bidomain_system.get_vector("lumped_mass_vector").close();
     bidomain_system.get_matrix("high_order_mass").close();
-    bidomain_system.get_matrix("high_order_mass").add(0.5,
-            bidomain_system.get_matrix("mass"));
-    bidomain_system.get_matrix("high_order_mass").add(0.5,
-            bidomain_system.get_matrix("lumped_mass"));
+    bidomain_system.get_matrix("high_order_mass").add(0.5, bidomain_system.get_matrix("mass"));
+    bidomain_system.get_matrix("high_order_mass").add(0.5, bidomain_system.get_matrix("lumped_mass"));
     bidomain_system.matrix->close();
 
     // set diagonal to 1
-    if(M_ground_ve)
+    if (M_ground_ve)
     {
-        std::vector< unsigned int >  rows(1, M_constraint_dof_id);
+        std::vector<unsigned int> rows(1, M_constraint_dof_id);
         bidomain_system.matrix->zero_rows(rows, 1.0);
     }
     else
@@ -863,11 +731,10 @@ void Bidomain::assemble_matrices(double dt)
         typedef libMesh::PetscVector<libMesh::Number> Vec;
 
         libMesh::DenseVector<libMesh::Number> NSe;
-        MatNullSpace   nullspace;
+        MatNullSpace nullspace;
 
         libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-        const libMesh::MeshBase::const_node_iterator end_node =
-                mesh.local_nodes_end();
+        const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
         for (; node != end_node; ++node)
         {
             const libMesh::Node * nn = *node;
@@ -878,13 +745,11 @@ void Bidomain::assemble_matrices(double dt)
         }
         bidomain_system.get_vector("nullspace").close();
         int size = bidomain_system.get_vector("nullspace").size();
-        bidomain_system.get_vector("nullspace") /= std::sqrt(size/2);
+        bidomain_system.get_vector("nullspace") /= std::sqrt(size / 2);
         // setting solver type
-        std::string solver_type = M_datafile("bidomain/linear_solver/type",
-                "gmres");
+        std::string solver_type = M_datafile(M_section + "/linear_solver/type", "gmres");
         std::cout << "* BIDOMAIN: using " << solver_type << std::endl;
-        std::string prec_type = M_datafile(
-                "bidomain/linear_solver/preconditioner", "amg");
+        std::string prec_type = M_datafile(M_section + "/linear_solver/preconditioner", "amg");
         std::cout << "* BIDOMAIN: using " << prec_type << std::endl;
         //M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
         //typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
@@ -900,7 +765,7 @@ void Bidomain::assemble_matrices(double dt)
         auto vec = N.vec();
         //std::cout << N.size() <<  ",  " <<
         std::cout << "* BIDOMAIN: nullspace vector 1 " << prec_type << std::endl;
-        MatNullSpaceCreate(PETSC_COMM_WORLD,PETSC_FALSE,1,&vec, &nullspace);
+        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &vec, &nullspace);
         std::cout << "* BIDOMAIN: nullspace vector  2" << prec_type << std::endl;
         Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
         std::cout << "* BIDOMAIN: nullspace created  " << prec_type << std::endl;
@@ -912,14 +777,12 @@ void Bidomain::assemble_matrices(double dt)
 //      double tol = 1e-12;
 //      auto code =  MatIsSymmetric(mat->mat(), tol, &isSymmetric);
 //      std::cout << "The bidomain matrix is symmetric? " << isSymmetric << std::endl;
-        typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
-        M_linearSolver->init(
-                dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
+    typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
+    M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
 //      std::cout << "* BIDOMAIN: initialized linear solver  " << prec_type
 //              << std::endl;
 //    }
 }
-
 
 //void Bidomain::solve_reaction_step( double dt,
 //                                    double time,
@@ -1038,18 +901,13 @@ void Bidomain::assemble_matrices(double dt)
 //  istim_system.update();
 //}
 
-void Bidomain::form_system_rhs(double dt, bool useMidpoint,
-        const std::string& mass)
+void Bidomain::form_system_rhs(double dt, bool useMidpoint, const std::string& mass)
 {
-    BidomainSystem& bidomain_system = M_equationSystems.get_system
-            < BidomainSystem > (M_model);
+    BidomainSystem& bidomain_system = M_equationSystems.get_system<BidomainSystem>(M_model);
     // WAVE
-    BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
-            > ("wave");
-    IonicModelSystem& iion_system = M_equationSystems.get_system
-            < IonicModelSystem > ("iion");
-    IonicModelSystem& istim_system = M_equationSystems.get_system
-            < IonicModelSystem > ("istim");
+    BidomainSystem& wave_system = M_equationSystems.get_system<BidomainSystem>("wave");
+    IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
+    IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
 //    istim_system.solution->print();
     bidomain_system.rhs->zero();
     bidomain_system.rhs->close();
@@ -1060,10 +918,8 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
     iion_system.get_vector("diion").close();
 
     double Cm = M_ionicModelPtr->membraneCapacitance();
-    const libMesh::Real tau_e = M_equationSystems.parameters.get < libMesh::Real
-            > ("tau_e");
-    const libMesh::Real tau_i = M_equationSystems.parameters.get < libMesh::Real
-            > ("tau_i");
+    const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
+    const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
 
     // Evaluate vector Ki*V^n
     wave_system.get_vector("KiV").zero();
@@ -1072,8 +928,7 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 //  wave_system.get_matrix("Ki").print();
     // NOTE: We use wave_system.solution  because here V has not been updated yet.
     //       So the vector still stores V^n
-    wave_system.get_matrix("Ki").vector_mult_add(wave_system.get_vector("KiV"),
-            *wave_system.old_local_solution);
+    wave_system.get_matrix("Ki").vector_mult_add(wave_system.get_vector("KiV"), *wave_system.old_local_solution);
     //wave_system.get_matrix("Ki").print();
     //wave_system.get_vector("KiV").print();
 
@@ -1082,8 +937,10 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
     // RHS_Ve  = M * [ ( tau_i - tau_e ) / dt * Cm * Q^n + ( tau_i - tau_e ) dIion )
     double Qn = 0.0;
     double istim = 0.0;
-    double stim_i = 0.0;  double surf_stim_i = 0.0;
-    double stim_e = 0.0;  double surf_stim_e = 0.0;
+    double stim_i = 0.0;
+    double surf_stim_i = 0.0;
+    double stim_e = 0.0;
+    double surf_stim_e = 0.0;
     double Iion = 0.0;
     double dIion = 0.0;
 
@@ -1094,16 +951,15 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-    const libMesh::MeshBase::const_node_iterator end_node =
-            mesh.local_nodes_end();
+    const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
 
     const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
     const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
 
-    std::vector < libMesh::dof_id_type > dof_indices;
-    std::vector < libMesh::dof_id_type > dof_indices_V;
-    std::vector < libMesh::dof_id_type > dof_indices_Ve;
-    std::vector < libMesh::dof_id_type > dof_indices_Q;
+    std::vector<libMesh::dof_id_type> dof_indices;
+    std::vector<libMesh::dof_id_type> dof_indices_V;
+    std::vector<libMesh::dof_id_type> dof_indices_Ve;
+    std::vector<libMesh::dof_id_type> dof_indices_Q;
 //    bidomain_system.old_local_solution->print();
     for (; node != end_node; ++node)
     {
@@ -1122,20 +978,16 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
         dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
 
         rhsq = dt * (Iion + tau_i * dIion + istim);
-        rhsve = (tau_e - tau_i) * dIion - 0*(stim_i + stim_e );
+        rhsve = (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e);
 //        std::cout << "Iion: " << Iion << std::endl;
 
         rhs_oldq = tau_i * Cm * Qn;
         rhs_oldve = (tau_i - tau_e) / dt * Cm * Qn;
 
-        bidomain_system.get_vector("old_solution").set(dof_indices_Q[0],
-                rhs_oldq);
-        bidomain_system.get_vector("old_solution").set(dof_indices_Ve[0],
-                rhs_oldve);
-        bidomain_system.get_vector("ionic_currents").set(dof_indices_Q[0],
-                rhsq);
-        bidomain_system.get_vector("ionic_currents").set(dof_indices_Ve[0],
-                rhsve);
+        bidomain_system.get_vector("old_solution").set(dof_indices_Q[0], rhs_oldq);
+        bidomain_system.get_vector("old_solution").set(dof_indices_Ve[0], rhs_oldve);
+        bidomain_system.get_vector("ionic_currents").set(dof_indices_Q[0], rhsq);
+        bidomain_system.get_vector("ionic_currents").set(dof_indices_Ve[0], rhsve);
     }
 
     bidomain_system.get_vector("old_solution").close();
@@ -1144,15 +996,12 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 //
 //    bidomain_system.get_vector("ionic_currents").print();
 //    std::cout << "I ion" << std::endl;
-    bidomain_system.rhs->add_vector(
-            bidomain_system.get_vector("ionic_currents"),
-            bidomain_system.get_matrix("mass"));
+    bidomain_system.rhs->add_vector(bidomain_system.get_vector("ionic_currents"), bidomain_system.get_matrix("mass"));
 //    bidomain_system.get_vector("ionic_currents").print();
 //            bidomain_system.rhs->print();
     //bidomain_system.get_vector("ionic_currents").print();
     //bidomain_system.rhs->print();
-    bidomain_system.rhs->add_vector(bidomain_system.get_vector("old_solution"),
-            bidomain_system.get_matrix("lumped_mass"));
+    bidomain_system.rhs->add_vector(bidomain_system.get_vector("old_solution"), bidomain_system.get_matrix("lumped_mass"));
 
     // Add KiVn to the rhs
     double KiVn = 0.0;
@@ -1171,64 +1020,56 @@ void Bidomain::form_system_rhs(double dt, bool useMidpoint,
 
     //bidomain_system.rhs->set(M_constraint_dof_id, 0.0);
     bidomain_system.rhs->close();
-    if(M_ground_ve)
+    if (M_ground_ve)
     {
         bidomain_system.rhs->set(static_cast<libMesh::dof_id_type>(M_constraint_dof_id), 0.0);
     }
 
 }
 
-void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint,
-        const std::string& mass, bool reassemble)
+void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string& mass, bool reassemble)
 {
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 
-    BidomainSystem& bidomain_system = M_equationSystems.get_system
-            < BidomainSystem > (M_model); // Q and Ve
-    BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
-            > ("wave");// V
+    BidomainSystem& bidomain_system = M_equationSystems.get_system<BidomainSystem>(M_model); // Q and Ve
+    BidomainSystem& wave_system = M_equationSystems.get_system<BidomainSystem>("wave"); // V
 
     form_system_rhs(dt, useMidpoint, mass);
 
-
- // bidomain_system.matrix->print();
-   // bidomain_system.rhs->print();
+    // bidomain_system.matrix->print();
+    // bidomain_system.rhs->print();
     double tol = 1e-12;
     double max_iter = 2000;
 
     std::pair<unsigned int, double> rval = std::make_pair(0, 0.0);
-    rval = M_linearSolver->solve(*bidomain_system.matrix,
-            *bidomain_system.solution, *bidomain_system.rhs, tol, max_iter);
+    rval = M_linearSolver->solve(*bidomain_system.matrix, *bidomain_system.solution, *bidomain_system.rhs, tol, max_iter);
 //    bidomain_system.solution->print();
-
 
     // Update V_n+1 = V_n + dt * Q_n+1:
     // 1) Copy Q_n+1 in wave_system.solution
     // 2) Evaluate V_n + dt * Q_n+1
-   libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-    const libMesh::MeshBase::const_node_iterator end_node =
-            mesh.local_nodes_end();
+    libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+    const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
 
     const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
     const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
 
-    std::vector < libMesh::dof_id_type > dof_indices;
-    std::vector < libMesh::dof_id_type > dof_indices_V;
-    std::vector < libMesh::dof_id_type > dof_indices_Ve;
-    std::vector < libMesh::dof_id_type > dof_indices_Q;
+    std::vector<libMesh::dof_id_type> dof_indices;
+    std::vector<libMesh::dof_id_type> dof_indices_V;
+    std::vector<libMesh::dof_id_type> dof_indices_Ve;
+    std::vector<libMesh::dof_id_type> dof_indices_Q;
 
     for (; node != end_node; ++node)
     {
         const libMesh::Node * nn = *node;
         dof_map.dof_indices(nn, dof_indices_Q, 0);
         dof_map_V.dof_indices(nn, dof_indices_V, 0);
-        wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]) );
+        wave_system.solution->set(dof_indices_V[0], (*bidomain_system.solution)(dof_indices_Q[0]));
     }
     wave_system.solution->close();
     wave_system.solution->scale(dt);
     *wave_system.solution += *wave_system.old_local_solution;
-
 
 }
 

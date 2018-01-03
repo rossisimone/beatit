@@ -77,6 +77,7 @@ public:
 	 *  \param [in] dt        Timestep
 	 */
     void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt);
+    void updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite);
     //! Update all the variables in the ionic model
     /*!
      *  \param [in] V transmember potential (Variables  does not include potential)
@@ -116,7 +117,7 @@ public:
 	 */
     void initializeSaveData(std::ostream& output);
 
-    void step(std::vector<double>& variables, double dt);
+    void step(std::vector<double>& variables, std::vector<double>& rhs, double dt);
     void setCellType(CellType type);
     void selectParameters(CellType type);
 

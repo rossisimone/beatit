@@ -24,6 +24,7 @@
 // subdomains).
 
 // C++ include files that we need
+#include "PoissonSolver/Poisson.hpp"
 #include "Electrophysiology/Bidomain/BidomainWithBath.hpp"
 #include "Electrophysiology/Monodomain/MonodomainUtil.hpp"
 
@@ -33,6 +34,7 @@
 #include "libmesh/wrapped_functor.h"
 #include "libmesh/parallel_mesh.h"
 #include "libmesh/elem.h"
+#include "libmesh/mesh_refinement.h"
 
 #include "libmesh/mesh_generation.h"
 #include "libmesh/mesh_modification.h"

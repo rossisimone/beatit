@@ -30,4 +30,10 @@ IonicModel::evaluateIonicCurrentH(std::vector<double>& variables, double applied
 }
 
 
+void
+IonicModel::updateVariables(std::vector<double>& variables, std::vector<double>& /*rhs*/, double appliedCurrent, double dt, bool /*overwrite*/)
+{
+    updateVariables(variables, appliedCurrent, dt);
+};
+
 } // namespace BeatIt

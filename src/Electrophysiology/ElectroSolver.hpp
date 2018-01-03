@@ -59,7 +59,8 @@ enum class EquationType { ReactionDiffusion,
                           ParabolicEllipticHyperbolic,
                           ParabolicParabolicHyperbolic   };
 enum class ModelType { Monodomain, Bidomain, BidomainWithBath };
-enum class BidomainTimeIntegrator { FirstOrderIMEX, SecondOrderIMEX };
+enum class TimeIntegrator { FirstOrderIMEX,     // FORWARD-BACKWARD EULER
+                            SecondOrderIMEX  }; // SBDF2
 
 
 class ElectroSolver
@@ -166,6 +167,9 @@ public:
     std::vector<double>  M_conductivity;
     EquationType M_equationType;
     DynamicTimeIntegratorType M_timeIntegratorType;
+    TimeIntegrator M_timeIntegrator;
+protected:
+    long int M_timestep_counter;
 public:
 
 

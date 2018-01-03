@@ -91,7 +91,7 @@ BistablePiecewiseLinear::updateVariables(std::vector<double>& variables, double 
 }
 
 void
-BistablePiecewiseLinear::updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
+BistablePiecewiseLinear::updateVariables(std::vector<double>& v_n, std::vector<double>& rhs, double appliedCurrent, double dt)
 {
 }
 
@@ -142,7 +142,7 @@ BistablePiecewiseLinear::evaluatedIonicCurrent(std::vector<double>& variables, d
 
 double
 BistablePiecewiseLinear::evaluatedIonicCurrent( std::vector<double>& variables,
-                                     std::vector<double>& old_variables,
+                                     std::vector<double>& rhs,
                                      double dt,
                                      double h )
 {

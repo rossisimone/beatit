@@ -54,7 +54,7 @@ public:
 //    Monodomain( libMesh::MeshBase & mesh );
     Monowave( libMesh::EquationSystems& es );
     ~Monowave();
-    void setupSystems(GetPot& data, std::string section = "monodomain" );
+    void setupSystems(GetPot& data, std::string section = "monowave" );
 
     void initSystems(double time);
 

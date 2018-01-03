@@ -296,24 +296,23 @@ FentonKarma::updateVariables(std::vector<double>& variables, double appliedCurre
 }
 
 void
-FentonKarma::updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
+void updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
 {
-    double V = v_n[0];
-    double v = v_n[1];
-    double w = v_n[2];
+    double V = variables[0];
+    double v = variables[1];
+    double w = variables[2];
     double tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
-   double f_n_v = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
-   double f_n_w = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
-   V = v_np1[0];
-   v = v_np1[1];
-   w = v_np1[2];
+    rhs[1] = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
+    rhs[2] = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
 
-   tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
-  double f_np1_v = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
-  double f_np1_w = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
+  double tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
 
-    v_np1[1] = v_n[1] +  dt / 2 * ( f_n_v + f_np1_v );
-    v_np1[2] = v_n[2] +  dt / 2 * ( f_n_w + f_np1_w );
+  if(overwrite)
+  {
+      variables[1] += dt * rhs[1];
+      variables[2] += dt * rhs[2];
+
+  }
 
 }
 
@@ -391,7 +390,7 @@ FentonKarma::evaluatedIonicCurrent(std::vector<double>& variables, double applie
 
 double
 FentonKarma::evaluatedIonicCurrent( std::vector<double>& variables,
-                                     std::vector<double>& old_variables,
+                                     std::vector<double>& rhs,
                                      double dt,
                                      double h )
 {
@@ -399,8 +398,8 @@ FentonKarma::evaluatedIonicCurrent( std::vector<double>& variables,
     double v = variables[1];
     double w = variables[2];
     double Q = old_variables[0];
-    double dv = (v-old_variables[1])/dt;
-    double dw = (w-old_variables[2])/dt;
+    double dv = rhs[1];
+    double dw = rhs[2];
 
     double dIfi = - v * p(V) * (1-V) / M_tau_d + v * p(V) * (V- M_V_c) / M_tau_d;
     double dIso = ( 1 - p(V) ) / M_tau_0;

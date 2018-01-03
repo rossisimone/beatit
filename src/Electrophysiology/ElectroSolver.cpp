@@ -91,7 +91,8 @@ ElectroSolver::ElectroSolver( libMesh::EquationSystems& es, std::string model )
  , M_meshSize(1.0)
  , M_model(model)
  , M_ground_ve(false)
-
+ , M_timeIntegrator(TimeIntegrator::FirstOrderIMEX)
+ , M_timestep_counter(0)
 {
     // TODO Auto-generated constructor stub
 
@@ -112,319 +113,55 @@ ElectroSolver::setup(GetPot& data, std::string section)
     M_datafile = data;
     M_section = section;
 
+
     //Read output folder from datafile
-    std::string output_folder = M_datafile(section + "/output_folder",
+    std::string output_folder = M_datafile(M_section + "/output_folder",
             "Output");
     M_outputFolder = "./" + output_folder + "/";
 
 
     std::cout << "* " << M_model << ": creating pacing protocol" << std::endl;
 
-    std::string pacing_type = M_datafile(section + "/pacing/type", "NONE");
+    std::string pacing_type = M_datafile(M_section + "/pacing/type", "NONE");
+    if("NONE" !=  pacing_type)
+    {
         M_pacing.reset(
                 BeatIt::PacingProtocol::PacingProtocolFactory::Create(pacing_type));
-        M_pacing->setup(M_datafile, section + "/pacing");
+        M_pacing->setup(M_datafile, M_section + "/pacing");
+    }
 
-    std::string pacing_i_type = M_datafile(section + "/pacing_i/type", "NONE");
+    std::string pacing_i_type = M_datafile(M_section + "/pacing_i/type", "NONE");
     if("NONE" !=  pacing_i_type)
     {
         M_pacing_i.reset(
                 BeatIt::PacingProtocol::PacingProtocolFactory::Create(pacing_i_type));
-        M_pacing_i->setup(M_datafile, section + "/pacing_i");
+        M_pacing_i->setup(M_datafile, M_section + "/pacing_i");
     }
 
-    std::string pacing_e_type = M_datafile(section + "/pacing_e/type", "NONE");
+    std::string pacing_e_type = M_datafile(M_section + "/pacing_e/type", "NONE");
     if("NONE" !=  pacing_e_type)
     {
         M_pacing_e.reset(
                 BeatIt::PacingProtocol::PacingProtocolFactory::Create(pacing_e_type));
-        M_pacing_e->setup(M_datafile, section + "/pacing_e");
+        M_pacing_e->setup(M_datafile, M_section + "/pacing_e");
     }
 
-    std::string surf_pacing_i_type = M_datafile(section + "/surf_pacing_i/type", "NONE");
+    std::string surf_pacing_i_type = M_datafile(M_section + "/surf_pacing_i/type", "NONE");
     if("NONE" !=  surf_pacing_i_type)
     {
         M_surf_pacing_i.reset(
                 BeatIt::PacingProtocol::PacingProtocolFactory::Create(surf_pacing_i_type));
-        M_surf_pacing_i->setup(M_datafile, section + "/surf_pacing_i");
+        M_surf_pacing_i->setup(M_datafile, M_section + "/surf_pacing_i");
     }
 
-    std::string surf_pacing_e_type = M_datafile(section + "/surf_pacing_e/type", "NONE");
+    std::string surf_pacing_e_type = M_datafile(M_section + "/surf_pacing_e/type", "NONE");
     if("NONE" !=  surf_pacing_e_type)
     {
         M_surf_pacing_e.reset(
                 BeatIt::PacingProtocol::PacingProtocolFactory::Create(surf_pacing_e_type));
-        M_surf_pacing_e->setup(M_datafile, section + "/surf_pacing_e");
+        M_surf_pacing_e->setup(M_datafile, M_section + "/surf_pacing_e");
     }
 
-
-//    // ///////////////////////////////////////////////////////////////////////
-//    // ///////////////////////////////////////////////////////////////////////
-//    // Starts by creating the equation systems
-//    // 1) ADR
-//    std::cout << "* " << M_model << ": Creating new System for the hyperbolic equations"
-//            << std::endl;
-//    ElectroSystem& electro_system = M_equationSystems.add_system
-//            < ElectroSystem > (M_model);
-//    // TO DO: Generalize to higher order
-//    if(M_transmembranePotentialActiveSubdomains.size() > 0)
-//    {
-//        electro_system.add_variable("Q", libMesh::FIRST, M_transmembranePotentialActiveSubdomains);
-//    }
-//    else
-//    {
-//        electro_system.add_variable("Q", libMesh::FIRST);
-//    }
-//
-//    if(M_modelType != ModelType::Monodomain)
-//    {
-//        electro_system.add_variable("Ve", libMesh::FIRST);
-//    }
-//
-//    // Add 3 matrices
-//    electro_system.add_matrix("lumped_mass");
-//    electro_system.add_matrix("high_order_mass");
-//    // Add lumped mass matrix
-//    electro_system.add_vector("lumped_mass_vector");
-//    electro_system.add_matrix("mass");
-//    electro_system.add_matrix("stiffness");
-//    electro_system.add_vector("ionic_currents");
-//    electro_system.add_vector("old_solution");
-//    electro_system.add_vector("nullspace");
-//    electro_system.add_vector("residual");
-//    M_exporterNames.insert(M_model);
-//    electro_system.init();
-//
-//    // WAVE
-//    ElectroSystem& wave_system = M_equationSystems.add_system < ElectroSystem
-//            > ("wave");
-//    wave_system.add_variable("V", libMesh::FIRST);
-//    wave_system.add_matrix("Ki");
-//    wave_system.add_vector("KiV");
-//    M_exporterNames.insert("wave");
-//    wave_system.init();
-//
-//    // ///////////////////////////////////////////////////////////////////////
-//    // ///////////////////////////////////////////////////////////////////////
-//    // 2) ODEs
-//    std::cout << "* " << M_model << ": Creating new System for the ionic model "
-//            << std::endl;
-//    IonicModelSystem& ionic_model_system = M_equationSystems.add_system
-//            < IonicModelSystem > ("ionic_model");
-//    // Create Ionic Model
-//    std::string ionic_model = M_datafile(section + "/ionic_model",
-//            "NashPanfilov");
-//    M_ionicModelPtr.reset(
-//            BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
-//    M_ionicModelPtr->setup(M_datafile, section);
-//    int num_vars = M_ionicModelPtr->numVariables();
-//    // TO DO: Generalize to other conditions
-//    // We need to exclude the potential
-//    // therefore we loop up to num_vars-1
-//    for (int nv = 0; nv < num_vars - 1; ++nv)
-//    {
-//        std::string var_name = M_ionicModelPtr->variableName(nv);
-//        // For the time being we use P1 for the variables
-//        ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
-//    }
-//    ionic_model_system.init();
-//
-//    // Add the applied current to this system
-//    IonicModelSystem& Iion_system = M_equationSystems.add_system
-//            < IonicModelSystem > ("iion");
-//    Iion_system.add_variable("iion", libMesh::FIRST);
-//    Iion_system.add_vector("diion");
-//    Iion_system.init();
-//    // Applied stimulus
-//    IonicModelSystem& istim_system = M_equationSystems.add_system
-//            < IonicModelSystem > ("istim");
-//    istim_system.add_variable("istim", libMesh::FIRST);
-//    istim_system.add_vector("surface_stim");
-//    istim_system.init();
-//    // Add names for exporter
-//    M_ionicModelExporterNames.insert("ionic_model");
-//    M_ionicModelExporterNames.insert("iion");
-//    M_ionicModelExporterNames.insert("istim");
-//
-//
-//
-//    // ///////////////////////////////////////////////////////////////////////
-//    // ///////////////////////////////////////////////////////////////////////
-//    // Distributed Parameters
-//    std::cout << "* " << M_model << ": Creating parameters spaces " << std::endl;
-//
-//    std::cout << "   activation times system" << std::endl;
-//    ParameterSystem& activation_times_system = M_equationSystems.add_system
-//            < ParameterSystem > ("activation_times");
-//    activation_times_system.add_variable("activation_times", libMesh::FIRST);
-//
-//    M_parametersExporterNames.insert("activation_times");
-//    activation_times_system.init();
-//
-//    // Fibers
-//    std::cout << "   fibers times system" << std::endl;
-//    ParameterSystem& fiber_system = M_equationSystems.add_system
-//            < ParameterSystem > ("fibers");
-//    fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    fiber_system.add_variable("fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    ParameterSystem& sheets_system = M_equationSystems.add_system
-//            < ParameterSystem > ("sheets");
-//    sheets_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    sheets_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    sheets_system.add_variable("sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    ParameterSystem& xfiber_system = M_equationSystems.add_system
-//            < ParameterSystem > ("xfibers");
-//    xfiber_system.add_variable("xfibersx", libMesh::CONSTANT,
-//            libMesh::MONOMIAL);
-//    xfiber_system.add_variable("xfibersy", libMesh::CONSTANT,
-//            libMesh::MONOMIAL);
-//    xfiber_system.add_variable("xfibersz", libMesh::CONSTANT,
-//            libMesh::MONOMIAL);
-//
-//    M_parametersExporterNames.insert("fibers");
-//    M_parametersExporterNames.insert("sheets");
-//    M_parametersExporterNames.insert("xfibers");
-//    fiber_system.init();
-//    sheets_system.init();
-//    xfiber_system.init();
-//
-//    // Conductivities
-//    std::cout << "   conductivities system" << std::endl;
-//    if(ModelType::Monodomain != M_modelType)
-//    {
-//        ParameterSystem& intra_conductivity_system = M_equationSystems.add_system
-//                < ParameterSystem > ("intra_conductivity");
-//        intra_conductivity_system.add_variable("Dffi", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        intra_conductivity_system.add_variable("Dssi", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        intra_conductivity_system.add_variable("Dnni", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        ParameterSystem& extra_conductivity_system = M_equationSystems.add_system
-//                < ParameterSystem > ("extra_conductivity");
-//        extra_conductivity_system.add_variable("Dffe", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        extra_conductivity_system.add_variable("Dsse", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        extra_conductivity_system.add_variable("Dnne", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//
-//        M_parametersExporterNames.insert("intra_conductivity");
-//        M_parametersExporterNames.insert("extra_conductivity");
-//        intra_conductivity_system.init();
-//        extra_conductivity_system.init();
-//
-//    }
-//    else
-//    {
-//        ParameterSystem& conductivity_system = M_equationSystems.add_system
-//                < ParameterSystem > ("conductivity");
-//        conductivity_system.add_variable("Dff", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        conductivity_system.add_variable("Dss", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        conductivity_system.add_variable("Dnn", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//
-//        M_parametersExporterNames.insert("conductivity");
-//
-//        conductivity_system.init();
-//    }
-//
-//    if(ModelType::BidomainWithBath == M_modelType)
-//    {
-//        ParameterSystem& bath_conductivity_system = M_equationSystems.add_system
-//                < ParameterSystem > ("bath_conductivity");
-//        bath_conductivity_system.add_variable("Dbath", libMesh::CONSTANT,
-//                libMesh::MONOMIAL);
-//        M_parametersExporterNames.insert("bath_conductivity");
-//
-//        bath_conductivity_system.init();
-//    }
-//
-//    std::cout << "   Proc ID system" << std::endl;
-//    ParameterSystem& procID_system = M_equationSystems.add_system
-//            < ParameterSystem > ("ProcID");
-//    procID_system.add_variable("ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
-//    M_parametersExporterNames.insert("ProcID");
-//    procID_system.init();
-//
-//    std::cout << "* " << M_model << ": Initializing equation systems " << std::endl;
-//
-//    // Conductivity Tensor in local coordinates
-//    // Fiber direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dffi = M_datafile(section + "/Dffi", 1.7);
-//    // Sheet direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dssi = M_datafile(section + "/Dssi", 0.19);
-//    // Cross fiber direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dnni = M_datafile(section + "/Dnni", 0.19);
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dffe = M_datafile(section + "/Dffe", 6.2);
-//    // Sheet direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dsse = M_datafile(section + "/Dsse", 2.4);
-//    // Cross fiber direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dnne = M_datafile(section + "/Dnne", 2.4);
-//
-//    // Monodomain Values
-//    double Dff = M_datafile(section + "/Dff", -1);
-//    if( -1  == Dff) Dff = Dffi*Dffe / (Dffi+Dffe);
-//    // Sheet direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dss = M_datafile(section + "/Dss", -1);
-//    if( -1  == Dss) Dss = Dssi*Dsse / (Dssi+Dsse);
-//    // Cross fiber direction
-//    // Default Value = 1.3342  kOhm^-1 cm^-1
-//    double Dnn = M_datafile(section + "/Dnn", -1);
-//    if( -1  == Dnn) Dnn = Dss;
-//
-//    // Bath conductivity
-//    double Dbath = M_datafile(section + "/Dbath", -1);
-//    if( -1  == Dbath) Dbath = Dffe;
-//
-//
-//    // Surface to volume ratio
-//    double Chi = M_datafile(section + "/Chi", 1400.0);
-//    // Intracellular and extracellular relaxation times
-//    double tau_i = M_datafile(section + "/tau_i", 0.0);
-//    double tau_e = M_datafile(section + "/tau_e", 0.0);
-//    double tau = M_datafile(section + "/tau", 0.0);
-//
-//    M_equationSystems.parameters.set<double>("Chi") = Chi;
-//    M_equationSystems.parameters.set<double>("tau_i") = tau_i;
-//    M_equationSystems.parameters.set<double>("tau_e") = tau_e;
-//    M_equationSystems.parameters.set<double>("tau") = tau;
-//
-//    std::string anisotropy = M_datafile(section + "/anisotropy", "orhotropic");
-//    std::map<std::string, BidomainAnisotropy> aniso_map;
-//    aniso_map["orthotropic"] = BidomainAnisotropy::Orthotropic;
-//    aniso_map["isotropic"] = BidomainAnisotropy::Isotropic;
-//    aniso_map["transverse"] = BidomainAnisotropy::TransverselyIsotropic;
-//    std::cout << "* " << M_model << ": Parameters: " << std::endl;
-//    std::cout << "              Chi = " << Chi << std::endl;
-//    std::cout << "              Dffi = " << Dffi << std::endl;
-//    std::cout << "              Dssi = " << Dssi << std::endl;
-//    std::cout << "              Dnni = " << Dnni << std::endl;
-//    std::cout << "              Dffe = " << Dffe << std::endl;
-//    std::cout << "              Dsse = " << Dsse << std::endl;
-//    std::cout << "              Dnne = " << Dnne << std::endl;
-//    std::cout << "              Dff = " << Dffe << std::endl;
-//    std::cout << "              Dss = " << Dsse << std::endl;
-//    std::cout << "              Dnn = " << Dnne << std::endl;
-//    std::cout << "              Dbath = " << Dbath << std::endl;
-//    std::cout << "              tau_i = " << tau_i << std::endl;
-//    std::cout << "              tau_e = " << tau_e << std::endl;
-//    std::cout << "              tau = " << tau_e << std::endl;
-//    std::cout << "              anisotropy = " << anisotropy << std::endl;
-
-
-//    ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem
-//            > ("wave");
     struct stat out_dir;
     if (stat(&M_outputFolder[0], &out_dir) != 0)
     {
@@ -436,7 +173,16 @@ ElectroSolver::setup(GetPot& data, std::string section)
 
     // call setup system of the specific class
     setupSystems(M_datafile, M_section);
+    // Add ionic current to this system
+    IonicModelSystem& Iion_system = M_equationSystems.add_system<IonicModelSystem>("iion");
+    Iion_system.add_variable("iion", libMesh::FIRST);
+    Iion_system.add_vector("diion");
+    Iion_system.add_vector("diion_old");
+    Iion_system.add_vector("total_current");
+    Iion_system.init();
+    M_ionicModelExporterNames.insert("iion");
 
+    // Add the applied current to this system
     IonicModelSystem& istim_system = M_equationSystems.add_system
             < IonicModelSystem > ("istim");
     istim_system.add_variable("istim", libMesh::FIRST);
@@ -448,6 +194,55 @@ ElectroSolver::setup(GetPot& data, std::string section)
 
     M_ionicModelExporterNames.insert("istim");
 
+    std::cout << "* ElectroSolver: Creating parameters spaces " << std::endl;
+    ParameterSystem& activation_times_system = M_equationSystems.add_system<ParameterSystem>("activation_times");
+    activation_times_system.add_variable("activation_times", libMesh::FIRST);
+    activation_times_system.init();
+
+    if (!M_equationSystems.has_system("fibers"))
+    {
+        ParameterSystem& fiber_system = M_equationSystems.add_system<ParameterSystem>("fibers");
+        fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+        fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+        fiber_system.add_variable("fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+        fiber_system.init();
+
+    }
+
+    if (!M_equationSystems.has_system("sheets"))
+    {
+        ParameterSystem& sheets_system = M_equationSystems.add_system<ParameterSystem>("sheets");
+        sheets_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
+        sheets_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
+        sheets_system.add_variable("sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
+        sheets_system.init();
+    }
+
+    if (!M_equationSystems.has_system("xfibers"))
+    {
+        ParameterSystem& xfiber_system = M_equationSystems.add_system<ParameterSystem>("xfibers");
+        xfiber_system.add_variable("xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+        xfiber_system.add_variable("xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+        xfiber_system.add_variable("xfibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+        xfiber_system.init();
+    }
+
+    ParameterSystem& procID_system = M_equationSystems.add_system<ParameterSystem>("ProcID");
+    procID_system.add_variable("ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
+    procID_system.init();
+
+
+    M_parametersExporterNames.insert("activation_times");
+    M_parametersExporterNames.insert("fibers");
+    M_parametersExporterNames.insert("sheets");
+    M_parametersExporterNames.insert("xfibers");
+    M_parametersExporterNames.insert("ProcID");
+
+
+    ///////////
+    // Time integrator
+    int time_integrator_order = data(M_section+"/time_integrator_order", 1);
+    if(2 == time_integrator_order && M_ionicModelPtr->isSecondOrderImplemented() ) M_timeIntegrator = TimeIntegrator::SecondOrderIMEX;
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -538,9 +333,9 @@ ElectroSolver::init(double time)
 //    M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
     typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
     M_linearSolver.reset(new PetscSolver(M_equationSystems.comm()));
-    std::string solver_type = M_datafile("monodomain/linear_solver/type", "gmres");
+    std::string solver_type = M_datafile(M_section+"/linear_solver/type", "gmres");
     std::cout << "* ElectroSolver: using " << solver_type << std::endl;
-    std::string prec_type = M_datafile("monodomain/linear_solver/preconditioner", "amg");
+    std::string prec_type = M_datafile(M_section+"/linear_solver/preconditioner", "amg");
     M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
     M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
     M_linearSolver->init();
@@ -877,26 +672,24 @@ ElectroSolver::update_activation_time(double time, double threshold)
 void
 ElectroSolver::advance()
 {
-    ElectroSystem& system = M_equationSystems.get_system
-            < ElectroSystem > (M_model);
-    IonicModelSystem& ionic_model_system = M_equationSystems.get_system
-            < IonicModelSystem > ("ionic_model");
+    ElectroSystem& system = M_equationSystems.get_system< ElectroSystem > (M_model);
+    IonicModelSystem& ionic_model_system = M_equationSystems.get_system< IonicModelSystem > ("ionic_model");
 
     *system.older_local_solution = *system.old_local_solution;
     *system.old_local_solution = *system.solution;
     *ionic_model_system.older_local_solution = *ionic_model_system.old_local_solution;
     *ionic_model_system.old_local_solution = *ionic_model_system.solution;
-
+    ionic_model_system.get_vector("rhs_old") = *ionic_model_system.rhs;
     // WAVE
-    ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem
-            > ("wave");
+    ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
     *wave_system.older_local_solution = *wave_system.old_local_solution;
     *wave_system.old_local_solution = *wave_system.solution;
 
-    IonicModelSystem& iion_system = M_equationSystems.get_system
-            < IonicModelSystem > ("iion");
+    IonicModelSystem& iion_system = M_equationSystems.get_system< IonicModelSystem > ("iion");
     *iion_system.older_local_solution = *iion_system.old_local_solution;
     *iion_system.old_local_solution = *iion_system.solution;
+    iion_system.get_vector("diion_old") = iion_system.get_vector("diion");
+
 }
 
 
@@ -1002,21 +795,17 @@ void ElectroSolver::solve_reaction_step( double dt,
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 //    BidomainSystem& bidomain_system = M_equationSystems.get_system
 //            < BidomainSystem > ("bidomain"); //Q
-    ElectroSystem& system = M_equationSystems.get_system
-            < ElectroSystem > (M_model);
-    IonicModelSystem& ionic_model_system = M_equationSystems.get_system
-            < IonicModelSystem > ("ionic_model");
-    IonicModelSystem& istim_system = M_equationSystems.get_system
-            < IonicModelSystem > ("istim");
+    ElectroSystem& system = M_equationSystems.get_system< ElectroSystem > (M_model);
+    IonicModelSystem& ionic_model_system = M_equationSystems.get_system< IonicModelSystem > ("ionic_model");
+    IonicModelSystem& istim_system = M_equationSystems.get_system < IonicModelSystem > ("istim");
     // WAVE
-    ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem
-            > ("wave");
-    IonicModelSystem& iion_system = M_equationSystems.get_system
-            < IonicModelSystem > ("iion");
+    ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
+    IonicModelSystem& iion_system = M_equationSystems.get_system< IonicModelSystem > ("iion");
 
     system.rhs->zero();
     iion_system.solution->zero();
     istim_system.solution->zero();
+    auto& iion_rhs_old = ionic_model_system.get_vector("rhs_old");
     istim_system.get_vector("stim_i").zero();
     istim_system.get_vector("stim_e").zero();
     istim_system.get_vector("surf_stim_i").zero();
@@ -1025,19 +814,18 @@ void ElectroSolver::solve_reaction_step( double dt,
     iion_system.get_vector("diion").zero();
 
     double Cm = M_ionicModelPtr->membraneCapacitance();
-//    const libMesh::Real tau_e = M_equationSystems.parameters.get < libMesh::Real
-//            > ("tau_e");
-//    const libMesh::Real tau_i = M_equationSystems.parameters.get < libMesh::Real
-//            > ("tau_i");
 
     int num_vars = ionic_model_system.n_vars();
     std::vector<double> values(num_vars + 1, 0.0);
     std::vector<double> old_values(num_vars + 1, 0.0);
+
+    std::vector<double> gating_rhs(num_vars+1, 0.0); // First entry is reserved to Q^n
+    std::vector<double> gating_rhs_old(num_vars+1, 0.0); // First entry is reserved to Q^n-1
+
     int var_index = 0;
 
     libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-    const libMesh::MeshBase::const_node_iterator end_node =
-            mesh.local_nodes_end();
+    const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
 
     const libMesh::DofMap & dof_map = system.get_dof_map();
     const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
@@ -1046,12 +834,11 @@ void ElectroSolver::solve_reaction_step( double dt,
 
     std::vector < libMesh::dof_id_type > dof_indices;
     std::vector < libMesh::dof_id_type > dof_indices_V;
-    //std::vector < libMesh::dof_id_type > dof_indices_Ve;
     std::vector < libMesh::dof_id_type > dof_indices_Q;
     std::vector < libMesh::dof_id_type > dof_indices_gating;
     std::vector < libMesh::dof_id_type > dof_indices_istim;
 
-    M_pacing->update(time);
+    if(M_pacing) M_pacing->update(time);
     if(M_pacing_i) M_pacing_i->update(time);
     if(M_pacing_e) M_pacing_e->update(time);
     if(M_surf_pacing_i) M_surf_pacing_i->update(time);
@@ -1075,46 +862,56 @@ void ElectroSolver::solve_reaction_step( double dt,
         if(n_var == n_dofs)
         {
             dof_map.dof_indices(nn, dof_indices_Q, 0);
-            //dof_map.dof_indices(nn, dof_indices_Ve, 1);
             dof_map_V.dof_indices(nn, dof_indices_V, 0);
             dof_map_istim.dof_indices(nn, dof_indices_istim, 0);
             dof_map_gating.dof_indices(nn, dof_indices_gating);
 
-            //double bd_stim = istim_system.get_vector("surface_stim")(dof_indices_V[0]); //
-            //if(M_pacing->M_boundaryID >= 0 ) istim *= bd_stim;
             if(M_pacing_i) stim_i = M_pacing_i->eval(p, time);
             if(M_pacing_e) stim_e = M_pacing_e->eval(p, time);
             if(M_surf_pacing_i) surf_stim_i = M_surf_pacing_i->eval(p, time);
             if(M_surf_pacing_e) surf_stim_e = M_surf_pacing_e->eval(p, time);
-            istim = M_pacing->eval(p, time);
-
-            // istim_zero = istim;
-            //std::cout << "istim: " << istim << std::endl;
-            //if (istim != 0 ) std::cout << istim << std::endl;
-            //std::cout << "c: " << c << "(x,y,z) = (" << p(0) << "," << p(1) << "," << p(2) << "); istim: " << istim << std::endl;
+            if(M_pacing) istim = M_pacing->eval(p, time);
 
             double Iion_old = 0.0;
             values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
-            old_values[0] = (*system.old_local_solution)(dof_indices_Q[0]); //Q^n
+            gating_rhs[0] = (*system.old_local_solution)(dof_indices_Q[0]); //Q^n
             Iion_old = (*iion_system.old_local_solution)(dof_indices_istim[0]); // gating
 
             for (int nv = 0; nv < num_vars; ++nv)
             {
                 var_index = dof_indices_gating[nv];
-                values[nv + 1] = (*ionic_model_system.old_local_solution)(
-                        var_index);
-                old_values[nv + 1] = values[nv + 1];
+                values[nv + 1] = (*ionic_model_system.old_local_solution)(var_index);
             }
 
-            M_ionicModelPtr->updateVariables(values, istim_zero, dt);
+            if( TimeIntegrator::FirstOrderIMEX == M_timeIntegrator || M_timestep_counter == 0)
+            {
+                bool overwrite = true;
+                // Recall: gating_rhs[0] = Q^n
+                M_ionicModelPtr->updateVariables(values, gating_rhs, istim_zero, dt, overwrite);
+            }
+            else // using SBDF2
+            {
+                bool overwrite = false;
+                // Recall: gating_rhs[0] = Q^n
+                M_ionicModelPtr->updateVariables(values, gating_rhs, istim_zero, dt, overwrite);
+                for(int nv = 0; nv < num_vars; ++nv)
+                {
+                    var_index = dof_indices_gating[nv];
+                    ionic_model_system.rhs->set(var_index, gating_rhs[nv+1]);
 
-            //for(auto&& v:values) std::cout << v << ", " << std::flush;
-            double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero,
-                    dt);
-            //std::cout << "\nIion: " << Iion << std::endl;
-    //        std::cout << "Iion: " << Iion << std::endl;
-            dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, old_values, dt,
-                    M_meshSize);
+                    old_values[nv + 1] = (*ionic_model_system.older_local_solution)(var_index);
+                    double f_nm1 = iion_rhs_old(var_index);
+                    double f_n = gating_rhs[nv+1];
+                    // Update using SBDF2
+                    // w^n+1 = 4/3 * w^n - 1/3 * w^n-1 + 2/3*dt * (2*f^n - f^n-1)
+                    // w^n+1 = ( 4 * w^n - w^n-1 + 2 * dt * (2*f^n - f^n-1) ) / 3
+                    values[nv+1] += ( 4.0 * values[nv+1] - old_values[nv+1] + 2.0 * dt * ( 2 * f_n - f_nm1 ) ) / 3;
+                }
+            }
+
+            double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero, dt);
+            // Recall: gating_rhs[0] = Q^n
+            dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, gating_rhs, dt, M_meshSize);
             double Isac = 0.0;
             if (I4f_ptr)
             {

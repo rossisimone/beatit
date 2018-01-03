@@ -204,58 +204,18 @@ void BidomainWithBath::setupSystems(GetPot& data, std::string section)
             ionic_model_system.add_variable(&var_name[0], libMesh::FIRST, &active_tissue_subdomain);
         else
             ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
-
     }
+    ionic_model_system.add_vector("rhs_old");
+    //ionic_model_system.add_vector("rhs_older");
     ionic_model_system.init();
-    // Add the applied current to this system
-    IonicModelSystem& Iion_system = M_equationSystems.add_system<IonicModelSystem>("iion");
-    Iion_system.add_variable("iion", libMesh::FIRST);
-    Iion_system.add_vector("diion");
-    Iion_system.init();
-//    IonicModelSystem& istim_system = M_equationSystems.add_system
-//            < IonicModelSystem > ("istim");
-//    istim_system.add_variable("istim", libMesh::FIRST);
-//    istim_system.add_vector("stim_i");
-//    istim_system.add_vector("stim_e");
-//    istim_system.add_vector("surf_stim_i");
-//    istim_system.add_vector("surf_stim_e");
-//    istim_system.init();
+
     M_ionicModelExporterNames.insert("ionic_model");
-    M_ionicModelExporterNames.insert("iion");
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Distributed Parameters
+
     std::cout << "* BIDOMAIN+BATH: Creating parameters spaces " << std::endl;
-    ParameterSystem& activation_times_system = M_equationSystems.add_system<ParameterSystem>("activation_times");
-    activation_times_system.add_variable("activation_times", libMesh::FIRST);
-    if (!M_equationSystems.has_system("fibers"))
-    {
-        ParameterSystem& fiber_system = M_equationSystems.add_system<ParameterSystem>("fibers");
-        fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-        fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-        fiber_system.add_variable("fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-        fiber_system.init();
-
-    }
-
-    if (!M_equationSystems.has_system("sheets"))
-    {
-        ParameterSystem& sheets_system = M_equationSystems.add_system<ParameterSystem>("sheets");
-        sheets_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
-        sheets_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
-        sheets_system.add_variable("sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
-        sheets_system.init();
-    }
-
-    if (!M_equationSystems.has_system("xfibers"))
-    {
-        ParameterSystem& xfiber_system = M_equationSystems.add_system<ParameterSystem>("xfibers");
-        xfiber_system.add_variable("xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-        xfiber_system.add_variable("xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-        xfiber_system.add_variable("xfibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-        xfiber_system.init();
-    }
 
     ParameterSystem& intra_conductivity_system = M_equationSystems.add_system<ParameterSystem>("intra_conductivity");
     intra_conductivity_system.add_variable("Dffi", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -265,24 +225,13 @@ void BidomainWithBath::setupSystems(GetPot& data, std::string section)
     extra_conductivity_system.add_variable("Dffe", libMesh::CONSTANT, libMesh::MONOMIAL);
     extra_conductivity_system.add_variable("Dsse", libMesh::CONSTANT, libMesh::MONOMIAL);
     extra_conductivity_system.add_variable("Dnne", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& procID_system = M_equationSystems.add_system<ParameterSystem>("ProcID");
-    procID_system.add_variable("ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
-    M_parametersExporterNames.insert("activation_times");
-    M_parametersExporterNames.insert("fibers");
-    M_parametersExporterNames.insert("sheets");
-    M_parametersExporterNames.insert("xfibers");
+
     M_parametersExporterNames.insert("intra_conductivity");
     M_parametersExporterNames.insert("extra_conductivity");
-    M_parametersExporterNames.insert("ProcID");
     std::cout << "* BIDOMAIN+BATH: Initializing equation systems " << std::endl;
     // Initializing
-    activation_times_system.init();
     intra_conductivity_system.init();
     extra_conductivity_system.init();
-    procID_system.init();
-
-//    M_equationSystems.init();
-    //M_equationSystems.print_info();
 
     // Conductivity Tensor in local coordinates
     // Fiber direction
@@ -344,7 +293,7 @@ void BidomainWithBath::initSystems(double time)
     // WAVE
     ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
 
-    std::string v_ic = M_datafile("bidomain/ic", "");
+    std::string v_ic = M_datafile(M_section + "/ic", "");
     if (v_ic != "")
     {
         std::cout << "* BIDOMAIN+BATH: Found bidomain initial condition: " << v_ic << std::endl;
@@ -381,12 +330,12 @@ void BidomainWithBath::initSystems(double time)
     }
     std::cout << " done" << std::endl;
 
-    bool analytic_fibers = M_datafile("bidomain/analytic_fibers", true);
+    bool analytic_fibers = M_datafile(M_section + "/analytic_fibers", true);
     if (analytic_fibers)
     {
-        std::string fibers_data = M_datafile("bidomain/fibers", "1.0, 0.0, 0.0");
-        std::string sheets_data = M_datafile("bidomain/sheets", "0.0, 1.0, 0.0");
-        std::string xfibers_data = M_datafile("bidomain/xfibers", "0.0, 0.0, 1.0");
+        std::string fibers_data = M_datafile(M_section + "/fibers", "1.0, 0.0, 0.0");
+        std::string sheets_data = M_datafile(M_section + "/sheets", "0.0, 1.0, 0.0");
+        std::string xfibers_data = M_datafile(M_section + "/xfibers", "0.0, 0.0, 1.0");
 
         SpiritFunction fibers_func;
         SpiritFunction sheets_func;
@@ -410,18 +359,18 @@ void BidomainWithBath::initSystems(double time)
         xfiber_system.project_solution(&xfibers_func);
         std::cout << " done" << std::endl;
     }
-    std::string conductivity_type = M_datafile("bidomain/conductivity", "function");
+    std::string conductivity_type = M_datafile(M_section + "/conductivity", "function");
 
     std::cout << "Conductivity Type: " << conductivity_type << std::endl;
 
     ParameterSystem& intra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("intra_conductivity");
-    std::string Dffi_data = M_datafile("bidomain/Dffi", "2.0");
-    std::string Dssi_data = M_datafile("bidomain/Dssi", "0.2");
-    std::string Dnni_data = M_datafile("bidomain/Dnni", "0.2");
+    std::string Dffi_data = M_datafile(M_section + "/Dffi", "2.0");
+    std::string Dssi_data = M_datafile(M_section + "/Dssi", "0.2");
+    std::string Dnni_data = M_datafile(M_section + "/Dnni", "0.2");
     ParameterSystem& extra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("extra_conductivity");
-    std::string Dffe_data = M_datafile("bidomain/Dffe", "1.5");
-    std::string Dsse_data = M_datafile("bidomain/Dsse", "1.0");
-    std::string Dnne_data = M_datafile("bidomain/Dnne", "1.0");
+    std::string Dffe_data = M_datafile(M_section + "/Dffe", "1.5");
+    std::string Dsse_data = M_datafile(M_section + "/Dsse", "1.0");
+    std::string Dnne_data = M_datafile(M_section + "/Dnne", "1.0");
 
     if ("function" == conductivity_type)
     {
@@ -447,7 +396,7 @@ void BidomainWithBath::initSystems(double time)
         std::vector<double> Dnni;
         BeatIt::readList(Dnni_data, Dnni);
 
-        std::string i_IDs = M_datafile("bidomain/i_IDs", "-1");
+        std::string i_IDs = M_datafile(M_section + "/i_IDs", "-1");
         std::cout << "i_IDs: " << i_IDs << std::flush;
         std::vector<unsigned int> intracellular_IDs;
         BeatIt::readList(i_IDs, intracellular_IDs);
@@ -459,8 +408,8 @@ void BidomainWithBath::initSystems(double time)
         std::vector<double> Dnne;
         BeatIt::readList(Dnne_data, Dnne);
 
-        std::string e_IDs = M_datafile("bidomain/e_IDs", "-1");
-        std::cout << "e_IDs: " << e_IDs << std::endl;
+        std::string e_IDs = M_datafile(M_section + "/e_IDs", "-1");
+        std::cout << "\ne_IDs: " << e_IDs << std::endl;
 
         std::vector<unsigned int> extracellular_IDs;
         BeatIt::readList(e_IDs, extracellular_IDs);
@@ -946,9 +895,9 @@ void BidomainWithBath::assemble_matrices(double dt)
         int size = bidomain_system.get_vector("nullspace").size();
         bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
         // setting solver type
-        std::string solver_type = M_datafile("bidomain/linear_solver/type", "gmres");
+        std::string solver_type = M_datafile(M_section + "/linear_solver/type", "gmres");
         std::cout << "* BIDOMAIN+BATH: using " << solver_type << std::endl;
-        std::string prec_type = M_datafile("bidomain/linear_solver/preconditioner", "amg");
+        std::string prec_type = M_datafile(M_section + "/linear_solver/preconditioner", "amg");
         std::cout << "* BIDOMAIN+BATH: using " << prec_type << std::endl;
         //M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
         //typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
