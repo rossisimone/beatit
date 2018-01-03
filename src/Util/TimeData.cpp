@@ -58,6 +58,7 @@ TimeData::TimeData()
     , M_endTime(1.0)
     , M_maxIter(1000000)
     , M_iter(0)
+    , M_section()
 {
 }
 
@@ -65,13 +66,15 @@ TimeData::TimeData()
 void
 TimeData::setup(const GetPot& data, const std::string& section)
 {
-    std::cout << "TimeData: section: " << section << std::endl;
-    M_dt = data(section+"/time/dt", 1.0);
-    M_startTime = data(section+"/time/init_time", 0.0);
+    if("" == section) M_section = "time";
+    else M_section = section+"/time";
+    std::cout << "TimeData: section: " << M_section << std::endl;
+    M_dt = data(M_section+"/dt", 1.0);
+    M_startTime = data(M_section+"/init_time", 0.0);
     M_time = M_startTime;
-    M_endTime = data(section+"/time/final_time", 1.0);
-    M_maxIter = data(section+"/time/max_iter", 99999999);
-    M_saveIter = data(section+"/time/save_iter",1);
+    M_endTime = data(M_section+"/final_time", 1.0);
+    M_maxIter = data(M_section+"/max_iter", 99999999);
+    M_saveIter = data(M_section+"/save_iter",1);
 }
 
 void

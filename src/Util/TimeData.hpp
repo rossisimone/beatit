@@ -70,7 +70,8 @@ public:
     double M_endTime;
     int    M_maxIter;
     int    M_iter;
-   int     M_saveIter;
+    int     M_saveIter;
+    std::string M_section;
 
 };
 
