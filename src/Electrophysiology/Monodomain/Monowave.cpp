@@ -179,6 +179,8 @@ void Monowave::setupSystems(GetPot& data, std::string section)
         // For the time being we use P1 for the variables
         ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
     }
+    ionic_model_system.add_vector("rhs_old");
+
     std::cout << "* MONOWAVE: Init ionic model " << std::endl;
     ionic_model_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
@@ -1139,7 +1141,7 @@ void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::s
     double cdt = dt;
     if(M_timestep_counter > 0 && M_timeIntegrator == TimeIntegrator::SecondOrderIMEX)
     {
-        c = 2.0 / 3.0 * dt;
+        cdt = 2.0 / 3.0 * dt;
     }
     // Matrix part
     {
@@ -1286,10 +1288,10 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
 //        monodomain_system.get_matrix("stiffness").vector_mult_add(*monodomain_system.rhs, monodomain_system.get_vector("aux2"));
 //        //std::cout << "Equation type: Wave" << std::endl;
 
-    }
 }
 
-void Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string& mass, bool reassemble)
+void
+Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string& mass, bool reassemble)
 {
     // If we are using SBDF2, we need to compute the system matrix again
     // In fact we do a first step with Forward-Backward Euler

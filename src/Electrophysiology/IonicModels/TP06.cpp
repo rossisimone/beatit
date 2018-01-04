@@ -202,20 +202,8 @@ TP06::updateVariables(std::vector<double>& variables, double appliedCurrent, dou
 {
 	// For compatibility  with the original code where the applied stimulus in opposite
 	Istim = -appliedCurrent;
-	std::vector<double> rhs;
-	M_overwrite = true;
-    step(variables, rhs, dt);
+    step(variables, dt);
 }
-
-void
-TP06::updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
-{
-    // For compatibility  with the original code where the applied stimulus in opposite
-    Istim = -appliedCurrent;
-    M_overwrite = overwrite;
-    step(variables, rhs, dt);
-}
-
 
 //! Evaluate total ionic current for the computation of the potential
 /*!
@@ -239,12 +227,12 @@ TP06::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurren
 
 double
 TP06::evaluatedIonicCurrent( std::vector<double>& variables,
-                                     std::vector<double>& rhs,
+                                     std::vector<double>& old_variables,
                                      double dt,
                                      double h )
 {
     double svolt = variables[0];
-    double Q = rhs[0];
+    double Q = old_variables[0];
     double dIdV = -dItot;
 
     double Cai   = variables[1];
@@ -264,23 +252,23 @@ TP06::evaluatedIonicCurrent( std::vector<double>& variables,
     double sf    = variables[15];
     double sf2   = variables[16];
     double sfcass= variables[17];
-    double dCai   = rhs[1];
-    double dCaSR  = rhs[2];
-    double dCaSS  = rhs[3];
-    double dNai   = rhs[4];
-    double dKi    = rhs[5];
-    double dsm    = rhs[6];
-    double dsh    = rhs[7];
-    double dsj    = rhs[8];
-    double dsxr1  = rhs[9];
-    double dsxr2  = rhs[10];
-    double dsxs   = rhs[11];
-    double dss    = rhs[12];
-    double dsr    = rhs[13];
-    double dsd    = rhs[14];
-    double dsf    = rhs[15];
-    double dsf2   = rhs[16];
-    double dsfcass= rhs[17];
+    double dCai   = (variables[1]- old_variables[1])/dt;
+    double dCaSR  = (variables[2]- old_variables[2])/dt;
+    double dCaSS  = (variables[3]- old_variables[3])/dt;
+    double dNai   = (variables[4]- old_variables[4])/dt;
+    double dKi    = (variables[5]- old_variables[5])/dt;
+    double dsm    = (variables[6]- old_variables[6])/dt;
+    double dsh    = (variables[7]- old_variables[7])/dt;
+    double dsj    = (variables[8]- old_variables[8])/dt;
+    double dsxr1  = (variables[9]- old_variables[9])/dt;
+    double dsxr2  = (variables[10]- old_variables[10])/dt;
+    double dsxs   = (variables[11]- old_variables[11])/dt;
+    double dss    = (variables[12]- old_variables[12])/dt;
+    double dsr    = (variables[13]- old_variables[13])/dt;
+    double dsd    = (variables[14]- old_variables[14])/dt;
+    double dsf    = (variables[15]- old_variables[15])/dt;
+    double dsf2   = (variables[16]- old_variables[16])/dt;
+    double dsfcass= (variables[17]- old_variables[17])/dt;
 
 
     //Compute currents
@@ -333,7 +321,7 @@ TP06::initializeSaveData(std::ostream& output)
 }
 
 void
-TP06::step(std::vector<double>& variables, std::vector<double>& rhs, double dt)
+TP06::step(std::vector<double>& variables, double dt)
 {
 	double& svolt = variables[0];
 	double& Cai   = variables[1];
@@ -355,27 +343,6 @@ TP06::step(std::vector<double>& variables, std::vector<double>& rhs, double dt)
 	double& sfcass= variables[17];
 	double& sRR   = variables[18];
 	double& sOO   = variables[19];
-
-    double& dCai   = rhs[1];
-    double& dCaSR  = rhs[2];
-    double& dCaSS  = rhs[3];
-    double& dNai   = rhs[4];
-    double& dKi    = rhs[5];
-    double& dsm    = rhs[6];
-    double& dsh    = rhs[7];
-    double& dsj    = rhs[8];
-    double& dsxr1  = rhs[9];
-    double& dsxr2  = rhs[10];
-    double& dsxs   = rhs[11];
-    double& dss    = rhs[12];
-    double& dsr    = rhs[13];
-    double& dsd    = rhs[14];
-    double& dsf    = rhs[15];
-    double& dsf2   = rhs[16];
-    double& dsfcass= rhs[17];
-    double& dsRR   = rhs[18];
-    double& dsOO   = rhs[19];
-
 	double& svolt2= Volt2;
 	double& sItot = Itot;
 
@@ -496,49 +463,42 @@ TP06::step(std::vector<double>& variables, std::vector<double>& rhs, double dt)
     k1=k1_/kCaSR;
     k2=k2_*kCaSR;
     dRR=k4*(1-sRR)-k2*CaSS*sRR;
-    dsRR = dRR;
-    if(M_overwrite) sRR+=dt*dsRR;
-    if(M_overwrite) sOO=k1*CaSS*CaSS*sRR/(k3+k1*CaSS*CaSS);
+    sRR+=dt*dRR;
+    sOO=k1*CaSS*CaSS*sRR/(k3+k1*CaSS*CaSS);
+
 
     Irel=Vrel*sOO*(CaSR-CaSS);
     Ileak=Vleak*(CaSR-Cai);
     Iup=Vmaxup/(1.+((Kup*Kup)/(Cai*Cai)));
     Ixfer=Vxfer*(CaSS-Cai);
 
-    // CaCSQN, aka Ca_srbufsr
+
     CaCSQN=Bufsr*CaSR/(CaSR+Kbufsr);
-    // dCaSR, aka dCa_srtotal * dt
     dCaSR=dt*(Iup-Irel-Ileak);
     bjsr=Bufsr-CaCSQN-dCaSR-CaSR+Kbufsr;
     cjsr=Kbufsr*(CaCSQN+dCaSR+CaSR);
-    if(M_overwrite) CaSR=(sqrt(bjsr*bjsr+4*cjsr)-bjsr)/2;
-    dCaSR=(Iup-Irel-Ileak);
+    CaSR=(sqrt(bjsr*bjsr+4*cjsr)-bjsr)/2;
+
 
     CaSSBuf=Bufss*CaSS/(CaSS+Kbufss);
     dCaSS=dt*(-Ixfer*(Vc/Vss)+Irel*(Vsr/Vss)+(-ICaL*inversevssF2*CAPACITANCE));
     bcss=Bufss-CaSSBuf-dCaSS-CaSS+Kbufss;
     ccss=Kbufss*(CaSSBuf+dCaSS+CaSS);
-    if(M_overwrite) CaSS=(sqrt(bcss*bcss+4*ccss)-bcss)/2;
-    dCaSS=(-Ixfer*(Vc/Vss)+Irel*(Vsr/Vss)+(-ICaL*inversevssF2*CAPACITANCE));
-
-    dsOO = 2*k1*CaSS*sRR/(k3+k1*CaSS*CaSS^2)*dCaSS
-         - k1*CaSS*CaSS*sRR/(k3+k1*CaSS*CaSS^2)/(k3+k1*CaSS*CaSS^2)*dCaSS
-         + k1*CaSS*CaSS*sRR/(k3+k1*CaSS*CaSS^2)*dsRR;
+    CaSS=(sqrt(bcss*bcss+4*ccss)-bcss)/2;
 
 
     CaBuf=Bufc*Cai/(Cai+Kbufc);
     dCai=dt*((-(IbCa+IpCa-2*INaCa)*inverseVcF2*CAPACITANCE)-(Iup-Ileak)*(Vsr/Vc)+Ixfer);
     bc=Bufc-CaBuf-dCai-Cai+Kbufc;
     cc=Kbufc*(CaBuf+dCai+Cai);
-    if(M_overwrite) Cai=(sqrt(bc*bc+4*cc)-bc)/2;
-    dCai=((-(IbCa+IpCa-2*INaCa)*inverseVcF2*CAPACITANCE)-(Iup-Ileak)*(Vsr/Vc)+Ixfer);
+    Cai=(sqrt(bc*bc+4*cc)-bc)/2;
 
 
     dNai=-(INa+IbNa+3*INaK+3*INaCa)*inverseVcF*CAPACITANCE;
-    if(M_overwrite) Nai+=dt*dNai;
+    Nai+=dt*dNai;
 
     dKi=-(Istim+IK1+Ito+IKr+IKs-2*INaK+IpK)*inverseVcF*CAPACITANCE;
-    if(M_overwrite) Ki+=dt*dKi;
+    Ki+=dt*dKi;
 
 
 
@@ -638,33 +598,18 @@ TP06::step(std::vector<double>& variables, std::vector<double>& rhs, double dt)
     FCaSS_INF=0.6/(1+(CaSS/0.05)*(CaSS/0.05))+0.4;
     TAU_FCaSS=80./(1+(CaSS/0.05)*(CaSS/0.05))+2.;
 
-    dsm = (M_INF - sm) / TAU_M;
-    dsh = (H_INF - sm) / TAU_H;
-    dsj = (J_INF - sm) / TAU_J;
-    dsxr1=(Xr1_INF - sm) / TAU_Xr1;
-    dsxr2=(Xr2_INF - sm) / TAU_Xr2;
-    dsxs = (Xs_INF - sm) / TAU_Xs;
-    dss = (S_INF - sm) / TAU_S;
-    dsr = (R_INF - sm) / TAU_R;
-    dsd = (D_INF - sm) / TAU_D;
-    dsf = (F_INF - sm) / TAU_F;
-    dsf2 = (F2_INF - sm) / TAU_F2;
-    dsfcass= (FCaSS_INF - sm) / TAU_FCaSS;
-    if(M_overwrite)
-    {
-        sm = M_INF-(M_INF-sm)*std::exp(-dt/TAU_M);
-        sh = H_INF-(H_INF-sh)*std::exp(-dt/TAU_H);
-        sj = J_INF-(J_INF-sj)*std::exp(-dt/TAU_J);
-        sxr1 = Xr1_INF-(Xr1_INF-sxr1)*std::exp(-dt/TAU_Xr1);
-        sxr2 = Xr2_INF-(Xr2_INF-sxr2)*std::exp(-dt/TAU_Xr2);
-        sxs = Xs_INF-(Xs_INF-sxs)*std::exp(-dt/TAU_Xs);
-        ss= S_INF-(S_INF-ss)*std::exp(-dt/TAU_S);
-        sr= R_INF-(R_INF-sr)*std::exp(-dt/TAU_R);
-        sd = D_INF-(D_INF-sd)*std::exp(-dt/TAU_D);
-        sf =F_INF-(F_INF-sf)*std::exp(-dt/TAU_F);
-        sf2 =F2_INF-(F2_INF-sf2)*std::exp(-dt/TAU_F2);
-        sfcass =FCaSS_INF-(FCaSS_INF-sfcass)*std::exp(-dt/TAU_FCaSS);
-    }
+    sm = M_INF-(M_INF-sm)*std::exp(-dt/TAU_M);
+    sh = H_INF-(H_INF-sh)*std::exp(-dt/TAU_H);
+    sj = J_INF-(J_INF-sj)*std::exp(-dt/TAU_J);
+    sxr1 = Xr1_INF-(Xr1_INF-sxr1)*std::exp(-dt/TAU_Xr1);
+    sxr2 = Xr2_INF-(Xr2_INF-sxr2)*std::exp(-dt/TAU_Xr2);
+    sxs = Xs_INF-(Xs_INF-sxs)*std::exp(-dt/TAU_Xs);
+    ss= S_INF-(S_INF-ss)*std::exp(-dt/TAU_S);
+    sr= R_INF-(R_INF-sr)*std::exp(-dt/TAU_R);
+    sd = D_INF-(D_INF-sd)*std::exp(-dt/TAU_D);
+    sf =F_INF-(F_INF-sf)*std::exp(-dt/TAU_F);
+    sf2 =F2_INF-(F2_INF-sf2)*std::exp(-dt/TAU_F2);
+    sfcass =FCaSS_INF-(FCaSS_INF-sfcass)*std::exp(-dt/TAU_FCaSS);
 
 }
 

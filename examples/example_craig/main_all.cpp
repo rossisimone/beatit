@@ -41,7 +41,7 @@
 #include "Util/SpiritFunction.hpp"
 
 #include "libmesh/numeric_vector.h"
-
+#include "libmesh/dof_map.h"
 #include "libmesh/error_vector.h"
 #include "libmesh/kelly_error_estimator.h"
 #include "libmesh/mesh_refinement.h"
@@ -52,7 +52,7 @@
 //#include "libmesh/vtk_io.h"
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
-
+#include "Util/GenerateFibers.hpp"
 void create_fibers(libMesh::EquationSystems& es, GetPot& data);
 
 void rotate_fibers(libMesh::NumericVector<double>& phi, libMesh::NumericVector<double>& fibers, libMesh::NumericVector<double>& sheets,
@@ -120,8 +120,8 @@ int main(int argc, char ** argv)
     bidomain.setup(data, "bidomain");
     std::cout << "Calling init ..." << std::endl;
     bidomain.init(0.0);
-    std::cout << "Import fibers ... " << std::endl;
-    bidomain.restart(importer, 1);
+    //std::cout << "Import fibers ... " << std::endl;
+    //bidomain.restart(importer, 1);
     std::cout << "Assembling matrices" << std::endl;
     bidomain.assemble_matrices(datatime.M_dt);
 
@@ -178,7 +178,7 @@ int main(int argc, char ** argv)
 }
 
 void rotate_fibers(libMesh::NumericVector<double>& phi, libMesh::NumericVector<double>& fibers, libMesh::NumericVector<double>& sheets,
-        libMesh::NumericVector<double>& xfibers, double endo_angle = 0.0, double epi_angle = 0.0)
+        libMesh::NumericVector<double>& xfibers, double endo_angle , double epi_angle )
 {
     std::cout << "ROTATING FIBERS: " << std::endl;
     double potential = 0.0;
@@ -355,6 +355,7 @@ void create_fibers(libMesh::EquationSystems& es, GetPot& data)
     BeatIt::Util::normalize(*grad2, 0.0, 1.0, 0.0);
     BeatIt::Util::normalize(*grad3, 0.0, 0.0, 1.0);
 
+    auto& mesh = poisson1.M_equationSystems.get_mesh();
     libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
     const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
     const libMesh::DofMap & dof_map = es.get_system<libMesh::ExplicitSystem>(pois1 + "_gradient").get_dof_map();

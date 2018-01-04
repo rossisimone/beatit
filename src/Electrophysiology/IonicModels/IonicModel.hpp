@@ -44,7 +44,7 @@ public:
 	 *  \param [in] dt        Timestep
 	 */
     virtual void updateVariables(std::vector<double>& variables, double appliedCurrent, double dt) = 0;
-    //virtual void updateVariables(std::vector<double>& /*v_n*/, std::vector<double>& /*v_np1*/,  double /*appliedCurrent*/, double /*dt*/) {}
+    virtual void updateVariables(std::vector<double>& /*v_n*/, std::vector<double>& /*v_np1*/,  double /*appliedCurrent*/, double /*dt*/) {}
 
     virtual void updateVariables(std::vector<double>& variables, std::vector<double>& /*rhs*/, double appliedCurrent, double dt, bool /*overwrite*/);
     virtual bool isSecondOrderImplemented()
@@ -58,7 +58,7 @@ public:
 	 *  \param [in] variables Vector containing the local value of all variables (Variables does not include potential)
 	 *  \param [in] dt        Timestep
 	 */
-    virtual  void updateVariables(double V, std::vector<double>& variables, double dt) {}
+    virtual  void updateVariables(double /*V*/, std::vector<double>& /*variables*/, double /*dt*/) {}
 
 	//! Evaluate total ionic current for the computation of the potential
 	/*!
@@ -69,11 +69,11 @@ public:
     virtual double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0) = 0;
     virtual double evaluateIonicCurrentH(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
 
-    virtual double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0)
+    virtual double evaluatedIonicCurrent(std::vector<double>& /*variables*/, double /*appliedCurrent = 0.0*/, double /*dt = 0.0*/, double /*h = 0.0*/)
     {
         return 0.0;
     }
-    virtual double evaluatedIonicCurrent(std::vector<double>& variables, std::vector<double>& old_variables, double dt = 0.0, double h = 0.0)
+    virtual double evaluatedIonicCurrent(std::vector<double>& /*variables*/, std::vector<double>& /*old_variables*/, double /*dt = 0.0*/, double /*h = 0.0*/)
     {
         return 0.0;
     }

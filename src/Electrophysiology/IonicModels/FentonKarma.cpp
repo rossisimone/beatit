@@ -296,7 +296,30 @@ FentonKarma::updateVariables(std::vector<double>& variables, double appliedCurre
 }
 
 void
-void updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
+FentonKarma::updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
+{
+    double V = v_n[0];
+    double v = v_n[1];
+    double w = v_n[2];
+    double tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
+   double f_n_v = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
+   double f_n_w = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
+   V = v_np1[0];
+   v = v_np1[1];
+   w = v_np1[2];
+
+   tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
+  double f_np1_v = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
+  double f_np1_w = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
+
+    v_np1[1] = v_n[1] +  dt / 2 * ( f_n_v + f_np1_v );
+    v_np1[2] = v_n[2] +  dt / 2 * ( f_n_w + f_np1_w );
+
+}
+
+
+void 
+FentonKarma::updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
 {
     double V = variables[0];
     double v = variables[1];
@@ -304,8 +327,6 @@ void updateVariables(std::vector<double>& variables, std::vector<double>& rhs, d
     double tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
     rhs[1] = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
     rhs[2] = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
-
-  double tau_v_m = ( 1 - q(V) ) * M_tau_v1_m + q(V) * M_tau_v2_m;
 
   if(overwrite)
   {
@@ -397,7 +418,7 @@ FentonKarma::evaluatedIonicCurrent( std::vector<double>& variables,
     double V = variables[0];
     double v = variables[1];
     double w = variables[2];
-    double Q = old_variables[0];
+    double Q = rhs[0];
     double dv = rhs[1];
     double dw = rhs[2];
 

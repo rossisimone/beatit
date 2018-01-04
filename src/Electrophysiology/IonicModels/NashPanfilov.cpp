@@ -102,10 +102,28 @@ NashPanfilov::updateVariables(std::vector<double>& variables, double appliedCurr
 }
 
 void
-NashPanfilov::updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
+NashPanfilov::updateVariables(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
 {
     double V = v_n[0];
     double r = v_n[1];
+   double f_n =  (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
+                             (- r - M_k * V * (V - M_b - 1.0) );
+   V = v_np1[0];
+   r = v_np1[1];
+
+   double f_np1 =  (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
+                                (- r - M_k * V * (V - M_b - 1.0) );
+
+    v_np1[1] = v_n[1] +  dt / 2 * ( f_n + f_np1 );
+
+}
+
+
+void
+NashPanfilov::updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
+{
+    double V = variables[0];
+    double r = variables[1];
     double f_n =  (M_epsilon + M_mu1 * r / (M_mu2 + V) ) *
                              (- r - M_k * V * (V - M_b - 1.0) );
     // we store in rhs[0] Q^n

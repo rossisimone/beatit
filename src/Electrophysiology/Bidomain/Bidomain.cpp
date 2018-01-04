@@ -190,6 +190,7 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
         // For the time being we use P1 for the variables
         ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
     }
+    ionic_model_system.add_vector("rhs_old");
     ionic_model_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
 
