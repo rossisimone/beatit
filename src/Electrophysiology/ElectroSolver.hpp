@@ -67,7 +67,7 @@ class ElectroSolver
 {
 public:
     typedef FactoryArg<ElectroSolver, std::string, libMesh::EquationSystems >     ElectroFactory;
-    typedef libMesh::GMVIO Exporter;
+    typedef libMesh::VTKIO Exporter;
     // Another alternative when not using AMR
     typedef libMesh::ExodusII_IO EXOExporter;
 

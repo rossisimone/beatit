@@ -35,6 +35,7 @@
 #include "libmesh/exodusII_io.h"
 //#include "libmesh/exodusII_io_helper.h"
 #include "libmesh/gmv_io.h"
+#include "libmesh/vtk_io.h"
 
 #include "libmesh/perf_log.h"
 
@@ -209,7 +210,10 @@ namespace BeatIt
 
         std::cout << "* " << M_model << ": Initializing exporters " << std::endl;
         M_exporter.reset(new Exporter(M_equationSystems.get_mesh()));
+        //This works only for VTKIO
+        M_exporter->set_compression(true);
         M_ionicModelExporter.reset(new Exporter(M_equationSystems.get_mesh()));
+        M_ionicModelExporter->set_compression(true);
         M_parametersExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
         M_EXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
         M_potentialEXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
@@ -512,19 +516,23 @@ namespace BeatIt
 
     void ElectroSolver::save_activation_times(int step)
     {
-        std::cout << "* " << M_model << ": GMVIO::Exporting activaton times: " << M_outputFolder << " ... " << std::flush;
-        Exporter gmv(M_equationSystems.get_mesh());
+        std::cout << "* " << M_model << ": VTKIO::Exporting activaton times: " << M_outputFolder << " ... " << std::flush;
+        Exporter vtk(M_equationSystems.get_mesh());
         std::set < std::string > output;
         output.insert("activation_times");
-        gmv.write_equation_systems(M_outputFolder + "activation_times.gmv." + std::to_string(step), M_equationSystems, &output);
+        vtk.write_equation_systems(M_outputFolder + "activation_times"+std::to_string(step)+".pvtu", M_equationSystems, &output);
         std::cout << "done " << std::endl;
     }
 
     void ElectroSolver::save(int step)
     {
-        std::cout << "* " << M_model << ": GMVIO::Exporting " << step << " in: " << M_outputFolder << " ... " << std::flush;
-        M_exporter->write_equation_systems(M_outputFolder + M_model + ".gmv." + std::to_string(step), M_equationSystems, &M_exporterNames);
-        M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model.gmv." + std::to_string(step), M_equationSystems,
+        std::ostringstream ss;
+        ss << std::setw(4) << std::setfill('0') << step;
+        std::string step_str = ss.str();
+
+        std::cout << "* " << M_model << ": VTKIO::Exporting " << step << " in: " << M_outputFolder << " ... " << std::flush;
+        M_exporter->write_equation_systems(M_outputFolder + M_model + step_str + ".pvtu.", M_equationSystems, &M_exporterNames);
+        M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model" + step_str + ".pvtu", M_equationSystems,
                 &M_ionicModelExporterNames);
         std::cout << "done " << std::endl;
     }

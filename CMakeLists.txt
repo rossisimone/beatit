@@ -22,10 +22,11 @@ message(STATUS "CXX flags: ${CMAKE_CXX_FLAGS} \n")
 
 # Packages 
 find_package(MPI REQUIRED)
-find_package(VTK QUIET)
+find_package(VTK REQUIRED NO_MODULE)
 message("-- VTK_DIR: ${VTK_DIR}")
 message("-- VTK_INCLUDE_DIRS: ${VTK_INCLUDE_DIRS}")
 message("-- VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
+message("-- VTK_LIBRARIES: ${VTK_LIBRARIES}")
 find_package(Boost REQUIRED)
 
 
@@ -73,6 +74,7 @@ file(GLOB_RECURSE HEADERS src/*.hpp)
 add_library( beatit  ${HEADERS} ${SOURCES})
 target_link_libraries (beatit ${LIBMESH_LIB})
 target_link_libraries (beatit ${PETSC_LIBRARIES})
+target_link_libraries (beatit ${VTK_LIBRARIES})
 
 add_subdirectory(examples)
 add_subdirectory(testsuite)

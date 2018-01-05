@@ -29,3 +29,20 @@ The default debug mode in libmesh adds the _GLIBCXX_DEBUG flag.
 If you compile libmesh with the option --disable-glibcxx-debugging
 you need to remove the flag from the CMakelists.txt file in 
 the base BeatIt directory.
+
+############################################
+#
+#   VTK CONFIGURATION
+#
+############################################
+#Specify VTK Path
+VTK=/path/to/base/vtk/folder/vtk
+#Specify Version
+#VERSION=7.1.1
+VERSION=X.X.X
+cmake \
+   -D CMAKE_INSTALL_PREFIX=/path/to/install/folder \
+   -D CMAKE_CXX_COMPILER=mpicxx \
+   -D CMAKE_C_COMPILER=mpicc \
+   -D VTK_Group_MPI:BOOL=ON \
+  $VTK/VTK-$VERSION

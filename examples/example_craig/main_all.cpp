@@ -137,13 +137,14 @@ int main(int argc, char ** argv)
     endoIDs.insert(1);
     std::set<unsigned short> subdomains;
     subdomains.insert(1);
-    bidomain.init_endocardial_ve(endoIDs, subdomains);
-    int save_iter = 1;
+    //bidomain.init_endocardial_ve(endoIDs, subdomains);
+    int save_iter = 0;
     int save_iter_ve = 1;
-    bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
+    //bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
     std::cout << "Init Output" << std::endl;
-    bidomain.init_exo_output();
-    bidomain.save_exo_timestep(save_iter++, datatime.M_time);
+    //bidomain.init_exo_output();
+    bidomain.save(save_iter);
+    //bidomain.save_exo_timestep(save_iter++, datatime.M_time);
 
     std::string system_mass = data("bidomain/diffusion_mass", "mass");
     std::string iion_mass = data("bidomain/reaction_mass", "lumped_mass");
@@ -168,17 +169,17 @@ int main(int argc, char ** argv)
         bidomain.update_activation_time(datatime.M_time);
         //std::cout << "at done:" << datatime.M_time << std::endl;
 
-        ++save_iter_ve;
-        if(0 == datatime.M_iter % interface_output_iter)
-        {
-            bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
-        }
+//        ++save_iter_ve;
+//        if(0 == datatime.M_iter % interface_output_iter)
+//        {
+//            bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
+//        }
 
         if (0 == datatime.M_iter % datatime.M_saveIter)
         {
             save_iter++;
-            bidomain.save_potential(save_iter, datatime.M_time);
-            bidomain.save_exo_timestep(save_iter, datatime.M_time);
+            bidomain.save(save_iter);
+            //bidomain.save_exo_timestep(save_iter, datatime.M_time);
 
         }
 
@@ -449,9 +450,9 @@ void create_fibers(libMesh::EquationSystems& es, GetPot& data)
     //poisson2.deleteSystems();
     //poisson3.deleteSystems();
 
-    std::string fibers_file_name = data("output_file", "fibers.exo");
-    libMesh::ExodusII_IO exporter(mesh);
-    exporter.write_equation_systems(fibers_file_name, es);
-    exporter.write_element_data(es);
+    //std::string fibers_file_name = data("output_file", "fibers.exo");
+    //libMesh::ExodusII_IO exporter(mesh);
+    //exporter.write_equation_systems(fibers_file_name, es);
+    //exporter.write_element_data(es);
 
 }
