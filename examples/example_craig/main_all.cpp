@@ -53,6 +53,8 @@
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
 #include "Util/GenerateFibers.hpp"
+#include "Util/IO/io.hpp"
+
 void create_fibers(libMesh::EquationSystems& es, GetPot& data);
 
 void rotate_fibers(libMesh::NumericVector<double>& phi, libMesh::NumericVector<double>& fibers, libMesh::NumericVector<double>& sheets,
@@ -75,8 +77,8 @@ int main(int argc, char ** argv)
     std::string datafile_name = commandLine.follow("data.beat", 2, "-i", "--input");
     GetPot data(datafile_name);
 
-    std::string fibers_datafile_name = commandLine.follow("data_fibers.beat", 2, "-f", "--finput");
-    GetPot data_fibers(datafile_name);
+    std::string fibers_datafile_name = commandLine.follow("data_fibers.beat", 2, "-j", "--jinput");
+    GetPot data_fibers(fibers_datafile_name);
 
     BeatIt::TimeData datatime;
     datatime.setup(data, "bidomain");
@@ -86,22 +88,25 @@ int main(int argc, char ** argv)
     // communicator.
     // Create a mesh, with dimension to be overridden later, distributed
     // across the default MPI communicator.
-    ParallelMesh mesh(init.comm());
+    libMesh::ParallelMesh mesh(init.comm());
 
     // We may need XDR support compiled in to read binary .xdr files
     std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
-    mesh.read(&meshfile[0]);
+    int n_refinements = data("mesh/n_ref", 0);
+    std::cout << "n_refs: " << n_refinements << std::endl;
+    BeatIt::serial_mesh_partition(init.comm(), meshfile, &mesh, n_refinements);
+
+    //mesh.read(&meshfile[0]);
 
     double scale = 0.1;
     MeshTools::Modification::scale(mesh, scale, scale, scale);
 
-    int n_refinements = data("mesh/n_ref", 0);
-    for (int k = 0; k < n_refinements; ++k)
-    {
-        std::cout << "refinement: " << k << std::endl;
-        MeshRefinement refinement(mesh);
-        refinement.uniformly_refine();
-    }
+//    for (int k = 0; k < n_refinements; ++k)
+//    {
+//        std::cout << "refinement: " << k << std::endl;
+//        MeshRefinement refinement(mesh);
+//        refinement.uniformly_refine();
+//    }
 
     std::cout << "Mesh done!" << std::endl;
 
@@ -132,10 +137,10 @@ int main(int argc, char ** argv)
     endoIDs.insert(1);
     std::set<unsigned short> subdomains;
     subdomains.insert(1);
-    //bidomain.init_endocardial_ve(endoIDs, subdomains);
+    bidomain.init_endocardial_ve(endoIDs, subdomains);
     int save_iter = 1;
     int save_iter_ve = 1;
-    //bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
+    bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
     std::cout << "Init Output" << std::endl;
     bidomain.init_exo_output();
     bidomain.save_exo_timestep(save_iter++, datatime.M_time);
@@ -147,6 +152,7 @@ int main(int argc, char ** argv)
     int step1 = 1;
 
     std::cout << "Time loop starts:" << std::endl;
+    int interface_output_iter = static_cast<int>(1.0/datatime.M_dt);
     for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
     {
         datatime.advance();
@@ -163,7 +169,10 @@ int main(int argc, char ** argv)
         //std::cout << "at done:" << datatime.M_time << std::endl;
 
         ++save_iter_ve;
-        //bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
+        if(0 == datatime.M_iter % interface_output_iter)
+        {
+            bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
+        }
 
         if (0 == datatime.M_iter % datatime.M_saveIter)
         {
@@ -352,8 +361,10 @@ void create_fibers(libMesh::EquationSystems& es, GetPot& data)
     auto& grad2 = poisson2.M_equationSystems.get_system<libMesh::ExplicitSystem>(pois2 + "_gradient").solution;
     auto& grad3 = poisson3.M_equationSystems.get_system<libMesh::ExplicitSystem>(pois3 + "_gradient").solution;
 
+    std::cout << "Normalize Gradients ..." << std::flush;
     BeatIt::Util::normalize(*grad2, 0.0, 1.0, 0.0);
     BeatIt::Util::normalize(*grad3, 0.0, 0.0, 1.0);
+    std::cout << " Done!" << std::endl;
 
     auto& mesh = poisson1.M_equationSystems.get_mesh();
     libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
@@ -362,6 +373,7 @@ void create_fibers(libMesh::EquationSystems& es, GetPot& data)
 
     std::vector<libMesh::dof_id_type> dof_indices;
 
+    std::cout << "Create Fibers ..." << std::flush;
     for (; el != end_el; ++el)
     {
         libMesh::Elem * elem = *el;
@@ -385,8 +397,13 @@ void create_fibers(libMesh::EquationSystems& es, GetPot& data)
         grad1->set(dof_indices[2], fz);
 
     }
+    std::cout << " Done!" << std::endl;
+
+    std::cout << "Normalize fibers ..." << std::flush;
 
     BeatIt::Util::normalize(*grad1, 1.0, 0.0, 0.0);
+    std::cout << " Done!" << std::endl;
+
 
     //get solver type
     std::string solver_type = data("solver", "bidomain");
@@ -414,19 +431,23 @@ void create_fibers(libMesh::EquationSystems& es, GetPot& data)
     // XFibers
     auto& xfibers = xfiber_system.solution;
 
+    std::cout << "Copying fiber fields ... " << std::flush;
+    grad1->close();
+    grad2->close();
+    grad3->close();
     // Set fibers;
     *fibers = *grad1;
     *sheets = *grad2;
     *xfibers = *grad3;
-
+    std::cout << "Done! " << std::endl;
     double endo_angle = data("endo_angle", 0.0);
     double epi_angle = data("epi_angle", 0.0);
     auto& phi = poisson2.get_P0_solution();
     rotate_fibers(*phi, *fibers, *sheets, *xfibers, endo_angle, epi_angle);
 
-    poisson1.deleteSystems();
-    poisson2.deleteSystems();
-    poisson3.deleteSystems();
+    //poisson1.deleteSystems();
+    //poisson2.deleteSystems();
+    //poisson3.deleteSystems();
 
     std::string fibers_file_name = data("output_file", "fibers.exo");
     libMesh::ExodusII_IO exporter(mesh);

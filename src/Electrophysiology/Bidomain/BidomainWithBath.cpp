@@ -180,8 +180,8 @@ void BidomainWithBath::setupSystems(GetPot& data, std::string section)
 
     wave_system.add_matrix("Ki");
     wave_system.add_vector("KiV");
-    M_exporterNames.insert("wave");
     wave_system.init();
+    M_exporterNames.insert("wave");
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////

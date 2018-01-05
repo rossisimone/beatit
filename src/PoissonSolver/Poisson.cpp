@@ -124,6 +124,7 @@ Poisson::setup(const GetPot& data, std::string section )
     //Read output folder from datafile
     std::string output_folder = M_datafile(section+"/output_folder",  "Output");
     M_outputFolder = "./" + output_folder + "/";
+    std::cout << "* POISSON: Output folder: " << M_outputFolder << std::endl;
         // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Starts by creating the equation systems
@@ -246,7 +247,7 @@ const
 libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_P0_solution()
 {
-    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<PoissonSystem>(M_myNameP0);
+    libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameP0);
     return s_system.solution;
 }
 

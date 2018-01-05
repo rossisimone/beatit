@@ -112,6 +112,7 @@ public:
 
     virtual void setup(GetPot& /*data*/, std::string /*section*/) {}
 
+    // Number of variables inlcluding transmembrane potential
     int numVariables()
     {
     	return M_numVariables;

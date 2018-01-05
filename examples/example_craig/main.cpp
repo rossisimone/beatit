@@ -31,7 +31,7 @@
 #include "libmesh/transient_system.h"
 
 #include "libmesh/wrapped_functor.h"
-#include "libmesh/mesh.h"
+#include "libmesh/parallel_mesh.h"
 #include "libmesh/elem.h"
 
 #include "libmesh/mesh_generation.h"
@@ -75,7 +75,7 @@ int main(int argc, char ** argv)
     // Create a mesh with user-defined dimension on the default MPI
     // communicator.
     int dim = 2;
-    Mesh mesh(init.comm(), dim);
+    libMesh::ParallelMesh mesh(init.comm());
 
     // Read FE order from command line
     std::string order = "FIRST";
