@@ -530,9 +530,20 @@ namespace BeatIt
         ss << std::setw(4) << std::setfill('0') << step;
         std::string step_str = ss.str();
 
+        //save in subfolder
+        std::string subfolder = M_outputFolder +"/step_"+step_str;
+        struct stat out_dir;
+        if (stat(&subfolder[0], &out_dir) != 0)
+        {
+            if (M_equationSystems.get_mesh().comm().rank() == 0)
+            {
+                mkdir(subfolder.c_str(), 0777);
+            }
+        }
+
         std::cout << "* " << M_model << ": VTKIO::Exporting " << step << " in: " << M_outputFolder << " ... " << std::flush;
-        M_exporter->write_equation_systems(M_outputFolder + M_model + step_str + ".pvtu.", M_equationSystems, &M_exporterNames);
-        M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model" + step_str + ".pvtu", M_equationSystems,
+        M_exporter->write_equation_systems(subfolder + "/" + M_model + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
+        M_ionicModelExporter->write_equation_systems(subfolder + "/ionic_model" + step_str + ".pvtu", M_equationSystems,
                 &M_ionicModelExporterNames);
         std::cout << "done " << std::endl;
     }
