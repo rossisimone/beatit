@@ -179,19 +179,6 @@ TP06::initialize(std::vector<double>& variables)
 }
 
 
-//! Solve method
-/*!
- *  \param [in] variables Vector containing the local value of all variables
- *  \param [in] appliedCurrent value of the applied current
- *  \param [in] dt        Timestep
- */
-void
-TP06::solve(std::vector<double>& variables, double appliedCurrent, double dt)
-{
-	updateVariables(variables, appliedCurrent, dt);
-    variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
-}
-
 //! Update all the variables in the ionic model
 /*!
  *  \param [in] variables Vector containing the local value of all variables
@@ -201,7 +188,7 @@ void
 TP06::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
 	// For compatibility  with the original code where the applied stimulus in opposite
-	Istim = -appliedCurrent;
+	Istim = appliedCurrent;
     step(variables, dt);
 }
 
@@ -214,26 +201,19 @@ TP06::updateVariables(std::vector<double>& variables, double appliedCurrent, dou
 double
 TP06::evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt)
 {
-	// For compatibility  with the original code where the applied stimulus in opposite
-	return -Itot;
+	return Itot;
 
 }
 
 double
-TP06::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
-{
- return -dItot;
-}
-
-double
-TP06::evaluatedIonicCurrent( std::vector<double>& variables,
+TP06::evaluateIonicCurrentTimeDerivative( std::vector<double>& variables,
                                      std::vector<double>& old_variables,
                                      double dt,
                                      double h )
 {
     double svolt = variables[0];
     double Q = old_variables[0];
-    double dIdV = -dItot;
+    double dIdV = dItot;
 
     double Cai   = variables[1];
     double CaSR  = variables[2];
@@ -304,7 +284,7 @@ TP06::evaluatedIonicCurrent( std::vector<double>& variables,
     //IpK=GpK*rec_ipK*(svolt-Ek);
     //IbNa=GbNa*(svolt-Ena);
     //IbCa=GbCa*(svolt-Eca);
-    double dI =dIdV * Q - dINa - dICaL - dIto - dIKr - dIKs - dINaCa - dINaK - dIpCa;
+    double dI = dIdV * Q + dINa + dICaL + dIto + dIKr + dIKs + dINaCa + dINaK + dIpCa;
     return dI;
 
 }
@@ -390,8 +370,8 @@ TP06::step(std::vector<double>& variables, double dt)
            INaK  +
            INaCa +
            IpCa  +
-           IpK   +
-           Istim;
+           IpK;/*   +
+           Istim;*/
 
     //Compute currents derivatives
     double dINa=GNa*sm*sm*sm*sh*sj;

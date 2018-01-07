@@ -1173,30 +1173,29 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
     auto& total_current = iion_system.get_vector("total_current");
     total_current.zero();
     // RHS part:
+    // Evaluate
 
-    // commmon part is: dt * Chi * M * I^n
+    // commmon part is: -dt * Chi * M * I^n
     //iion_system.solution->scale(dt*Chi);
-    switch(M_timeIntegrator)
+    if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
     {
-        case TimeIntegrator::SecondOrderIMEX:
-        {
             // SBDF2
             double cdt = 2.0/3.0*dt;
             // RHS WAVE = Cm * tau / cdt * M * ( 4/3 Q^n - 1/3 Q^n-1 )
             //          - K * Z^n                            // Z^n = 4/3 V^n - 1/3V^n-1
-            //          + M * ( 2*I^n-I^n-1) + tau * M * ( 2*dI^n-dI^n-1) + M * Istim
+            //          - M * ( 2*I^n-I^n-1) - tau * M * ( 2*dI^n-dI^n-1) - M * Istim
 
-            // First compute 2*I^n - I^n-1+ 2*tau * dI^n - tau * dI^n-1 + Istim
+            // First compute -( 2*I^n - I^n-1+ 2*tau * dI^n - tau * dI^n-1 + Istim )
             // 2 * I^n
-            total_current.add(2.0, *iion_system.solution);
+            total_current.add(-2.0, *iion_system.solution);
             // - I^n-1
-            total_current.add(-1.0, *iion_system.old_local_solution);
+            total_current.add(1.0, *iion_system.old_local_solution);
             // 2 * tau * dI^n
-            total_current.add(2.0 * tau, iion_system.get_vector("diion"));
+            total_current.add(-2.0 * tau, iion_system.get_vector("diion"));
             // - tau * dI^n-1
-            total_current.add(-tau, iion_system.get_vector("diion_old"));
+            total_current.add(tau, iion_system.get_vector("diion_old"));
             // Istim
-            total_current.add(1.0, *istim_system.solution);
+            total_current.add(-1.0, *istim_system.solution);
 
             // Then compute M * ( I^n + tau * dI^n + Istim ) = M * total_current
             // adding it to the system RHS
@@ -1221,24 +1220,22 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
             // K * aux2
             monodomain_system.get_matrix("stiffness").vector_mult_add(*monodomain_system.rhs, aux2);
 
-            break;
-        }
-        case TimeIntegrator::FirstOrderIMEX:
-        default:
-        {
+    }
+    else
+    {
             // SBDF1
             double cdt = dt;
             // RHS WAVE = Cm * tau / cdt * M * Q^n
             //          - K * Z^n                            // Z^n = V^n
-            //          + M * I^n + tau * M * dI^n + M * Istim
+            //          - M * I^n - tau * M * dI^n - M * Istim
 
-            // First compute I^n + tau * dI^n + Istim
+            // First compute -(I^n + tau * dI^n + Istim)
             // I^n
-            total_current.add(1.0, *iion_system.solution);
+            total_current.add(-1.0, *iion_system.solution);
             // tau * dI^n
-            total_current.add(tau, iion_system.get_vector("diion"));
+            total_current.add(-tau, iion_system.get_vector("diion"));
             // Istim
-            total_current.add(1.0, *istim_system.solution);
+            total_current.add(-1.0, *istim_system.solution);
 
             // Then compute M * ( I^n + tau * dI^n + Istim ) = M * total_current
             // adding it to the system RHS
@@ -1259,9 +1256,6 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
             // Then we added to the RHS
             // K * aux2
             monodomain_system.get_matrix("stiffness").vector_mult_add(*monodomain_system.rhs, aux2);
-
-            break;
-        }
     }
 //    monodomain_system.get_matrix(mass).vector_mult_add(*monodomain_system.rhs, *iion_system.solution);
 //

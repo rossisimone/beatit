@@ -36,4 +36,18 @@ IonicModel::updateVariables(std::vector<double>& variables, std::vector<double>&
     updateVariables(variables, appliedCurrent, dt);
 };
 
+
+void
+IonicModel::solve( std::vector<double>& variables,
+                   double appliedCurrent,
+                   double dt)
+{
+    updateVariables(variables, appliedCurrent, dt);
+    // evaluateIonicCurrent does not containe appliedCurrent
+    // Cm dV/dt = - Iion - Istim
+    variables[0] += dt * (- evaluateIonicCurrent(variables, appliedCurrent, dt) - appliedCurrent);
+}
+
+
+
 } // namespace BeatIt

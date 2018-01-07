@@ -180,6 +180,7 @@ void BidomainWithBath::setupSystems(GetPot& data, std::string section)
 
     wave_system.add_matrix("Ki");
     wave_system.add_vector("KiV");
+    wave_system.add_vector("aux");
     wave_system.init();
     M_exporterNames.insert("wave");
 
@@ -471,7 +472,12 @@ void BidomainWithBath::initSystems(double time)
 
 void BidomainWithBath::assemble_matrices(double dt)
 {
-    // Implemented only FirstOrderIMEX
+    // Coefficient for matrix
+    double cdt = dt;
+    if(M_timestep_counter > 0 && M_timeIntegrator == TimeIntegrator::SecondOrderIMEX)
+    {
+        cdt = 2.0 / 3.0 * dt;
+    }
 
     using libMesh::UniquePtr;
 
@@ -775,18 +781,18 @@ void BidomainWithBath::assemble_matrices(double dt)
                         Mel(i + n_Q_dofs, i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Fe(i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
 
-                        // Block QQ : ( tau_i + dt ) * Cm * M_L + dt^2 * Ki
+                        // Block QQ :  ( ( tau_i / cdt + dt ) * Cm * M_L + cdt * Ki )
                         // Using lumped mass matrix
-                        Ke(i, i) += (tau_i + dt) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                        Ke(i, j) += dt * dt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
-                        // Block QVe : dt * Ki
+                        Ke(i, i) += ( 1.0 + tau_i/cdt ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                        Ke(i, j) += cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
+                        // Block QVe : Ki
                         // Using lumped mass matrix
-                        Ke(i, j + n_Q_dofs) += dt * JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
+                        Ke(i, j + n_Q_dofs) += JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
 
-                        // Block VeQ : (tau_i-tau_e) / dt * Cm * M + dt * Ki
+                        // Block VeQ : (tau_i-tau_e) / cdt * Cm * M + dt * Ki
                         // Using lumped mass matrix
-                        Ke(i + n_Q_dofs, i) += (tau_i - tau_e) / dt * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-                        Ke(i + n_Q_dofs, j) += dt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
+                        Ke(i + n_Q_dofs, i) += (tau_i - tau_e) / cdt * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                        Ke(i + n_Q_dofs, j) += cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 
                         // Block VeVe : Kie
                         // Using lumped mass matrix
@@ -1073,21 +1079,17 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     // Evaluate vector Ki*V^n
     wave_system.get_vector("KiV").zero();
     wave_system.get_vector("KiV").close();
+    wave_system.get_vector("aux").zero();
+    wave_system.get_vector("aux").close();
     wave_system.get_matrix("Ki").close();
-//  wave_system.get_matrix("Ki").print();
-    // NOTE: We use wave_system.solution  because here V has not been updated yet.
-    //       So the vector still stores V^n
-    wave_system.get_matrix("Ki").vector_mult_add(wave_system.get_vector("KiV"), *wave_system.old_local_solution);
-    //wave_system.get_matrix("Ki").print();
-    //wave_system.get_vector("KiV").print();
-//    std::cout <<" KiV" << std::endl;
-//
-//    wave_system.get_vector("KiV").print();
 
     // Evaluate
     // RHS_Q  = M * (tau_i * Cm * Q^n + dt * Iion + dt * tau_i * dIion )
     // RHS_Ve  = M * [ ( tau_i - tau_e ) / dt * Cm * Q^n + ( tau_i - tau_e ) dIion )
     double Qn = 0.0;
+    double Vn = 0.0;
+    double kv = 0.0;
+
     double istim = 0.0;
     double stim_i = 0.0;
     double surf_stim_i = 0.0;
@@ -1132,24 +1134,77 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
         surf_stim_i = istim_system.get_vector("surf_stim_i")(dof_indices_istim[0]); //Istim^n+1
         stim_e = istim_system.get_vector("stim_e")(dof_indices_istim[0]); //Istim^n+1
         surf_stim_e = istim_system.get_vector("surf_stim_e")(dof_indices_istim[0]); //Istim^n+1
-
+		rhsve = 0.0;
+		
         if (n_var == n_dofs)
         {
             dof_map.dof_indices(nn, dof_indices_Q, 0);
             dof_map_iion.dof_indices(nn, dof_indices_iion, 0);
             dof_map_V.dof_indices(nn, dof_indices_V, 0);
             Qn = (*bidomain_system.old_local_solution)(dof_indices_Q[0]); //Q^n
+            Vn = (*wave_system.old_local_solution)(dof_indices_V[0]);
             Iion = (*iion_system.solution)(dof_indices_iion[0]); //Iion^* (it contains Istim)
             dIion = iion_system.get_vector("diion")(dof_indices_iion[0]); // dIion^*
 
-            rhsq = dt * (Iion + tau_i * dIion + istim);
-            rhs_oldq = tau_i * Cm * Qn;
-            rhs_oldve = (tau_i - tau_e) / dt * Cm * Qn;
+            // BFE:
+               // RHS_Q  = tau_i / cdt * Cm * M * Q^n   - M * I^n - tau_i * M * dI^n - Ki * V^n
+               // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n - ( tau_i - tau_e ) dI^n s - Ki * V^n
+               // SBDF2
+               // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]   - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )  - Ki * [4/3*V^n-1/3*V^n-1]
+               // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 ) - Ki * [4/3*V^n-1/3*V^n-1]
+
+               if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+               {
+                   Iion = (*iion_system.solution)(dof_indices_V[0]); //Iion^* (it contains Istim)
+                   dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
+                   double Q_nm1 = (*bidomain_system.older_local_solution)(dof_indices_Q[0]); //Q^n
+                   double V_nm1 = (*wave_system.older_local_solution)(dof_indices_V[0]);
+                   double dIion_old = iion_system.get_vector("diion_old")(dof_indices_V[0]); // dIion^*
+                   double Iion_old = (*iion_system.old_local_solution)(dof_indices_V[0]); // dIion^*
+
+                   double cdt = 2.0/3.0*dt;
+                   // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]   - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )  - Ki * [4/3*V^n-1/3*V^n-1]
+                   // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 ) - Ki * [4/3*V^n-1/3*V^n-1]
+
+
+                   // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
+                   rhsq = - (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                   // RHS_Ve =  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 )
+                   rhsve =  (tau_e - tau_i) * ( 2 * dIion - dIion_old ) - 0 * (stim_i + stim_e);
+                   // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
+                   rhs_oldq = tau_i / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                   // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]
+                   rhs_oldve = (tau_i - tau_e) / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+
+                   // Form: 4/3*Vn - 1/3 V^n-1
+                   kv = ( 4 * Vn - V_nm1 ) / 3.0;
+
+               }
+               else
+               {
+                   // RHS_Q  = tau_i / cdt * Cm * M * Q^n   - M * I^n - tau_i * M * dI^n - Ki * V^n
+                   // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n - ( tau_i - tau_e ) dI^n s - Ki * V^n
+
+                   double cdt = dt;
+                   // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
+                   rhsq = - (Iion + tau_i * dIion + istim);
+                   // RHS_Ve  = -( tau_i - tau_e ) dI^n
+                   rhsve = (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e);
+                   // RHS_Q  = tau_i / cdt * Cm * M * Q^n
+                   rhs_oldq = tau_i  / cdt * Cm * Qn;
+                   // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n
+                   rhs_oldve = (tau_i - tau_e) / cdt * Cm * Qn;
+
+                   // Form: Vn
+                   kv = Vn;
+
+               }
             bidomain_system.get_vector("old_solution").set(dof_indices_Q[0], rhs_oldq);
             bidomain_system.get_vector("old_solution").set(dof_indices_Ve[0], rhs_oldve);
             bidomain_system.get_vector("ionic_currents").set(dof_indices_Q[0], rhsq);
+            wave_system.get_vector("aux").set(dof_indices_V[0], kv);
 
-            rhsve += (tau_e - tau_i) * dIion;
+            //rhsve += (tau_e - tau_i) * dIion;
 
         }
 
@@ -1159,24 +1214,15 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
 
     bidomain_system.get_vector("old_solution").close();
     bidomain_system.get_vector("ionic_currents").close();
+    wave_system.get_vector("aux").close();
 
-//    std::cout <<" Iion" << std::endl;
-//    bidomain_system.get_vector("ionic_currents").print();
-//    std::cout << "I ion" << std::endl;
-//
-//    bidomain_system.get_vector("ionic_currents").print();
-//    std::cout << "I ion" << std::endl;
+    // RHS * MASS MATRIX
     bidomain_system.rhs->add_vector(bidomain_system.get_vector("ionic_currents"), bidomain_system.get_matrix("mass"));
-//    std::cout <<" M Iion" << std::endl;
-//    bidomain_system.rhs->print();
-
-//    bidomain_system.get_vector("ionic_currents").print();
-//            bidomain_system.rhs->print();
-    //bidomain_system.get_vector("ionic_currents").print();
-    //bidomain_system.rhs->print();
+    // RHS * LUMPED MASS MATRIX
     bidomain_system.rhs->add_vector(bidomain_system.get_vector("old_solution"), bidomain_system.get_matrix("lumped_mass"));
-//    std::cout <<" ML Qn" << std::endl;
-//    bidomain_system.rhs->print();
+    // NOTE: We use wave_system.solution  because here V has not been updated yet.
+    //       So the vector still stores V^n
+    wave_system.get_vector("KiV").add_vector(wave_system.get_vector("aux"),wave_system.get_matrix("Ki"));
 
     // Add KiVn to the rhs
     double KiVn = 0.0;
@@ -1195,7 +1241,7 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
             dof_map.dof_indices(nn, dof_indices_Q, 0);
             dof_map.dof_indices(nn, dof_indices_Ve, 1);
             KiVn = wave_system.get_vector("KiV")(dof_indices_V[0]);
-            bidomain_system.rhs->add(dof_indices_Q[0], -dt * KiVn);
+            bidomain_system.rhs->add(dof_indices_Q[0], -KiVn);
             bidomain_system.rhs->add(dof_indices_Ve[0], -KiVn);
         }
     }
@@ -1212,6 +1258,12 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
 }
 void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string& mass, bool reassemble)
 {
+
+    // If we are using SBDF2 we need to form the matrix at the second timestep
+    if(M_timestep_counter == 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+    {
+        assemble_matrices(dt);
+    }
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 
@@ -1256,8 +1308,21 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
         }
     }
     wave_system.solution->close();
-    wave_system.solution->scale(dt);
-    *wave_system.solution += *wave_system.old_local_solution;
+    // 2) Evaluate V_n + dt * Q_n+1
+
+    if(1 == M_timestep_counter || TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
+    {
+        wave_system.solution->scale(dt);
+        *wave_system.solution += *wave_system.old_local_solution;
+    }
+    else
+    {
+        // Use BDF2
+        // V^n+1 = 4/3 V^n - 1/3 V^n + 2/3 dt * Q^n+1
+        wave_system.solution->scale(2.0/3.0*dt);
+        wave_system.solution->add( 4.0/3.0, *wave_system.old_local_solution);
+        wave_system.solution->add(-1.0/3.0, *wave_system.older_local_solution);
+    }
 
 }
 

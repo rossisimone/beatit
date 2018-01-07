@@ -78,7 +78,7 @@ struct Stimulus
                         tf += cl;
                         on = false;
                 }
-                if(on) return amp;
+                if(on) return -amp;
                 else return 0.0;
         }
 };

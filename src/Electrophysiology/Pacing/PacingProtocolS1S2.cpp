@@ -68,7 +68,7 @@ PacingProtocolS1S2::setup(const GetPot& data, std::string section)
     std::cout << "* PacingProtocolS1S2: reading  from input file" << std::endl;
     M_S1cycleLength  = data( section+"/s1_cycle_length", 60.);
     M_S2cycleLength  = data( section+"/s2_cycle_length", 60.);
-    M_amplitude  = data( section+"/amplitude", 10.);
+    M_amplitude  = data( section+"/amplitude", -10.);
     M_startTime  = data( section+"/start_time", 0.0);
     M_duration = data( section+"/duration", 1.0);
     M_endTime = M_startTime + M_duration;

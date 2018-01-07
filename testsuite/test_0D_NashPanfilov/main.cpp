@@ -68,7 +68,7 @@ struct Pacing
         // See description of the update method for more info
         update(t);
         // If stimulus is active the return it's amplitude
-        if(on) return amplitude;
+        if(on) return -amplitude;
         // else return 0
         else return 0.0;
     }

@@ -209,7 +209,7 @@ int main(int argc, char ** argv)
   			< BidomainSystem > ("wave");
   	double sol_norm = bidomain_system.solution->l2_norm();
     std::cout << std::setprecision(25) << "pot norm = " << sol_norm << std::endl;
-    const double reference_value = 353.483846437377621896303;
+    const double reference_value =  353.4899764682213572086766;
     return BeatIt::CTest::check_test(sol_norm, reference_value, 1e-8);
 }
 

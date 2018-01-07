@@ -84,14 +84,6 @@ NashPanfilov::setup(GetPot& data, std::string sect)
 	M_epsilon = data(section+"/epsilon",   0.01);
 }
 
-
-void
-NashPanfilov::solve(std::vector<double>& variables, double appliedCurrent, double dt)
-{
-    updateVariables(variables, appliedCurrent, dt);
-    variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
-}
-
 void
 NashPanfilov::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
@@ -149,18 +141,20 @@ NashPanfilov::evaluateIonicCurrent(std::vector<double>& variables, double applie
 {
     double V = variables[0];
     double r = variables[1];
-    return  - M_k * V * (V - 1.0) * (V - M_a) - r * V + appliedCurrent;
+    //do not include appliedCurrent
+    return  M_k * V * (V - 1.0) * (V - M_a) + r * V;
 }
 double
 NashPanfilov::evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
 {
+    //do not include appliedCurrent
     double V = v_n[0];
     double r = v_n[1];
-   double f_n =  - M_k * V * (V - 1.0) * (V - M_a) - r * V + appliedCurrent;
+   double f_n =  M_k * V * (V - 1.0) * (V - M_a) + r * V;
    V = v_np1[0];
    r = v_np1[1];
 
-   double f_np1 = - M_k * V * (V - 1.0) * (V - M_a) - r * V + appliedCurrent;
+   double f_np1 = M_k * V * (V - 1.0) * (V - M_a) + r * V;
 
     return 0.5 * (f_n+f_np1);
 
@@ -170,26 +164,20 @@ double
 NashPanfilov::evaluateIonicCurrent(double V, std::vector<double>& variables, double appliedCurrent, double dt)
 {
     double r = variables[0];
-    return  - M_k * V * (V - 1.0) * (V - M_a) - r * V + appliedCurrent;
+    //do not include appliedCurrent
+    return  M_k * V * (V - 1.0) * (V - M_a) + r * V;
 }
 
 double
-NashPanfilov::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
-{
-    double V = variables[0];
-    double r = variables[1];
-    return  - M_k * ( (V - 1.0) * (V - M_a) +  V * (V - M_a) + V * (V - 1.0) ) - r;
-}
-double
-NashPanfilov::evaluatedIonicCurrent( std::vector<double>& variables,
+NashPanfilov::evaluateIonicCurrentTimeDerivative( std::vector<double>& variables,
                                      std::vector<double>& gating_rhs,
                                      double dt,
                                      double h )
 {
     double V = variables[0];
     double r = variables[1];
-    double dIdV =  - M_k * ( (V - 1.0) * (V - M_a) +  V * (V - M_a) + V * (V - 1.0) ) - r;
-    double dIdr =  - V;
+    double dIdV =  M_k * ( (V - 1.0) * (V - M_a) +  V * (V - M_a) + V * (V - 1.0) ) + r;
+    double dIdr =  V;
     double Q = gating_rhs[0];
     double dr = gating_rhs[1];
     return dIdV * Q + dIdr * dr;

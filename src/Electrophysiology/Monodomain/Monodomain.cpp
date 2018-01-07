@@ -1080,6 +1080,7 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 
     	M_ionicModelPtr->updateVariables(values, istim, dt);
         double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
+        Iion += istim;
         monodomain_system.get_vector("ionic_currents").set(i,Iion);
         for(int nv = 0; nv < num_vars; ++nv)
         {
@@ -1129,6 +1130,8 @@ Monodomain::solve_reaction_step(double dt, double time, int step, bool useMidpoi
 
 			M_ionicModelPtr->updateVariables(val_n, val_np1, istim, dt);
 			double Iion = M_ionicModelPtr->evaluateIonicCurrent(val_n, val_np1, istim, dt);
+	        Iion += istim;
+
 			monodomain_system.get_vector("ionic_currents").set(i,Iion);
 			for(int nv = 0; nv < num_vars; ++nv)
 			{

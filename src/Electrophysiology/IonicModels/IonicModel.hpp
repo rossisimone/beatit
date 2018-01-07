@@ -36,7 +36,7 @@ public:
 	 *  \param [in] appliedCurrent value of the applied current
 	 *  \param [in] dt        Timestep
 	 */
-    virtual void solve(std::vector<double>& variables, double appliedCurrent, double dt) = 0;
+    virtual void solve(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 1e-3);
 
 	//! Update all the variables in the ionic model
 	/*!
@@ -73,7 +73,7 @@ public:
     {
         return 0.0;
     }
-    virtual double evaluatedIonicCurrent(std::vector<double>& /*variables*/, std::vector<double>& /*old_variables*/, double /*dt = 0.0*/, double /*h = 0.0*/)
+    virtual double evaluateIonicCurrentTimeDerivative(std::vector<double>& /*variables*/, std::vector<double>& /*old_variables*/, double /*dt = 0.0*/, double /*h = 0.0*/)
     {
         return 0.0;
     }

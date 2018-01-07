@@ -186,18 +186,6 @@ void Courtemanche::initialize(std::vector<double>& variables)
 	variables[26] = 0.6;
 }
 
-//! Solve method
-/*!
- *  \param [in] variables Vector containing the local value of all variables
- *  \param [in] appliedCurrent value of the applied current
- *  \param [in] dt        Timestep
- */
-void Courtemanche::solve(std::vector<double>& variables, double appliedCurrent,
-		double dt)
-{
-	updateVariables(variables, appliedCurrent, dt);
-	variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
-}
 
 //! Evaluate total ionic current for the computation of the potential
 /*!
@@ -208,14 +196,15 @@ void Courtemanche::solve(std::vector<double>& variables, double appliedCurrent,
 double Courtemanche::evaluateIonicCurrent(std::vector<double>& variables,
 		double appliedCurrent, double dt)
 {
-	return -it;
+    // Itot
+	return itot;
 }
 
 void Courtemanche::updateVariables(std::vector<double>& variables,
 		double appliedCurrent, double dt)
 {
 	this->dt = dt;
-	st = -appliedCurrent;
+	//istim = -appliedCurrent;
 	v = variables[0];
 	/*  Ion Concentrations */
 	nai = variables[1];
@@ -343,6 +332,26 @@ void Courtemanche::comp_ina()
 	ina = gna * m * m * m * h * j * (v - ena);
 }
 
+
+double Courtemanche::comp_d_ina(double qn, double dNai, double dm, double dh, double dj)
+{
+    // Ina depends on
+    // v
+    // Nai
+    // m
+    // h
+    // j
+
+    // dIna = dIdv * qn+ dIdNai *dNai + dIdm * dm + dIdh * dh + dIdj * dj
+    double dIdv = gna * m * m * m * h * j;
+    double dena = - ((R * temp) / frdy) / nai;
+    double dIdNai = - gna * m * m * m * h * j * dena;
+    double dIdm = 3 * gna * m * m * h * j * (v - ena);
+    double dIdh = gna * m * m * m * j * (v - ena);
+    double dIdj = gna * m * m * m * h * (v - ena);
+    return dIdv * qn+ dIdNai *dNai + dIdm * dm + dIdh * dh + dIdj * dj;
+}
+
 void Courtemanche::comp_ical()
 {
 	dss = 1 / (1 + exp(-(v + 10) / 8));
@@ -366,6 +375,23 @@ void Courtemanche::comp_ical()
 	ilcatot = ilca;
 }
 
+double Courtemanche::comp_d_ical(double qn, double dd, double df, double dfca)
+{
+    // Ical depends on
+    // v
+    // d
+    // f
+    // fca
+
+    // dIcal = dIdv * qn + dIdd * dd + dIdf * df + dIdfca * dfca
+    double dIdv = d * f * fca * gcalbar;
+    double dIdd = f * fca * ibarca;
+    double dIdf = d * fca * ibarca;
+    double dIdfca = d * f * ibarca;
+    return  dIdv * qn + dIdd * dd + dIdf * df + dIdfca * dfca;
+}
+
+
 void Courtemanche::comp_ikr()
 {
 	gkr = 0.0294 * sqrt(ko / 5.4);
@@ -384,6 +410,26 @@ void Courtemanche::comp_ikr()
 	ikr = gkr * xr * r * (v - ekr);
 }
 
+double Courtemanche::comp_d_ikr(double qn, double dki, double dxr)
+{
+    // Ikr depends on
+    // v
+    // ki
+    // xr
+    // r = r(v)
+
+    // dIkr = dIdv * qn + dIdki * dki + dIdxr * dxr + dIdr * drdv * qn
+    double dIdv = gkr * xr * r ;
+    double dekr = - ((R * temp) / frdy) / ki;
+    double dIdki = - gkr * xr * r * dekr;
+    double dIdxr = gkr * r * (v - ekr);
+    // auxiliary variable
+    double aux = exp((15 + v)/22.4);
+    double drdv = -aux/(22.4*(aux + 1)*(aux + 1));
+    double dIdr = gkr * (v - ekr);
+    return dIdv * qn + dIdki * dki + dIdxr * dxr + dIdr * drdv * qn;
+}
+
 void Courtemanche::comp_iks()
 {
 	gks = 0.129;
@@ -395,6 +441,21 @@ void Courtemanche::comp_iks()
 	xs = xsss - (xsss - xs) * exp(-dt / tauxs);
 
 	iks = gks * xs * xs * (v - eks);
+}
+
+double Courtemanche::comp_d_iks(double qn, double dki, double dxs)
+{
+    // Iks depends on
+    // v
+    // ki
+    // xs
+
+    // dIks = dIdv * qn + dIdki * dki + dIdxs * dxs
+    double dIdv = gks * xs * xs;
+    double deks = - ((R * temp) / frdy) / ki;
+    double dIdki = -gks * xs * xs * deks;
+    double dIdxs = 2 * gks * xs * (v - eks);
+    return dIdv * qn + dIdki * dki + dIdxs * dxs;
 }
 
 void Courtemanche::comp_iki()
@@ -423,6 +484,23 @@ void Courtemanche::comp_iki()
 	 */
 }
 
+
+double Courtemanche::comp_d_iki(double qn, double dki)
+{
+    // Iki depends on
+    // v
+    // ki
+
+    // dIki = dIdv * qn + dIdki * dki + dIdkin * dkindv * qn
+    double deki = - ((R * temp) / frdy) / ki;
+    double dIdv =  gki * kin;
+    double dIdki = - gki * kin * deki;
+    double dIdkin =  gki * (v - eki);
+    double aux = exp(0.07*(80 + v));
+    double dkindv = -(0.07*aux)/(aux + 1)/(aux + 1);
+    return dIdv * qn + dIdki * dki + dIdkin * dkindv * qn;
+}
+
 void Courtemanche::comp_ikach()
 {
 	gkach = 0.135;
@@ -434,6 +512,25 @@ void Courtemanche::comp_ikach()
 
 	yach = yachss - (yachss - yach) * exp(-dt / tauyach);
 	ikach = gkach * yach * (v - ekach) / (1 + exp((v + 20) / 20));
+}
+
+double Courtemanche::comp_d_ikach(double qn, double dki, double dyach)
+{
+    // I depends on
+    // v
+    // ki
+    // yach
+
+    // dIki = dIdv * qn + dIdki * dki + dIdyach  dyach
+    double aux = exp((v + 20) / 20);
+    double dekach = - ((R * temp) / frdy) / ki;
+    double dIdki = - gkach * yach * dekach / (1 + aux);
+
+    double dIdyach = gkach * (v - ekach) / (1 + aux);
+
+    double dIdv =  gkach * yach / (1 + aux)
+                -  gkach * yach * (v - ekach) / (1 + aux) / (1 + aux) / 20;
+    return  dIdv * qn + dIdki * dki + dIdyach * dyach;
 }
 
 void Courtemanche::comp_ikur()
@@ -453,6 +550,33 @@ void Courtemanche::comp_ikur()
 	uikur = uikurss - (uikurss - uikur) * exp(-dt / tauuikur);
 
 	ikur = gkur * uakur * uakur * uakur * uikur * (v - ekur);
+}
+
+double Courtemanche::comp_d_ikur(double qn, double dki, double duakur, double duikur)
+{
+    // I depends on
+    // v
+    // ki
+    // uakur
+    // uikur
+
+    // dIki = dIdv * qn + dIdki * dki + dIdyach  dyach + dIdgkur * dgkurdv * qn
+    double dekur = - ((R * temp) / frdy) / ki;
+    double dIdki = -gkur * uakur * uakur * uakur * uikur * dekur;
+
+    double dIduakur =  3 * gkur * uakur * uakur * uikur * (v - ekur);
+    double dIduikur =  gkur * uakur * uakur * uakur * (v - ekur);
+
+    double dIdv =  gkur * uakur * uakur * uakur * uikur;
+
+    double dIdgkur = uakur * uakur * uakur * uikur * (v - ekur);
+    //     gkur = 0.005 + 0.05 / (1 + exp(-(v - 15) / 13));
+    double aux =  exp(-(v - 15) / 13);
+
+    //daux =
+    double daux = -1.0/13;
+    double dgkurdv =  - 0.05 * aux / (1 + aux) / (1 + aux) * daux;
+    return  dIdv * qn + dIdki * dki + dIduakur * duakur + dIduikur * duikur + dIdgkur * dgkurdv * qn;
 }
 
 void Courtemanche::comp_ito()
@@ -475,8 +599,24 @@ void Courtemanche::comp_ito()
 	ito = gito * ato * ato * ato * iito * (v - erevto);
 }
 
+double Courtemanche::comp_d_ito(double qn, double dki, double dato, double diito)
+{
+    // I depends on
+    // v
+    // ki
+    // ato
+    // iito
+    double dIdv = gito * ato * ato * ato * iito;
+    double derevto = - ((R * temp) / frdy) / ki;
+    double dIdki = - gito * ato * ato * ato * iito * derevto;
+    double dIdato = 3 * gito * ato * ato * iito * (v - erevto);
+    double dIdiito =  gito * ato * ato * ato * (v - erevto);
+    return dIdv * qn  + dIdki * dki + dIdato * dato + dIdiito * diito;
+}
+
 void Courtemanche::comp_inaca()
 {
+    // Inaca depends on v, nai, cai
 	inaca =
 			1750
 					* (exp(gammas * frdy * v / (R * temp)) * nai * nai * nai
@@ -491,6 +631,36 @@ void Courtemanche::comp_inaca()
 															/ (R * temp))));
 }
 
+double Courtemanche::comp_d_inaca(double qn, double dnai, double dcai)
+{
+    // Inaca depends on v, nai, cai
+
+
+    //
+    // Inaca =  1750 * ( ev * nai^3 * cao - ev2 * nao^3 * cai )
+    //           ----------------------------------------------
+    //          (nao^3+ kmnancx^3)*(kmcancx + cao)*(1+ksatncx*ev2)
+    //
+
+    // ev = exp(gammas * frdy * v / (R * temp))
+    double ev =  exp(gammas * frdy * v / (R * temp));
+    double dev = gammas * frdy / (R * temp) * ev;
+
+    double ev2 = exp((gammas - 1) * frdy * v / (R * temp));
+    double dev2 = (gammas - 1) * frdy / (R * temp) * ev2;
+
+    double num = 1750 * (ev* nai * nai * nai* cao - ev2 * nao * nao * nao * cai);
+    double den = (pow(kmnancx, 3) + pow(nao, 3)) * (kmcancx + cao) * (1 + ksatncx * ev2);
+    double ddendev2 = (pow(kmnancx, 3) + pow(nao, 3)) * (kmcancx + cao) * ksatncx;
+    double dIdev = 1750 * nai * nai * nai * cao / den;
+    double dIdev2= - 1750 * nao * nao * nao * cai / den - num / den / den * ddendev2;
+    double dIdv = dIdev * dev + dIdev2 * dev2;
+
+    double dIdnai = 1750 * ( 3 * ev* nai * nai* cao ) / den;
+    double dIdcai = - 1750 * ev2 * nao * nao * nao / den;
+    return dIdv * qn + dIdnai * dnai + dIdcai * dcai;
+}
+
 void Courtemanche::comp_inak()
 {
 	sigma = (exp(nao / 67.3) - 1) / 7;
@@ -501,9 +671,26 @@ void Courtemanche::comp_inak()
 			* (ko / (ko + kmko));
 }
 
+double Courtemanche::comp_d_inak(double qn, double dnai)
+{
+    double dfnakdv = 1.0 / (v + 200) - (v + 150) / (v + 200) / (v + 200);
+    double den = (1 + pow((kmnai / nai), 1.5));
+    double dIdfnak = ibarnak * (1 / den)* (ko / (ko + kmko));
+
+    double dden = -1.5*(den-1) / nai;
+
+    double dIdnai = ibarnak * fnak * (ko / (ko + kmko)) * (-1.0/den/den)*dden;
+    return dIdfnak * dfnakdv * qn + dIdnai * dnai;
+}
+
 void Courtemanche::comp_ipca()
 {
 	ipca = (ibarpca * cai) / (kmpca + cai);
+}
+
+double Courtemanche::comp_d_ipca(double dcai)
+{
+    return  (ibarpca/ (kmpca + cai) - (ibarpca * cai) / (kmpca + cai) / (kmpca + cai) ) * dcai;
 }
 
 void Courtemanche::comp_icab()
@@ -514,6 +701,16 @@ void Courtemanche::comp_icab()
 	icab = gcab * (v - ecan);
 }
 
+
+double Courtemanche::comp_d_icab(double qn, double dcai)
+{
+    double dIdv = gcab;
+    double decan = - ((R * temp) / frdy) / cai;
+    double dIdcai = - gcab * decan;
+    return dIdv * qn + dIdcai * dcai;
+}
+
+
 void Courtemanche::comp_inab()
 {
 	gnab = 0.000674;
@@ -522,13 +719,22 @@ void Courtemanche::comp_inab()
 	inab = gnab * (v - enan);
 }
 
+double Courtemanche::comp_d_inab(double qn, double dnai)
+{
+    double denan = -((R * temp) / frdy) / nai;
+    double dIdv = gnab;
+    double dIdnai = - gnab * denan;
+    return dIdv * qn + dIdnai * dnai;
+}
+
 /* Total sum of currents is calculated here, if the time is between stimtime = 0 and stimtime = 0.5, a stimulus is applied */
 void Courtemanche::comp_it()
 {
 	naiont = ina + inab + 3 * inak + 3 * inaca + 1.5e-2;
 	kiont = ikr + iks + iki - 2 * inak + ito + ikur + ikach + 1.5e-2;
 	caiont = ilca + icab + ipca - 2 * inaca;
-	it = st + naiont + kiont + caiont;
+	// stimulus current added outside
+	itot = /* istim + */ naiont + kiont + caiont;
 }
 
 /* Functions that calculate intracellular ion concentrations begins here */
@@ -602,5 +808,92 @@ void Courtemanche::conc_cai()
 
 	cai = dcai + cai;
 }
+
+
+
+double
+Courtemanche::evaluateIonicCurrentTimeDerivative(std::vector<double>& variables,
+        std::vector<double>& old_variables, double dt,
+        double h )
+{
+    //istim = -appliedCurrent;
+    double qn = old_variables[0];
+//    v = variables[0];
+//    /*  Ion Concentrations */
+    double dnai = ( variables[1] - old_variables[1] ) / dt;
+//    ki = variables[2];
+    double dki = ( variables[2] - old_variables[2] ) / dt;
+//    cai = variables[3];
+    double dcai = ( variables[3] - old_variables[3] ) / dt;
+//
+//    /*  Gate Conditions */
+//    m = variables[4];
+    double dm = ( variables[4] - old_variables[4] ) / dt;
+//    h = variables[5];
+    double dh = ( variables[5] - old_variables[5] ) / dt;
+//    j = variables[6];
+    double dj = ( variables[6] - old_variables[6] ) / dt;
+//    d = variables[7];
+    double dd = ( variables[7] - old_variables[7] ) / dt;
+//    f = variables[8];
+    double df = ( variables[8] - old_variables[8] ) / dt;
+//    xs = variables[9];
+    double dxs = ( variables[9] - old_variables[9] ) / dt;
+//    xr = variables[10];
+    double dxr = ( variables[10] - old_variables[10] ) / dt;
+//    ato = variables[11];
+    double dato = ( variables[11] - old_variables[11] ) / dt;
+//    iito = variables[12];
+    double diito = ( variables[12] - old_variables[12] ) / dt;
+//    uakur = variables[13];
+    double duakur = ( variables[13] - old_variables[13] ) / dt;
+//    uikur = variables[14];
+    double duikur = ( variables[14] - old_variables[14] ) / dt;
+//    fca = variables[15];
+    double dfca = ( variables[15] - old_variables[15] ) / dt;
+//    ireljsrol = variables[16];
+    double direljsrol = ( variables[16] - old_variables[16] ) / dt;
+//
+//    jsr = variables[17];
+    double djsr = ( variables[17] - old_variables[17] ) / dt;
+//    nsr = variables[18];
+    double dnsr = ( variables[18] - old_variables[18] ) / dt;
+//    trpn = variables[19];
+    double dtrpn = ( variables[19] - old_variables[19] ) / dt;
+//    cmdn = variables[20];
+    double dcmdn = ( variables[20] - old_variables[20] ) / dt;
+//    csqn = variables[21];
+    double dcsqn = ( variables[21] - old_variables[21] ) / dt;
+//    urel = variables[22];
+    double durel = ( variables[22] - old_variables[22] ) / dt;
+//    vrel = variables[23];
+    double dvrel = ( variables[23] - old_variables[23] ) / dt;
+//    wrel = variables[24];
+    double dwrel = ( variables[24] - old_variables[24] ) / dt;
+//    yach = variables[25];
+    double dyach = ( variables[25] - old_variables[25] ) / dt;
+//    iky = variables[26];
+    double diky = ( variables[26] - old_variables[26] ) / dt;
+
+    double dItot = 0.0;
+    dItot += comp_d_ina(qn, dnai, dm, dh, dj);
+    dItot += comp_d_ical(qn, dd, df, dfca);
+    dItot += comp_d_ikr(qn, dki, dxr);
+    dItot += comp_d_ikr(qn, dki, dxs);
+    dItot += comp_d_iki(qn, dki);
+    dItot += comp_d_ikach(qn, dki, dyach);
+    dItot += comp_d_ikur(qn, dki, duakur, duikur);
+    dItot += comp_d_ito(qn, dki, dato, diito);
+    dItot += comp_d_inaca(qn, dnai, dcai);
+    dItot += comp_d_inak(qn, dnai);
+    dItot += comp_d_ipca(dcai);
+    dItot += comp_d_icab(qn, dcai);
+    dItot +=  comp_d_inab( qn,  dnai);
+
+    return dItot;
+}
+
+
+
 
 } /* namespace BeatIt */

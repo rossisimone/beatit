@@ -278,13 +278,6 @@ FentonKarma::setup(GetPot& data, std::string sect)
 
 
 void
-FentonKarma::solve(std::vector<double>& variables, double appliedCurrent, double dt)
-{
-    updateVariables(variables, appliedCurrent, dt);
-    variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
-}
-
-void
 FentonKarma::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
     double V = variables[0];
@@ -328,6 +321,7 @@ FentonKarma::updateVariables(std::vector<double>& variables, std::vector<double>
     rhs[1] = ( ( 1-p(V) ) * ( 1 - v ) / tau_v_m - p(V) * v / M_tau_v_p );
     rhs[2] = ( ( 1-p(V) ) * ( 1 - w ) / M_tau_w_m - p(V) * w / M_tau_w_p );
 
+   // overwrite = true if using first order method
   if(overwrite)
   {
       variables[1] += dt * rhs[1];
@@ -359,7 +353,8 @@ FentonKarma::evaluateIonicCurrent(std::vector<double>& variables, double applied
     double Ifi = - v * p(V) * (V- M_V_c) * (1-V) / M_tau_d;
     double Iso = V * ( 1 - p(V) ) / M_tau_0 + p(V) / M_tau_r;
     double Isi = - w * ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;
-    return  - ( Ifi + Iso + Isi ) + appliedCurrent;
+    // Do not include applied current
+    return  Ifi + Iso + Isi;
 }
 double
 FentonKarma::evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent, double dt)
@@ -371,7 +366,7 @@ FentonKarma::evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>&
     double Iso = V * ( 1 - p(V) ) / M_tau_0 + p(V) / M_tau_r;
     double Isi = - w * ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;
 
-   double f_n =  - ( Ifi + Iso + Isi ) + appliedCurrent;
+   double f_n =  ( Ifi + Iso + Isi );
    V = v_np1[0];
    v = v_np1[1];
    w = v_np1[2];
@@ -379,7 +374,7 @@ FentonKarma::evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>&
    Ifi = - v * p(V) * (V- M_V_c) * (1-V) / M_tau_d;
    Iso = V * ( 1 - p(V) ) / M_tau_0 + p(V) / M_tau_r;
    Isi = - w * ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;
-   double f_np1 =  - ( Ifi + Iso + Isi ) + appliedCurrent;
+   double f_np1 =  ( Ifi + Iso + Isi );
 
     return 0.5 * (f_n+f_np1);
 
@@ -393,24 +388,12 @@ FentonKarma::evaluateIonicCurrent(double V, std::vector<double>& variables, doub
     double Ifi = - v * p(V) * (V- M_V_c) * (1-V) / M_tau_d;
     double Iso = V * ( 1 - p(V) ) / M_tau_0 + p(V) / M_tau_r;
     double Isi = - w * ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;
-    return  - ( Ifi + Iso + Isi ) + appliedCurrent;
+    // Do not include applied current
+    return  ( Ifi + Iso + Isi );
 }
 
 double
-FentonKarma::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
-{
-    double V = variables[0];
-    double v = variables[1];
-    double w = variables[2];
-    double dIfi = - v * p(V) * (1-V) / M_tau_d + v * p(V) * (V- M_V_c) / M_tau_d;
-    double dIso = ( 1 - p(V) ) / M_tau_0;
-    double tan = std::tanh(M_kappa * ( V - M_V_c_si ) );
-    double dIsi = M_kappa*w*(tan * tan - 1.0)/(2*M_tau_si);
-    return  - (dIfi + dIso + dIsi);
-}
-
-double
-FentonKarma::evaluatedIonicCurrent( std::vector<double>& variables,
+FentonKarma::evaluateIonicCurrentTimeDerivative( std::vector<double>& variables,
                                      std::vector<double>& rhs,
                                      double dt,
                                      double h )
@@ -422,12 +405,16 @@ FentonKarma::evaluatedIonicCurrent( std::vector<double>& variables,
     double dv = rhs[1];
     double dw = rhs[2];
 
+    //double Ifi = - v * p(V) * (V- M_V_c) * (1-V) / M_tau_d;
+    //double Iso = V * ( 1 - p(V) ) / M_tau_0 + p(V) / M_tau_r;
+    //double Isi = - w * ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;
+    // Itot = Ifi + Iso + Isi
     double dIfi = - v * p(V) * (1-V) / M_tau_d + v * p(V) * (V- M_V_c) / M_tau_d;
     double dIso = ( 1 - p(V) ) / M_tau_0;
     double tan = std::tanh(M_kappa * ( V - M_V_c_si ) );
     double dIsi = M_kappa*w*(tan * tan - 1.0)/(2*M_tau_si);
 
-    double dIdV =  - (dIfi + dIso + dIsi);
+    double dIdV =  (dIfi + dIso + dIsi);
 
     double dIfidv = - p(V) * (V- M_V_c) * (1-V) / M_tau_d;
     double dIsidw = - ( 1 + std::tanh(M_kappa * ( V - M_V_c_si ) ) ) / 2.0 / M_tau_si;

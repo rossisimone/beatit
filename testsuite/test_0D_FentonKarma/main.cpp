@@ -105,7 +105,7 @@ int main (int argc, char ** argv)
 	{
 		if(time >= 0. && time <= 0.5)
 		{
-			Ist = 1.0;
+			Ist = -1.0;
 		}
 		else Ist = 0.0;
 	    // solve one timestep

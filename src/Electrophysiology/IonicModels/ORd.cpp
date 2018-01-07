@@ -236,19 +236,6 @@ ORd::initialize(std::vector<double>& variables)
 }
 
 
-//! Solve method
-/*!
- *  \param [in] variables Vector containing the local value of all variables
- *  \param [in] appliedCurrent value of the applied current
- *  \param [in] dt        Timestep
- */
-void
-ORd::solve(std::vector<double>& variables, double appliedCurrent, double dt)
-{
-	updateVariables(variables, appliedCurrent, dt);
-    variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
-}
-
 //! Update all the variables in the ionic model
 /*!
  *  \param [in] variables Vector containing the local value of all variables
@@ -258,7 +245,7 @@ void
 ORd::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
 	// For compatibility  with the original code where the applied stimulus in opposite
-	Ist = -appliedCurrent;
+	Ist = appliedCurrent;
     revpots(variables);
     RGC(variables, dt);
     FBC(variables, dt);
@@ -269,7 +256,7 @@ void
 ORd::updateVariables(std::vector<double>& variables, std::vector<double>& rhs, double appliedCurrent, double dt, bool overwrite)
 {
     // For compatibility  with the original code where the applied stimulus in opposite
-    Ist = -appliedCurrent;
+    Ist = appliedCurrent;
     revpots(variables);
     RGC(variables, dt);
     FBC(variables, dt);
@@ -284,8 +271,8 @@ double
 ORd::evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt)
 {
 	// For compatibility  with the original code where the applied stimulus in opposite
-	Ist =-appliedCurrent;
-	return -(INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa+INaK+INab+IKb+IpCa+ICab+Ist);
+	Ist =appliedCurrent;
+	return (INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa+INaK+INab+IKb+IpCa+ICab/*+Ist*/);
 
 }
 

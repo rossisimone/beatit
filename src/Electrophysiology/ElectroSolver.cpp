@@ -499,10 +499,9 @@ namespace BeatIt
 
     void ElectroSolver::save_parameters()
     {
-        std::cout << "* " << M_model << ": EXODUSII::Exporting parameters in: " << M_outputFolder << " ... " << std::flush;
-        EXOExporter exo(M_equationSystems.get_mesh());
-        exo.write("parameters.exo");
-        exo.write_element_data(M_equationSystems);
+        std::cout << "* " << M_model << ": VTKIO::Exporting parameters in: " << M_outputFolder << " ... " << std::flush;
+        Exporter vtk(M_equationSystems.get_mesh());
+        vtk.write_equation_systems(M_outputFolder + "parameters.pvtu", M_equationSystems, &M_parametersExporterNames);
         std::cout << "done " << std::endl;
     }
 
@@ -520,7 +519,7 @@ namespace BeatIt
         Exporter vtk(M_equationSystems.get_mesh());
         std::set < std::string > output;
         output.insert("activation_times");
-        vtk.write_equation_systems(M_outputFolder + "activation_times"+std::to_string(step)+".pvtu", M_equationSystems, &output);
+        vtk.write_equation_systems(M_outputFolder + "activation_times_"+std::to_string(step)+".pvtu", M_equationSystems, &output);
         std::cout << "done " << std::endl;
     }
 
@@ -531,19 +530,10 @@ namespace BeatIt
         std::string step_str = ss.str();
 
         //save in subfolder
-        std::string subfolder = M_outputFolder +"/step_"+step_str;
-        struct stat out_dir;
-        if (stat(&subfolder[0], &out_dir) != 0)
-        {
-            if (M_equationSystems.get_mesh().comm().rank() == 0)
-            {
-                mkdir(subfolder.c_str(), 0777);
-            }
-        }
 
         std::cout << "* " << M_model << ": VTKIO::Exporting " << step << " in: " << M_outputFolder << " ... " << std::flush;
-        M_exporter->write_equation_systems(subfolder + "/" + M_model + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
-        M_ionicModelExporter->write_equation_systems(subfolder + "/ionic_model" + step_str + ".pvtu", M_equationSystems,
+        M_exporter->write_equation_systems(M_outputFolder + "/" + M_model + "_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
+        M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model_" + step_str + ".pvtu", M_equationSystems,
                 &M_ionicModelExporterNames);
         std::cout << "done " << std::endl;
     }
@@ -795,7 +785,7 @@ namespace BeatIt
 
                 if (TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
                 {
-                    M_ionicModelPtr->updateVariables(values, istim_zero, dt);
+                    M_ionicModelPtr->updateVariables(values, istim, dt);
 
                 }
                 else // using SBDF2
@@ -804,14 +794,14 @@ namespace BeatIt
                     {
                         bool overwrite = true;
                         // Recall: gating_rhs[0] = Q^n
-                        M_ionicModelPtr->updateVariables(values, gating_rhs, istim_zero, dt, overwrite);
+                        M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
 
                     }
                     else
                     {
                         bool overwrite = false;
                         // Recall: gating_rhs[0] = Q^n
-                        M_ionicModelPtr->updateVariables(values, gating_rhs, istim_zero, dt, overwrite);
+                        M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
                         for (int nv = 0; nv < num_vars; ++nv)
                         {
                             var_index = dof_indices_gating[nv];
@@ -828,12 +818,12 @@ namespace BeatIt
                     }
 
                 }
-                double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero, dt);
+                double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
                 // Recall: gating_rhs[0] = Q^n
                 // HACK: For now, as I've implemented the second order scheme only for a dew ionic models
                 //       I keep everything as it was before I started the implementation of SBDF2
-                if (M_ionicModelPtr->isSecondOrderImplemented()) dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, gating_rhs, dt, M_meshSize);
-                else dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, old_values, dt, M_meshSize);
+                if (M_ionicModelPtr->isSecondOrderImplemented()) dIion = M_ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, gating_rhs, dt, M_meshSize);
+                else dIion = M_ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, old_values, dt, M_meshSize);
 
                 double Isac = 0.0;
                 if (I4f_ptr)

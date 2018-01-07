@@ -68,14 +68,7 @@ public:
 	 *
 	 */
 	Courtemanche();
-	//! Solve method
-	/*!
-	 *  \param [in] variables Vector containing the local value of all variables
-	 *  \param [in] appliedCurrent value of the applied current
-	 *  \param [in] dt        Timestep
-	 */
-	void solve(std::vector<double>& variables, double appliedCurrent,
-			double dt);
+
 
 	//! Update all the variables in the ionic model
 	/*!
@@ -112,11 +105,11 @@ public:
 	{
 		return 0.0;
 	}
-	double evaluatedIonicCurrent(std::vector<double>& variables,
-			double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0) { return 0.0; }
-	double evaluatedIonicCurrent(std::vector<double>& variables,
+
+    // NOT YET IMPLEMENTED
+	double evaluateIonicCurrentTimeDerivative(std::vector<double>& variables,
 			std::vector<double>& old_variables, double dt = 0.0,
-			double h = 0.0) { return 0.0; }
+			double h = 0.0);
 
 	//! Initialize the values of the variables
 	/*!
@@ -158,6 +151,20 @@ private:
 	void calc_itr(); /* Calculates Translocation of Ca from NSR to JSR */
 	void conc_cai(); /* Calculates new myoplasmic Ca ion concentration */
 
+	double comp_d_ina(double qn, double dNai, double dm, double dh, double dj);
+	double comp_d_ical(double qn, double dd, double df, double dfca);
+	double comp_d_ikr(double qn, double dki, double dxr);
+	double comp_d_iks(double qn, double dki, double dxs);
+	double comp_d_iki(double qn, double dki);
+	double comp_d_ikach(double qn, double dki, double dyach);
+	double comp_d_ikur(double qn, double dki, double duakur, double duikur);
+	double comp_d_ito(double qn, double dki, double dato, double diito);
+	double comp_d_inaca(double qn, double dnai, double dcai);
+	double comp_d_inak(double qn, double dnai);
+	double comp_d_ipca(double dcai);
+	double comp_d_icab(double qn, double dcai);
+	double comp_d_inab(double qn, double dnai);
+
 	/* Cell Geometry */
 	constexpr static double l = 0.01; /* Length of the cell (cm) */
 	constexpr static double a = 0.0008; /* Radius of the cell (cm) */
@@ -185,8 +192,8 @@ private:
 	double dvdtnew; /* New dv/dt (mV/ms) */
 	double dt;      /* Time step (ms) */
 	double t;       /* Time (ms) */
-	double st;       /* Constant Stimulus (uA/cm^2) */
-	double it;       /* Total current (uA/cm^2) */
+	double istim;       /* Constant Stimulus (uA/cm^2) */
+	double itot;       /* Total current (uA/cm^2) */
 
 	/* Terms for Solution of Conductance and Reversal Potential */
 	const double R = 8314; /* Universal Gas Constant (J/kmol*K) */

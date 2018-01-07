@@ -77,14 +77,6 @@ BistablePiecewiseLinear::setup(GetPot& data, std::string sect)
 	std::cout << "v0: " << M_v0  << std::endl;
 }
 
-
-void
-BistablePiecewiseLinear::solve(std::vector<double>& variables, double appliedCurrent, double dt)
-{
-    updateVariables(variables, appliedCurrent, dt);
-    variables[0] += dt * evaluateIonicCurrent(variables, appliedCurrent, dt);
-}
-
 void
 BistablePiecewiseLinear::updateVariables(std::vector<double>& variables, double appliedCurrent, double dt)
 {
@@ -109,7 +101,7 @@ double
 BistablePiecewiseLinear::evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt)
 {
     double V = variables[0];
-    return  - V + BistablePiecewiseLinear::Heaviside(V) + appliedCurrent;
+    return  V - BistablePiecewiseLinear::Heaviside(V);
 //    return  - V + (0.5 + 0.5 * std::tanh(100*(V - M_alpha) ) ) + appliedCurrent;
 }
 
@@ -124,33 +116,18 @@ BistablePiecewiseLinear::evaluateIonicCurrentH(std::vector<double>& variables, d
     {
     	H = 0.5 * (xi / h + 1);
     }
-    return  - V + H + appliedCurrent;
+    return  V - H;
 }
 
 
 double
-BistablePiecewiseLinear::evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt, double h)
-{
-//    double V = variables[0];
-//    double dH = 0.0;
-//    double xi = V-M_alpha;
-//    if( xi > -h && xi < h)
-//    {
-//    	dH = 0.5 / h;
-//    }
-//    return  -1 + dH;
-    return  -1;
-//    return  - 1 + 100 / t / t;
-}
-
-double
-BistablePiecewiseLinear::evaluatedIonicCurrent( std::vector<double>& variables,
+BistablePiecewiseLinear::evaluateIonicCurrentTimeDerivative( std::vector<double>& variables,
                                      std::vector<double>& rhs,
                                      double dt,
                                      double h )
 {
     double Q = rhs[0];
-    double dIdV =  -1.0;
+    double dIdV =  1.0;
 
     return  dIdV*Q;
 
@@ -162,10 +139,10 @@ BistablePiecewiseLinear::evaluateIonicCurrent(std::vector<double>& v_n, std::vec
 {
     double V = v_n[0];
 //   double f_n =- V + BistablePiecewiseLinear::Heaviside(V) + appliedCurrent;
-       double f_n =- V +  (0.5 + 0.5 * std::tanh(100*(V - M_alpha) ) )+ appliedCurrent;
+       double f_n = V -  (0.5 + 0.5 * std::tanh(100*(V - M_alpha) ) );
    V = v_np1[0];
 //   double f_np1 =- V + BistablePiecewiseLinear::Heaviside(V) + appliedCurrent;
-      double f_np1 =- V +  (0.5 + 0.5 * std::tanh(100*(V - M_alpha) ) ) + appliedCurrent;
+      double f_np1 = V -  (0.5 + 0.5 * std::tanh(100*(V - M_alpha) ) );
     return 0.5 * (f_n+f_np1);
 
 }
@@ -173,7 +150,7 @@ BistablePiecewiseLinear::evaluateIonicCurrent(std::vector<double>& v_n, std::vec
 double
 BistablePiecewiseLinear::evaluateIonicCurrent(double V, std::vector<double>& variables, double appliedCurrent, double dt)
 {
-    return  - V + BistablePiecewiseLinear::Heaviside(V) + appliedCurrent;
+    return  V - BistablePiecewiseLinear::Heaviside(V);
 }
 
 

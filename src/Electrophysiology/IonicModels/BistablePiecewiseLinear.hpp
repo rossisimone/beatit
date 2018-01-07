@@ -72,13 +72,6 @@ public:
      */
     BistablePiecewiseLinear();
     ~BistablePiecewiseLinear() {};
-    //! Solve method
-    /*!
-     *  \param [in] variables Vector containing the local value of all variables (Variables  includes potential)
-     *  \param [in] appliedCurrent value of the applied current
-     *  \param [in] dt        Timestep
-     */
-    void solve(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0);
 
     //! Update all the variables in the ionic model
     /*!
@@ -107,8 +100,7 @@ public:
     double evaluateIonicCurrent(std::vector<double>& variables, double appliedCurrent, double dt);
         virtual double evaluateIonicCurrentH(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
 
-    double evaluatedIonicCurrent(std::vector<double>& variables, double appliedCurrent = 0.0, double dt = 0.0, double h = 0.0);
-    double evaluatedIonicCurrent(std::vector<double>& variables, std::vector<double>& old_variables, double dt = 0.0, double h = 0.0);
+    double evaluateIonicCurrentTimeDerivative(std::vector<double>& variables, std::vector<double>& old_variables, double dt = 0.0, double h = 0.0);
 
     double evaluateIonicCurrent(std::vector<double>& v_n, std::vector<double>& v_np1, double appliedCurrent = 0.0, double dt = 0.0);
 	//! Evaluate total ionic current for the computation of the potential
