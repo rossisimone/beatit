@@ -82,6 +82,12 @@ int main(int argc, char ** argv)
     std::cout << "n_refs: " << n_refinements << std::endl;
     BeatIt::serial_mesh_partition(init.comm(), meshfile, &mesh, n_refinements);
 
+
+    double xscale = data("mesh/x_scale", 1);
+    double yscale = data("mesh/y_scale", 1);
+    double zscale = data("mesh/z_scale", 1);
+    if(xscale != 1 || yscale != 1 || zscale != 1) libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
+
 //    libMesh::ExodusII_IO importer(mesh);
 //
 //    double center_x = 0.0;

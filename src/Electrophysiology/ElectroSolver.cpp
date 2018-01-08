@@ -130,7 +130,11 @@ namespace BeatIt
         {
             if (M_equationSystems.get_mesh().comm().rank() == 0)
             {
-                mkdir(M_outputFolder.c_str(), 0777);
+                //std::system("ls ");
+                //std::system("echo $PWD");
+                auto m = mkdir(M_outputFolder.c_str(), 0777);
+                //std::cout << m << std::endl;
+                if(m != 0) perror("mkdir");
             }
         }
 
@@ -523,13 +527,13 @@ namespace BeatIt
 
     void ElectroSolver::save_potential(int step, double time)
     {
-        std::cout << "* " << M_model << ": EXODUSII::Exporting potential*.pvtu at step " << step << " for time: " << time << " in: " << M_outputFolder << " ... " << std::flush;
+        std::cout << "* " << M_model << ": VTKIO::Exporting potential*.pvtu at step " << step << " for time: " << time << " in: " << M_outputFolder << " ... " << std::flush;
 
         //M_potentialEXOExporter->write_timestep(M_outputFolder + "potential.exo", M_equationSystems, step, time);
         std::ostringstream ss;
         ss << std::setw(4) << std::setfill('0') << step;
         std::string step_str = ss.str();
-        M_exporter->write_equation_systems(M_outputFolder + "/potential_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
+        M_exporter->write_equation_systems(M_outputFolder + "potential_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
         std::cout << "done " << std::endl;
     }
 
@@ -552,7 +556,7 @@ namespace BeatIt
         //save in subfolder
 
         std::cout << "* " << M_model << ": VTKIO::Exporting " << step << " in: " << M_outputFolder << " ... " << std::flush;
-        M_exporter->write_equation_systems(M_outputFolder + "/" + M_model + "_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
+        M_exporter->write_equation_systems(M_outputFolder + M_model + "_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
         M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model_" + step_str + ".pvtu", M_equationSystems,
                 &M_ionicModelExporterNames);
         std::cout << "done " << std::endl;
