@@ -508,17 +508,28 @@ namespace BeatIt
 
     void ElectroSolver::save_parameters()
     {
-        std::cout << "* " << M_model << ": VTKIO::Exporting parameters in: " << M_outputFolder << " ... " << std::flush;
-        Exporter vtk(M_equationSystems.get_mesh());
-        vtk.write_equation_systems(M_outputFolder + "parameters.pvtu", M_equationSystems, &M_parametersExporterNames);
+//        std::cout << "* " << M_model << ": VTKIO::Exporting parameters in: " << M_outputFolder << " ... " << std::flush;
+//        Exporter vtk(M_equationSystems.get_mesh());
+//        vtk.write_equation_systems(M_outputFolder + "parameters.pvtu", M_equationSystems, &M_parametersExporterNames);
+//        std::cout << "done " << std::endl;
+        std::cout << "* " << M_model << ": EXODUSII::Exporting parameters in: "
+                << M_outputFolder << " ... " << std::flush;
+        EXOExporter exo( M_equationSystems.get_mesh() );
+        exo.write(M_outputFolder+"parameters.exo");
+        exo.write_element_data(M_equationSystems);
         std::cout << "done " << std::endl;
+
     }
 
     void ElectroSolver::save_potential(int step, double time)
     {
-        std::cout << "* " << M_model << ": EXODUSII::Exporting potential.exo at time " << time << " in: " << M_outputFolder << " ... " << std::flush;
+        std::cout << "* " << M_model << ": EXODUSII::Exporting potential*.pvtu at step " << step << " for time: " << time << " in: " << M_outputFolder << " ... " << std::flush;
 
-        M_potentialEXOExporter->write_timestep(M_outputFolder + "potential.exo", M_equationSystems, step, time);
+        //M_potentialEXOExporter->write_timestep(M_outputFolder + "potential.exo", M_equationSystems, step, time);
+        std::ostringstream ss;
+        ss << std::setw(4) << std::setfill('0') << step;
+        std::string step_str = ss.str();
+        M_exporter->write_equation_systems(M_outputFolder + "/potential_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
         std::cout << "done " << std::endl;
     }
 

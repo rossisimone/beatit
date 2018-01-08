@@ -1120,7 +1120,7 @@ void Monowave::assemble_matrices(double dt)
     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("mass"));
     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("lumped_mass"));
 
-    form_system_matrix(dt, false, "mass");
+    form_system_matrix(dt, false, "lumped_mass");
 }
 
 void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::string& mass)
