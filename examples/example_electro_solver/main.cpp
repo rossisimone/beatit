@@ -50,7 +50,7 @@
 //#include "libmesh/vtk_io.h"
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
-
+#include "Util/IO/io.hpp"
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
@@ -76,61 +76,67 @@ int main(int argc, char ** argv)
     // communicator.
     ParallelMesh mesh(init.comm());
 
-    libMesh::ExodusII_IO importer(mesh);
+    // We may need XDR support compiled in to read binary .xdr files
+    std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
+    int n_refinements = data("mesh/n_ref", 0);
+    std::cout << "n_refs: " << n_refinements << std::endl;
+    BeatIt::serial_mesh_partition(init.comm(), meshfile, &mesh, n_refinements);
 
-    double center_x = 0.0;
-    //if ((family == "LAGRANGE") && (order == "FIRST"))
-    {
-        std::string meshname = data("mesh/input_mesh_name", "NONE");
-        if (meshname == "NONE")
-        {
-            // allow us to use higher-order approximation.
-            int elX = data("mesh/elX", 10);
-            int elY = data("mesh/elY", 10);
-            int elZ = data("mesh/elZ", 4);
-            double maxX = data("mesh/maxX", 1.0);
-            center_x = 0.5 * maxX;
-            double maxY = data("mesh/maxY", 1.0);
-            double maxZ = data("mesh/maxZ", 0.08);
-            // No reason to use high-order geometric elements if we are
-            // solving with low-order finite elements.
-            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TET4);
-
-            std::cout << "Creating subdomains!" << std::endl;
-
-            {
-                double z_interface = data("mesh/z_interface", 0.0);
-
-                MeshBase::element_iterator el = mesh.elements_begin();
-                const MeshBase::element_iterator end_el = mesh.elements_end();
-
-                for (; el != end_el; ++el)
-                {
-                    Elem * elem = *el;
-                    const Point cent = elem->centroid();
-                    // BATH
-                    if (cent(2) > z_interface)
-                    {
-                        elem->subdomain_id() = 2;
-                    }
-                    // TISSUE
-                    else
-                    {
-                        elem->subdomain_id() = 1;
-                    }
-
-                }
-            }
-            mesh.get_boundary_info().regenerate_id_sets();
-            std::cout << "Creating subdomains done!" << std::endl;
-
-        }
-        else
-        {
-            importer.read(meshname);
-            mesh.prepare_for_use();
-        }
-    }
+//    libMesh::ExodusII_IO importer(mesh);
+//
+//    double center_x = 0.0;
+//    //if ((family == "LAGRANGE") && (order == "FIRST"))
+//    {
+//        std::string meshname = data("mesh/input_mesh_name", "NONE");
+//        if (meshname == "NONE")
+//        {
+//            // allow us to use higher-order approximation.
+//            int elX = data("mesh/elX", 10);
+//            int elY = data("mesh/elY", 10);
+//            int elZ = data("mesh/elZ", 4);
+//            double maxX = data("mesh/maxX", 1.0);
+//            center_x = 0.5 * maxX;
+//            double maxY = data("mesh/maxY", 1.0);
+//            double maxZ = data("mesh/maxZ", 0.08);
+//            // No reason to use high-order geometric elements if we are
+//            // solving with low-order finite elements.
+//            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TET4);
+//
+//            std::cout << "Creating subdomains!" << std::endl;
+//
+//            {
+//                double z_interface = data("mesh/z_interface", 0.0);
+//
+//                MeshBase::element_iterator el = mesh.elements_begin();
+//                const MeshBase::element_iterator end_el = mesh.elements_end();
+//
+//                for (; el != end_el; ++el)
+//                {
+//                    Elem * elem = *el;
+//                    const Point cent = elem->centroid();
+//                    // BATH
+//                    if (cent(2) > z_interface)
+//                    {
+//                        elem->subdomain_id() = 2;
+//                    }
+//                    // TISSUE
+//                    else
+//                    {
+//                        elem->subdomain_id() = 1;
+//                    }
+//
+//                }
+//            }
+//            mesh.get_boundary_info().regenerate_id_sets();
+//            std::cout << "Creating subdomains done!" << std::endl;
+//
+//        }
+//        else
+//        {
+//            importer.read(meshname);
+//            mesh.prepare_for_use();
+//        }
+//    }
     std::cout << "Mesh done!" << std::endl;
 
     // Print information about the mesh to the screen.
@@ -174,6 +180,11 @@ int main(int argc, char ** argv)
     int step0 = 0;
     int step1 = 1;
 
+    auto & V = *es.get_system<libMesh::TransientLinearImplicitSystem>("wave").solution;
+    auto & Vn = *es.get_system<libMesh::TransientLinearImplicitSystem>("wave").old_local_solution;
+    auto & Vnm1 = *es.get_system<libMesh::TransientLinearImplicitSystem>("wave").older_local_solution;
+    auto & Iionn = *es.get_system < libMesh::TransientExplicitSystem > ("iion").solution;
+    auto & Iionnm1 = *es.get_system < libMesh::TransientExplicitSystem > ("iion").old_local_solution;
     std::cout << "Time loop starts:" << std::endl;
     for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
     {
@@ -181,11 +192,31 @@ int main(int argc, char ** argv)
         std::cout << "Time:" << datatime.M_time << std::endl;
         solver->advance();
         //std::cout << "Reaction:" << datatime.M_time << std::endl;
-        solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, iion_mass);
+        //solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, iion_mass);
+        solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, "mass");
 
         //std::cout << "Diffusion:" << datatime.M_time << std::endl;
+        //solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
+        solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, "mass");
 
-        solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
+        //if(datatime.M_iter==1)
+//        if(true){
+//            V.add(-datatime.M_dt, Iionn);
+//        }
+//        else
+//        {
+//            V.zero();
+//            V.add(-4.0/3.0*datatime.M_dt, Iionn);
+//            V.add(2.0/3.0*datatime.M_dt, Iionnm1);
+//            V.add(4.0/3.0, Vn);
+//            V.add(-1.0/3.0, Vnm1);
+//        }
+
+//        {
+//            V.zero();
+//            V.add(1.0, Vn);
+//
+//        }
         //std::cout << "at:" << datatime.M_time << std::endl;
         solver->update_activation_time(datatime.M_time);
         //std::cout << "at done:" << datatime.M_time << std::endl;

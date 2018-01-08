@@ -202,7 +202,16 @@ namespace BeatIt
         ///////////
         // Time integrator
         int time_integrator_order = data(M_section + "/time_integrator_order", 1);
-        if (2 == time_integrator_order && M_ionicModelPtr->isSecondOrderImplemented()) M_timeIntegrator = TimeIntegrator::SecondOrderIMEX;
+        if (2 == time_integrator_order && M_ionicModelPtr->isSecondOrderImplemented())
+        {
+            std::cout << "ELECTROSOLVER: using SBDF order 2 " << std::endl;
+            M_timeIntegrator = TimeIntegrator::SecondOrderIMEX;
+        }
+        else
+        {
+            std::cout << "ELECTROSOLVER: using SBDF order 1 " << std::endl;
+            M_timeIntegrator = TimeIntegrator::FirstOrderIMEX;
+        }
 
         // ///////////////////////////////////////////////////////////////////////
         // ///////////////////////////////////////////////////////////////////////
@@ -594,7 +603,6 @@ namespace BeatIt
         ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
         IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
 
-        *system.older_local_solution = *system.old_local_solution;
         *system.old_local_solution = *system.solution;
         *ionic_model_system.older_local_solution = *ionic_model_system.old_local_solution;
         *ionic_model_system.old_local_solution = *ionic_model_system.solution;
@@ -608,7 +616,6 @@ namespace BeatIt
         *iion_system.older_local_solution = *iion_system.old_local_solution;
         *iion_system.old_local_solution = *iion_system.solution;
         iion_system.get_vector("diion_old") = iion_system.get_vector("diion");
-
     }
 
     std::string ElectroSolver::get_ionic_model_name() const
@@ -790,19 +797,18 @@ namespace BeatIt
                 }
                 else // using SBDF2
                 {
-                    if (M_timestep_counter == 0)
+                    if (M_timestep_counter >= 0)
                     {
                         bool overwrite = true;
                         // Recall: gating_rhs[0] = Q^n
                         M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
-
                     }
                     else
                     {
                         bool overwrite = false;
                         // Recall: gating_rhs[0] = Q^n
                         M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
-                        for (int nv = 0; nv < num_vars; ++nv)
+                        for (int nv = 0; nv < values.size(); ++nv)
                         {
                             var_index = dof_indices_gating[nv];
                             ionic_model_system.rhs->set(var_index, gating_rhs[nv + 1]);
@@ -813,7 +819,7 @@ namespace BeatIt
                             // Update using SBDF2
                             // w^n+1 = 4/3 * w^n - 1/3 * w^n-1 + 2/3*dt * (2*f^n - f^n-1)
                             // w^n+1 = ( 4 * w^n - w^n-1 + 2 * dt * (2*f^n - f^n-1) ) / 3
-                            values[nv + 1] += (4.0 * values[nv + 1] - old_values[nv + 1] + 2.0 * dt * (2 * f_n - f_nm1)) / 3;
+                            values[nv + 1] = (4.0 * values[nv + 1] - old_values[nv + 1] + 2.0 * dt * (2 * f_n - f_nm1)) / 3;
                         }
                     }
 
@@ -865,6 +871,10 @@ namespace BeatIt
         istim_system.get_vector("surf_stim_e").close();
         ionic_model_system.solution->close();
         iion_system.get_vector("diion").close();
+        iion_system.get_vector("diion_old").close();
+        ionic_model_system.get_vector("rhs_old").close();
+        ionic_model_system.rhs->close();
+
         iion_system.update();
         ionic_model_system.update();
         istim_system.update();

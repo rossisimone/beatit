@@ -74,6 +74,11 @@ int main (int argc, char ** argv)
 	// Create a container to store the variables of the ionic model
 	std::vector<double> variables(numVar, 0.0);
 
+    std::vector<double> old_variables(numVar, 0.0);
+    std::vector<double> older_variables(numVar, 0.0);
+    std::vector<double> rhs(numVar, 0.0);
+    std::vector<double> old_rhs(numVar, 0.0);
+
     // Create the output file
 	std::ofstream output("results.txt");
     // Initialize the output file
@@ -82,7 +87,7 @@ int main (int argc, char ** argv)
 	pNP->initialize(variables);
 
 	// timestep
-	double dt = 0.05;
+	double dt = 0.125;
     // output at every save_iter
 	int save_iter = 0.05 / dt;
 	// Final time
@@ -100,16 +105,55 @@ int main (int argc, char ** argv)
 	    // for ctest purposes
     double solution_norm = 0.0;
 
+    double Iion = 0;
+    double Iion_old = 0.0;
     // loop over time
+    variables[0] = 1.0;
     while( time <= TF )
 	{
+
 		if(time >= 0. && time <= 0.5)
 		{
-			Ist = -1.0;
+			Ist = -0.0;
 		}
 		else Ist = 0.0;
-	    // solve one timestep
-		pNP->solve(variables, Ist, dt);
+        for(int k = 0; k < variables.size(); ++k )
+        {
+            older_variables[k] = old_variables[k];
+            old_variables[k] = variables[k];
+            old_rhs[k] = rhs[k];
+        }
+        Iion_old = Iion;
+
+        // solve one timestep
+        //pNP->solve(variables, Ist, dt);
+
+        if(iter == 0)
+		//if(true)
+		{
+		    pNP->updateVariables(variables, rhs, Ist, dt, false);
+		    for(int k = 1; k < variables.size(); ++k )
+		    {
+		        variables[k] += dt * rhs[k];
+		    }
+            Iion = pNP->evaluateIonicCurrent(variables, Ist, dt);
+            variables[0] -= dt * (Iion + Ist);
+
+		}
+		else
+		{
+            pNP->updateVariables(variables, rhs, Ist, dt, false);
+            for(int k = 1; k < variables.size(); ++k )
+            {
+                variables[k] = 4.0/3.0*old_variables[k]-1.0/3.0*older_variables[k]
+                             + 2.0 / 3.0 * dt * (2*rhs[k]-old_rhs[k]);
+            }
+            Iion = pNP->evaluateIonicCurrent(variables, Ist, dt);
+            variables[0] = 4.0/3.0*old_variables[0]-1.0/3.0*older_variables[0] - 2.0 / 3.0 * dt * (2*Iion -Iion_old+ Ist);
+
+		}
+
+
 		// update the current time
 		time += dt;
 		// update current iteration

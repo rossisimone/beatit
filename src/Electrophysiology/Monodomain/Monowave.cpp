@@ -164,7 +164,8 @@ void Monowave::setupSystems(GetPot& data, std::string section)
     std::cout << "* MONOWAVE: Creating new System for the ionic model " << std::endl;
     IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
     // Create Ionic Model
-    std::string ionic_model = M_datafile(section + "/ionic_model", "NashPanfilov");
+    std::string ionic_model = M_datafile(section + "/ionic_model", "CICCIA");
+    std::cout << "* MONOWAVE: using " << ionic_model << std::endl;
     M_ionicModelPtr.reset(BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
     M_ionicModelPtr->setup(M_datafile, section);
     int num_vars = M_ionicModelPtr->numVariables();
@@ -1119,7 +1120,7 @@ void Monowave::assemble_matrices(double dt)
     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("mass"));
     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("lumped_mass"));
 
-    form_system_matrix(dt, false, "lumped_mass");
+    form_system_matrix(dt, false, "mass");
 }
 
 void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::string& mass)
@@ -1128,8 +1129,6 @@ void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::s
     // WAVE
     std::cout << "* MONOWAVE: forming system matrix using the " << mass << " matrix" << std::endl;
     M_systemMass = mass;
-    ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
-    IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
     double Cm = M_ionicModelPtr->membraneCapacitance();
 
     const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau");
@@ -1138,17 +1137,25 @@ void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::s
     monodomain_system.matrix->close();
 
     // Coefficient for matrix
+    // SBDF1
     double cdt = dt;
+    // SBDF2
     if(M_timestep_counter > 0 && M_timeIntegrator == TimeIntegrator::SecondOrderIMEX)
     {
-        cdt = 2.0 / 3.0 * dt;
+       cdt = 2.0 / 3.0 * dt;
     }
     // Matrix part
+//    if(tau>0)
     {
-        // S = Cm M Q^n+1 + tau / (c * dt) * Cm * M dQ + c dt K V^n+1
+        // S = Cm M Q^n+1 + tau / (c * dt) * Cm * M dQ + c dt K Q^n+1
         monodomain_system.matrix->add(Cm * ( 1.0 + tau / (cdt) ), monodomain_system.get_matrix(mass));
         monodomain_system.matrix->add(cdt, monodomain_system.get_matrix("stiffness"));
     }
+//    else
+//    {
+//        monodomain_system.matrix->add(Cm / cdt, monodomain_system.get_matrix(mass));
+//        //monodomain_system.matrix->add(1.0, monodomain_system.get_matrix("stiffness"));
+//    }
 }
 
 void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& mass)
@@ -1167,11 +1174,14 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
 
     auto& aux1 = monodomain_system.get_vector("aux1");
     aux1.zero();
+    aux1.close();
     auto& aux2 = monodomain_system.get_vector("aux2");
     aux2.zero();
+    aux2.close();
 
     auto& total_current = iion_system.get_vector("total_current");
     total_current.zero();
+    total_current.close();
     // RHS part:
     // Evaluate
 
@@ -1201,12 +1211,14 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
             // adding it to the system RHS
             monodomain_system.get_matrix(mass).vector_mult_add(*monodomain_system.rhs, total_current);
 
+          //  if(tau>0)
+            {
             // Second we compute the time derivative term
             // Cm * tau / cdt * M * ( 4/3 Q^n - 1/3 Q^n-1 )
             //
             // We store Cm * tau / cdt * M * ( 4/3 Q^n - 1/3 Q^n-1 ) in aux1
-            aux1.add( 4/3, *monodomain_system.old_local_solution);
-            aux1.add(-1/3, *monodomain_system.older_local_solution);
+            aux1.add( 4.0/3.0, *monodomain_system.old_local_solution);
+            aux1.add(-1.0/3.0, *monodomain_system.older_local_solution);
             aux1.scale(Cm*tau/cdt);
             // Then we added to the RHS
             // M * aux1
@@ -1214,11 +1226,22 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
 
             // Third compute - K * Z^n
             // We store -Z^n in aux2,  -Z^n = -4/3 V^n + 1/3V^n-1
-            aux2.add(-4/3, *wave_system.old_local_solution);
-            aux2.add( 1/3, *wave_system.older_local_solution);
+            aux2.add(-4.0/3.0, *wave_system.old_local_solution);
+            aux2.add( 1.0/3.0, *wave_system.older_local_solution);
             // Then we added to the RHS
             // K * aux2
             monodomain_system.get_matrix("stiffness").vector_mult_add(*monodomain_system.rhs, aux2);
+//            }
+//            else
+//            {
+//                // We store Cm * tau / cdt * M * ( 4/3 Q^n - 1/3 Q^n-1 ) in aux1
+//                aux1.add( 4.0/3.0, *monodomain_system.old_local_solution);
+//                aux1.add(-1.0/3.0, *monodomain_system.older_local_solution);
+//                aux1.scale(Cm/cdt);
+//                // Then we added to the RHS
+//                // M * aux1
+//                monodomain_system.get_matrix(M_systemMass).vector_mult_add(*monodomain_system.rhs, aux1);
+            }
 
     }
     else
@@ -1241,21 +1264,35 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
             // adding it to the system RHS
             monodomain_system.get_matrix(mass).vector_mult_add(*monodomain_system.rhs, total_current);
 
-            // Second we compute the time derivative term
-            // Cm * tau / cdt * M * Q^n
-            //
-            // We store Cm * tau / cdt * Q^n in aux1
-            aux1.add(Cm*tau/cdt, *monodomain_system.old_local_solution);
-            // Then we added to the RHS
-            // M * aux1
-            monodomain_system.get_matrix(M_systemMass).vector_mult_add(*monodomain_system.rhs, aux1);
+            //if(tau>0)
+            {
+                // Second we compute the time derivative term
+                // Cm * tau / cdt * M * Q^n
+                //
+                // We store Cm * tau / cdt * Q^n in aux1
+                aux1.add(Cm*tau/cdt, *monodomain_system.old_local_solution);
+                // Then we added to the RHS
+                // M * aux1
+                monodomain_system.get_matrix(M_systemMass).vector_mult_add(*monodomain_system.rhs, aux1);
 
-            // Third compute - K * Z^n
-            // We store -Z^n in aux2, but
-            aux2.add(-1.0, *wave_system.old_local_solution);
-            // Then we added to the RHS
-            // K * aux2
-            monodomain_system.get_matrix("stiffness").vector_mult_add(*monodomain_system.rhs, aux2);
+                // Third compute - K * Z^n
+                // We store -Z^n in aux2, but
+                aux2.add(-1.0, *wave_system.old_local_solution);
+                // Then we added to the RHS
+                // K * aux2
+                monodomain_system.get_matrix("stiffness").vector_mult_add(*monodomain_system.rhs, aux2);
+            }
+//            else
+//            {
+//                // Second we compute the time derivative term
+//                // Cm * tau / cdt * M * Q^n
+//                //
+//                // We store Cm * tau / cdt * Q^n in aux1
+//                aux1.add(Cm/cdt, *monodomain_system.old_local_solution);
+//                // Then we added to the RHS
+//                // M * aux1
+//                monodomain_system.get_matrix(M_systemMass).vector_mult_add(*monodomain_system.rhs, aux1);
+//            }
     }
 //    monodomain_system.get_matrix(mass).vector_mult_add(*monodomain_system.rhs, *iion_system.solution);
 //
@@ -1287,20 +1324,24 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
 void
 Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string& mass, bool reassemble)
 {
-    // If we are using SBDF2, we need to compute the system matrix again
-    // In fact we do a first step with Forward-Backward Euler
-    // and then we proceed with SBDF2
-    if(M_timestep_counter == 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
-    {
-        form_system_matrix(dt, false, "lumped_mass");
-    }
-    ++M_timestep_counter;
-
     // FORM RHS
     ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
     //std::cout << "form_system_rhs" << std::endl;
     form_system_rhs(dt, useMidpoint, mass);
     //std::cout << "form_system_rhs done" << std::endl;
+    const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau"); // time constant
+
+    // If we are using SBDF2, we need to compute the system matrix again
+    // In fact we do a first step with Forward-Backward Euler
+    // and then we proceed with SBDF2
+    // std::cout << "call from system matrix? " << M_timestep_counter << std::endl;
+    if(M_timestep_counter == 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+    {
+        std::cout << "Yes! call from system matrix: " << M_timestep_counter << std::endl;
+        form_system_matrix(dt, false, M_systemMass);
+    }
+    //++M_timestep_counter;
+
 
     double tol = 1e-12;
     double max_iter = 2000;
@@ -1309,6 +1350,8 @@ Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const s
 
     //std::cout << "Solving" << std::endl;
 //
+    //monodomain_system.matrix->print();
+    //monodomain_system.rhs->print();
     rval = M_linearSolver->solve(*monodomain_system.matrix, *monodomain_system.solution, *monodomain_system.rhs, tol, max_iter);
 
     // std::cout << "solve done" << std::endl;
@@ -1316,28 +1359,31 @@ Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const s
     ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
  //   if (M_equationType == EquationType::Wave)
  //   {
-    if(1 == M_timestep_counter || TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
+    //if(tau>0)
     {
-        *wave_system.solution = *monodomain_system.solution;
-        wave_system.solution->scale(dt);
-        *wave_system.solution += *wave_system.old_local_solution;
-    }
+        if(1 <= M_timestep_counter && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+        {
+            // Use BDF2
+            // V^n+1 = 4/3 V^n - 1/3 V^n + 2/3 dt * Q^n+1
+            *wave_system.solution = *monodomain_system.solution;
+            wave_system.solution->scale(2.0/3.0*dt);
+            wave_system.solution->add( 4.0/3.0, *wave_system.old_local_solution);
+            wave_system.solution->add(-1.0/3.0, *wave_system.older_local_solution);
+        }
+
     else
-    {
-        // Use BDF2
-        // V^n+1 = 4/3 V^n - 1/3 V^n + 2/3 dt * Q^n+1
-        *wave_system.solution = *monodomain_system.solution;
-        wave_system.solution->scale(2.0/3.0*dt);
-        wave_system.solution->add( 4.0/3.0, *wave_system.old_local_solution);
-        wave_system.solution->add(-1.0/3.0, *wave_system.older_local_solution);
+        {
+            *wave_system.solution = *monodomain_system.solution;
+            wave_system.solution->scale(dt);
+            *wave_system.solution += *wave_system.old_local_solution;
+        }
     }
-
-    //std::cout << "solve_diffusion_step done" << std::endl;
-
 //    else
 //    {
-// 	   *wave_system.solution = *monodomain_system.solution;
+//        *wave_system.solution = *monodomain_system.solution;
 //    }
-}
+
+    M_timestep_counter++;
+ }
 
 } /* namespace BeatIt */
