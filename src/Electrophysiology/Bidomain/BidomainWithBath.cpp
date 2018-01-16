@@ -782,12 +782,19 @@ void BidomainWithBath::assemble_matrices(double dt)
                         Fe(i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
 
                         // Block QQ :  ( ( tau_i / cdt + dt ) * Cm * M_L + cdt * Ki )
-                        // Using lumped mass matrix
+//                        // Using lumped mass matrix
                         Ke(i, i) += ( 1.0 + tau_i/cdt ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Ke(i, j) += cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
+//                        // Block QVe : Ki
+//                        // Using lumped mass matrix
+                        Ke(i, j + n_Q_dofs) += JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
+                        // Using lumped mass matrix
+//                        Ke(i, i) += ( cdt* + tau_i ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+//                        Ke(i, j) += cdt * cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
                         // Block QVe : Ki
                         // Using lumped mass matrix
-                        Ke(i, j + n_Q_dofs) += JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
+//                        Ke(i, j + n_Q_dofs) += cdt * JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
+
 
                         // Block VeQ : (tau_i-tau_e) / cdt * Cm * M + dt * Ki
                         // Using lumped mass matrix
@@ -931,129 +938,40 @@ void BidomainWithBath::assemble_matrices(double dt)
 //      double tol = 1e-12;
 //      auto code =  MatIsSymmetric(mat->mat(), tol, &isSymmetric);
 //      std::cout << "The bidomain matrix is symmetric? " << isSymmetric << std::endl;
-    typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
-    M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
+    {
+        IS is_v_local;
+        IS is_v_global;
+        IS is_ve_local;
+        std::vector<libMesh::dof_id_type> v_indices;
+        int var_num = 0;
+        dof_map_bidomain.local_variable_indices(v_indices, mesh, var_num);
+
+        ISCreateGeneral(PETSC_COMM_SELF, v_indices.size(), reinterpret_cast<int*>(&v_indices[0]),PETSC_COPY_VALUES,&is_v_local);
+        ISAllGather(is_v_local, &is_v_global);
+        int nmin =  dof_map_bidomain.first_dof();
+        int nmax = dof_map_bidomain.end_dof();
+        ISComplement(is_v_local, nmin, nmax, &is_ve_local);
+        typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
+        M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
+
+       PCFieldSplitSetIS(M_linearSolver->pc(),"v",is_v_local);
+       PCFieldSplitSetIS(M_linearSolver->pc(),"ve",is_ve_local);
+
+       int size;
+       ISGetSize(is_v_global, &size);
+       std::cout << "is_v_global size: " << size << std::endl;
+       ISGetSize(is_v_local, &size);
+       std::cout << "is_v_local size: " << size << std::endl;
+       ISGetSize(is_ve_local, &size);
+       std::cout << "is_ve_local size: " << size << std::endl;
+
+    }
+
 //      std::cout << "* BIDOMAIN+BATH: initialized linear solver  " << prec_type
 //              << std::endl;
 //    }
 }
 
-//void Bidomain::solve_reaction_step( double dt,
-//                                    double time,
-//                                    int step,
-//                                    bool useMidpoint,
-//                                    const std::string& mass,
-//                                    libMesh::NumericVector<libMesh::Number>* I4f_ptr)
-//{
-//  const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
-//
-//  BidomainSystem& bidomain_system = M_equationSystems.get_system
-//          < BidomainSystem > ("bidomain"); //Q
-//  IonicModelSystem& ionic_model_system = M_equationSystems.get_system
-//          < IonicModelSystem > ("ionic_model");
-//  IonicModelSystem& istim_system = M_equationSystems.get_system
-//          < IonicModelSystem > ("istim");
-//  // WAVE
-//  BidomainSystem& wave_system = M_equationSystems.get_system < BidomainSystem
-//          > ("wave");
-//  IonicModelSystem& iion_system = M_equationSystems.get_system
-//          < IonicModelSystem > ("iion");
-//
-//  bidomain_system.rhs->zero();
-//  iion_system.solution->zero();
-//  //iion_system.old_local_solution->zero();
-//  iion_system.get_vector("diion").zero();
-//
-//  double Cm = M_ionicModelPtr->membraneCapacitance();
-//  const libMesh::Real tau_e = M_equationSystems.parameters.get < libMesh::Real
-//          > ("tau_e");
-//  const libMesh::Real tau_i = M_equationSystems.parameters.get < libMesh::Real
-//          > ("tau_i");
-//
-//  int num_vars = ionic_model_system.n_vars();
-//  double istim = 0.0;
-//  double istim_zero = 0.0;
-//  double dIion = 0.0;
-//  std::vector<double> values(num_vars + 1, 0.0);
-//  std::vector<double> old_values(num_vars + 1, 0.0);
-//  int var_index = 0;
-//
-//  libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-//  const libMesh::MeshBase::const_node_iterator end_node =
-//          mesh.local_nodes_end();
-//
-//  const libMesh::DofMap & dof_map = bidomain_system.get_dof_map();
-//  const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
-//  const libMesh::DofMap & dof_map_gating = ionic_model_system.get_dof_map();
-//
-//  std::vector < libMesh::dof_id_type > dof_indices;
-//  std::vector < libMesh::dof_id_type > dof_indices_V;
-//  std::vector < libMesh::dof_id_type > dof_indices_Ve;
-//  std::vector < libMesh::dof_id_type > dof_indices_Q;
-//  std::vector < libMesh::dof_id_type > dof_indices_gating;
-//
-//  M_pacing->update(time);
-//  for (; node != end_node; ++node)
-//  {
-//      const libMesh::Node * nn = *node;
-//      dof_map.dof_indices(nn, dof_indices_Q, 0);
-//      dof_map.dof_indices(nn, dof_indices_Ve, 1);
-//      dof_map_V.dof_indices(nn, dof_indices_V, 0);
-//      libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
-//
-//      double bd_stim = istim_system.get_vector("surface_stim")(dof_indices_V[0]); //
-//      double istim = M_pacing->eval(p, time);
-//        if(M_pacing->M_boundaryID >= 0 ) istim *= bd_stim;
-//
-//      //if (istim != 0 ) std::cout << istim << std::endl;
-//      istim_zero = 0.0*istim;
-//
-//      double Iion_old = 0.0;
-//      values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
-//      old_values[0] = (*bidomain_system.old_local_solution)(dof_indices_Q[0]); //Q^n
-//      Iion_old = (*iion_system.old_local_solution)(dof_indices_V[0]); // gating
-//
-//      for (int nv = 0; nv < num_vars; ++nv)
-//      {
-//          var_index = dof_indices_V[0] * num_vars + nv;
-//          values[nv + 1] = (*ionic_model_system.old_local_solution)(
-//                  var_index);
-//          old_values[nv + 1] = values[nv + 1];
-//      }
-//
-//      M_ionicModelPtr->updateVariables(values, istim_zero, dt);
-//      double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim_zero,
-//              dt);
-//      dIion = M_ionicModelPtr->evaluatedIonicCurrent(values, old_values, dt,
-//              M_meshSize);
-//      double Isac = 0.0;
-//      if (I4f_ptr)
-//      {
-//          double I4f = (*I4f_ptr)(dof_indices_V[0]);
-//          Isac = M_ionicModelPtr->evaluateSAC(values[0], I4f);
-//      }
-//      Iion += Isac;
-//
-//      iion_system.solution->set(dof_indices_V[0], Iion); // contains Istim
-//      istim_system.solution->set(dof_indices_V[0], istim);
-//      iion_system.get_vector("diion").set(dof_indices_V[0], dIion);
-//      for (int nv = 0; nv < num_vars; ++nv)
-//      {
-//          var_index = dof_indices_V[0] * num_vars + nv;
-//          ionic_model_system.solution->set(var_index, values[nv + 1]);
-//      }
-//
-//
-//  }
-//
-//  iion_system.solution->close();
-//  istim_system.solution->close();
-//  ionic_model_system.solution->close();
-//  iion_system.get_vector("diion").close();
-//  iion_system.update();
-//  ionic_model_system.update();
-//  istim_system.update();
-//}
 
 void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::string& mass)
 {
@@ -1168,11 +1086,15 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
 
 
                    // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
-                   rhsq = - (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                    rhsq = - (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                   // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
+                   // rhsq = - cdt * (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
                    // RHS_Ve =  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 )
                    rhsve =  (tau_e - tau_i) * ( 2 * dIion - dIion_old ) - 0 * (stim_i + stim_e);
                    // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
-                   rhs_oldq = tau_i / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                    rhs_oldq = tau_i / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                   // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
+                   // rhs_oldq = tau_i * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]
                    rhs_oldve = (tau_i - tau_e) / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
 
@@ -1188,10 +1110,14 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                    double cdt = dt;
                    // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
                    rhsq = - (Iion + tau_i * dIion + istim);
+                   // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
+                   // rhsq = -cdt *  (Iion + tau_i * dIion + istim);
                    // RHS_Ve  = -( tau_i - tau_e ) dI^n
                    rhsve = (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e);
                    // RHS_Q  = tau_i / cdt * Cm * M * Q^n
                    rhs_oldq = tau_i  / cdt * Cm * Qn;
+                   // RHS_Q  = tau_i / cdt * Cm * M * Q^n
+                   // rhs_oldq = tau_i * Cm * Qn;
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n
                    rhs_oldve = (tau_i - tau_e) / cdt * Cm * Qn;
 
@@ -1228,22 +1154,31 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     double KiVn = 0.0;
 
     node = mesh.local_nodes_begin();
-
-    for (; node != end_node; ++node)
     {
-        const libMesh::Node * nn = *node;
-        // Are we in the bath?
-        auto n_var = nn->n_vars(bidomain_system.number());
-        auto n_dofs = nn->n_dofs(bidomain_system.number());
-        if (n_var == n_dofs)
+        double cdt = dt;
+        if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
         {
-            dof_map_V.dof_indices(nn, dof_indices_V, 0);
-            dof_map.dof_indices(nn, dof_indices_Q, 0);
-            dof_map.dof_indices(nn, dof_indices_Ve, 1);
-            KiVn = wave_system.get_vector("KiV")(dof_indices_V[0]);
-            bidomain_system.rhs->add(dof_indices_Q[0], -KiVn);
-            bidomain_system.rhs->add(dof_indices_Ve[0], -KiVn);
+            cdt = 2.0/3.0*dt;
         }
+
+        for (; node != end_node; ++node)
+        {
+            const libMesh::Node * nn = *node;
+            // Are we in the bath?
+            auto n_var = nn->n_vars(bidomain_system.number());
+            auto n_dofs = nn->n_dofs(bidomain_system.number());
+            if (n_var == n_dofs)
+            {
+                dof_map_V.dof_indices(nn, dof_indices_V, 0);
+                dof_map.dof_indices(nn, dof_indices_Q, 0);
+                dof_map.dof_indices(nn, dof_indices_Ve, 1);
+                KiVn = wave_system.get_vector("KiV")(dof_indices_V[0]);
+                bidomain_system.rhs->add(dof_indices_Q[0], -KiVn);
+                //bidomain_system.rhs->add(dof_indices_Q[0], -cdt * KiVn);
+                bidomain_system.rhs->add(dof_indices_Ve[0], -KiVn);
+            }
+        }
+
     }
 
     //bidomain_system.rhs->set(M_constraint_dof_id, 0.0);

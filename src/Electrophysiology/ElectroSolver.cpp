@@ -303,8 +303,8 @@ namespace BeatIt
         std::string solver_type = M_datafile(M_section + "/linear_solver/type", "gmres");
         std::cout << "* ElectroSolver: using " << solver_type << std::endl;
         std::string prec_type = M_datafile(M_section + "/linear_solver/preconditioner", "amg");
-        M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
-        M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
+        //M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
+        //M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
         M_linearSolver->init();
 
     }

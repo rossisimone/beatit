@@ -76,78 +76,72 @@ int main(int argc, char ** argv)
     // communicator.
     ParallelMesh mesh(init.comm());
 
-    // We may need XDR support compiled in to read binary .xdr files
-    std::string meshfile = data("mesh/input_mesh_name", "Pippo.e");
-    int n_refinements = data("mesh/n_ref", 0);
-    std::cout << "n_refs: " << n_refinements << std::endl;
-    BeatIt::serial_mesh_partition(init.comm(), meshfile, &mesh, n_refinements);
+    std::string meshname = data("mesh/input_mesh_name", "NONE");
+    if (meshname == "NONE")
+    {
+        // allow us to use higher-order approximation.
+        int elX = data("mesh/elX", 15);
+        int elY = data("mesh/elY", 5);
+        int elZ = data("mesh/elZ", 4);
+        double maxX = data("mesh/maxX", 2.0);
+        double maxY = data("mesh/maxY", 0.7);
+        double maxZ = data("mesh/maxZ", 0.3);
+        // No reason to use high-order geometric elements if we are
+        // solving with low-order finite elements.
+        if(elZ > 0)
+            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TET4);
+        else
+            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TRI3);
+
+        std::cout << "Creating subdomains!" << std::endl;
+
+        {
+            double z_interface = data("mesh/z_interface", 10000.0);
+            double y_interface = data("mesh/y_interface", 10000.0);
+            std::cout << "z_interface: " << z_interface << std::endl;
+
+            MeshBase::element_iterator el = mesh.elements_begin();
+            const MeshBase::element_iterator end_el = mesh.elements_end();
+
+            for (; el != end_el; ++el)
+            {
+                Elem * elem = *el;
+                const Point cent = elem->centroid();
+                // BATH
+                if (cent(2) > z_interface || cent(1)>y_interface )
+                {
+                    elem->subdomain_id() = 2;
+                }
+                // TISSUE
+                else
+                {
+                    elem->subdomain_id() = 1;
+                }
+
+            }
+        }
+        mesh.get_boundary_info().regenerate_id_sets();
+        std::cout << "Creating subdomains done!" << std::endl;
+
+    }
+    else
+    {
+        // We may need XDR support compiled in to read binary .xdr files
+        int n_refinements = data("mesh/n_ref", 0);
+        std::cout << "n_refs: " << n_refinements << std::endl;
+        BeatIt::serial_mesh_partition(init.comm(), meshname, &mesh, n_refinements);
 
 
-    double xscale = data("mesh/x_scale", 1);
-    double yscale = data("mesh/y_scale", 1);
-    double zscale = data("mesh/z_scale", 1);
-    if(xscale != 1 || yscale != 1 || zscale != 1) libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
+        double xscale = data("mesh/x_scale", 1);
+        double yscale = data("mesh/y_scale", 1);
+        double zscale = data("mesh/z_scale", 1);
+        if(xscale != 1 || yscale != 1 || zscale != 1) libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
+    }
 
-//    libMesh::ExodusII_IO importer(mesh);
-//
-//    double center_x = 0.0;
-//    //if ((family == "LAGRANGE") && (order == "FIRST"))
-//    {
-//        std::string meshname = data("mesh/input_mesh_name", "NONE");
-//        if (meshname == "NONE")
-//        {
-//            // allow us to use higher-order approximation.
-//            int elX = data("mesh/elX", 10);
-//            int elY = data("mesh/elY", 10);
-//            int elZ = data("mesh/elZ", 4);
-//            double maxX = data("mesh/maxX", 1.0);
-//            center_x = 0.5 * maxX;
-//            double maxY = data("mesh/maxY", 1.0);
-//            double maxZ = data("mesh/maxZ", 0.08);
-//            // No reason to use high-order geometric elements if we are
-//            // solving with low-order finite elements.
-//            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TET4);
-//
-//            std::cout << "Creating subdomains!" << std::endl;
-//
-//            {
-//                double z_interface = data("mesh/z_interface", 0.0);
-//
-//                MeshBase::element_iterator el = mesh.elements_begin();
-//                const MeshBase::element_iterator end_el = mesh.elements_end();
-//
-//                for (; el != end_el; ++el)
-//                {
-//                    Elem * elem = *el;
-//                    const Point cent = elem->centroid();
-//                    // BATH
-//                    if (cent(2) > z_interface)
-//                    {
-//                        elem->subdomain_id() = 2;
-//                    }
-//                    // TISSUE
-//                    else
-//                    {
-//                        elem->subdomain_id() = 1;
-//                    }
-//
-//                }
-//            }
-//            mesh.get_boundary_info().regenerate_id_sets();
-//            std::cout << "Creating subdomains done!" << std::endl;
-//
-//        }
-//        else
-//        {
-//            importer.read(meshname);
-//            mesh.prepare_for_use();
-//        }
-//    }
     std::cout << "Mesh done!" << std::endl;
 
     // Print information about the mesh to the screen.
     mesh.print_info();
-
     // Create an equation systems object.
     std::cout << "Create equation system ..." << std::endl;
     EquationSystems es(mesh);
@@ -222,7 +216,6 @@ int main(int argc, char ** argv)
         {
             save_iter++;
             solver->save_potential(save_iter,datatime.M_time);
-            solver->save_activation_times(save_iter);
 
             //solver->save_potential(save_iter, datatime.M_time);
             //solver->save_exo_timestep(save_iter, datatime.M_time);
@@ -230,6 +223,8 @@ int main(int argc, char ** argv)
         }
 
     }
+    solver->save_activation_times(save_iter);
+    delete solver;
     return 0;
 }
 
