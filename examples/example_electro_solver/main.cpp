@@ -68,6 +68,7 @@ int main(int argc, char ** argv)
     std::string datafile_name = commandLine.follow("data.beat", 2, "-i", "--input");
     GetPot data(datafile_name);
 
+    bool export_data = data("export", false);
     BeatIt::TimeData datatime;
     datatime.setup(data);
     datatime.print();
@@ -173,8 +174,11 @@ int main(int argc, char ** argv)
     std::cout << "Init Output" << std::endl;
     //solver->init_exo_output();
     //solver->save_exo_timestep(save_iter++, datatime.M_time);
-    solver->save_potential(save_iter, 0.0);
-    solver->save_parameters();
+    if(export_data)
+    {
+        solver->save_potential(save_iter, 0.0);
+        solver->save_parameters();
+    }
     std::string system_mass = data(model+"/diffusion_mass", "mass");
     std::string iion_mass = data(model+"/reaction_mass", "lumped_mass");
 
@@ -195,7 +199,7 @@ int main(int argc, char ** argv)
     for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
     {
         datatime.advance();
-        std::cout << "Time:" << datatime.M_time << std::endl;
+        std::cout << "Time:" << datatime.M_time << ", Iter: " <<  datatime.M_iter << std::endl;
         solver->advance();
         //std::cout << "Reaction:" << datatime.M_time << std::endl;
         solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, iion_mass);
@@ -212,7 +216,7 @@ int main(int argc, char ** argv)
         //++save_iter_ve;
         //bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
 
-        if (0 == datatime.M_iter % datatime.M_saveIter)
+        if (0 == datatime.M_iter % datatime.M_saveIter && export_data)
         {
             save_iter++;
             solver->save_potential(save_iter,datatime.M_time);
@@ -223,7 +227,7 @@ int main(int argc, char ** argv)
         }
 
     }
-    solver->save_activation_times(save_iter);
+    if(export_data) solver->save_activation_times(save_iter);
     delete solver;
     return 0;
 }

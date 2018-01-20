@@ -384,7 +384,12 @@ void Bidomain::assemble_matrices(double dt)
     unsigned int Q_var = bidomain_system.variable_number("Q");
     unsigned int Ve_var = bidomain_system.variable_number("Ve");
 
-    bidomain_system.matrix->zero();
+    {
+        bidomain_system.matrix->zero();
+        typedef libMesh::PetscMatrix<libMesh::Number> Mat;
+        Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
+        MatSetOption(mat->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    }
     bidomain_system.get_matrix("mass").zero();
     bidomain_system.get_matrix("lumped_mass").zero();
     bidomain_system.get_matrix("high_order_mass").zero();
@@ -796,7 +801,7 @@ void Bidomain::assemble_matrices(double dt)
 void Bidomain::form_system_rhs(double dt, bool useMidpoint, const std::string& mass)
 {
 double cdt = dt;
-        if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+        if(M_timestep_counter > 0 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
         {
            cdt = 2.0/3.0*dt;
         }
@@ -886,7 +891,7 @@ double cdt = dt;
         // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]   - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )  - Ki * [4/3*V^n-1/3*V^n-1]
         // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 ) - Ki * [4/3*V^n-1/3*V^n-1]
 
-        if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+        if(M_timestep_counter > 0 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
         {
             Iion = (*iion_system.solution)(dof_indices_V[0]); //Iion^* (it contains Istim)
             dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
@@ -1025,7 +1030,7 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint, co
     // 2) Evaluate V_n + dt * Q_n+1
     wave_system.solution->close();
 
-    if(1 == M_timestep_counter || TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
+    if(0 == M_timestep_counter || TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
     {
         wave_system.solution->scale(dt);
         *wave_system.solution += *wave_system.old_local_solution;
@@ -1038,7 +1043,7 @@ void Bidomain::solve_diffusion_step(double dt, double time, bool useMidpoint, co
         wave_system.solution->add( 4.0/3.0, *wave_system.old_local_solution);
         wave_system.solution->add(-1.0/3.0, *wave_system.older_local_solution);
     }
-
+    M_timestep_counter++;
 }
 
 } /* namespace BeatIt */

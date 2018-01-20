@@ -1187,7 +1187,7 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
 
     // commmon part is: -dt * Chi * M * I^n
     //iion_system.solution->scale(dt*Chi);
-    if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+    if(M_timestep_counter > 0 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
     {
             // SBDF2
             double cdt = 2.0/3.0*dt;
@@ -1361,7 +1361,7 @@ Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const s
  //   {
     //if(tau>0)
     {
-        if(1 <= M_timestep_counter && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+        if(0 < M_timestep_counter && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
         {
             // Use BDF2
             // V^n+1 = 4/3 V^n - 1/3 V^n + 2/3 dt * Q^n+1

@@ -18,11 +18,11 @@ namespace BeatIt
 
 class Timer
 {
+public:
     typedef std::chrono::high_resolution_clock::time_point timePoint_Type;
     typedef std::chrono::high_resolution_clock clock_Type;
     typedef std::chrono::seconds seconds;
     typedef std::chrono::duration<double > duration_Type;
-public:
 
     Timer ();
 

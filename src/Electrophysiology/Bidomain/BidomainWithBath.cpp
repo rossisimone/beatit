@@ -105,6 +105,8 @@
 #include "libmesh/petsc_matrix.h"
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
 #include "Util/IO/io.hpp"
+#include "petscmat.h"
+
 namespace BeatIt
 {
 
@@ -497,6 +499,12 @@ void BidomainWithBath::assemble_matrices(double dt)
     unsigned int Q_var = bidomain_system.variable_number("Q");
     unsigned int Ve_var = bidomain_system.variable_number("Ve");
 
+    {
+        bidomain_system.matrix->zero();
+        typedef libMesh::PetscMatrix<libMesh::Number> Mat;
+        Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
+        MatSetOption(mat->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+    }
     bidomain_system.get_matrix("mass").zero();
     bidomain_system.get_matrix("lumped_mass").zero();
     bidomain_system.get_matrix("high_order_mass").zero();
@@ -767,7 +775,7 @@ void BidomainWithBath::assemble_matrices(double dt)
                 //  Matrix
                 for (unsigned int i = 0; i < phi_qp1.size(); i++)
                 {
-                    DigradV = D0i * dphi_qp1[i][qp];
+                    DigradV = D0i * dphi_qp1[i][qp]; //Actually DigradQ
                     DigradVe = D0i * dphi_qp1[i][qp];
                     DiegradVe = (D0i + D0e) * dphi_qp1[i][qp];
                     for (unsigned int j = 0; j < phi_qp1.size(); j++)
@@ -781,20 +789,25 @@ void BidomainWithBath::assemble_matrices(double dt)
                         Mel(i + n_Q_dofs, i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Fe(i + n_Q_dofs) += JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
 
-                        // Block QQ :  ( ( tau_i / cdt + dt ) * Cm * M_L + cdt * Ki )
+                        if(!M_symmetricOperator)
+                        {
+                        // Block QQ :  ( ( tau_i / cdt + 1 ) * Cm * M_L + cdt * Ki )
 //                        // Using lumped mass matrix
                         Ke(i, i) += ( 1.0 + tau_i/cdt ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Ke(i, j) += cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 //                        // Block QVe : Ki
 //                        // Using lumped mass matrix
                         Ke(i, j + n_Q_dofs) += JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
+                        }
+                        else
+                        {
                         // Using lumped mass matrix
-//                        Ke(i, i) += ( cdt* + tau_i ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
-//                        Ke(i, j) += cdt * cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
+                        Ke(i, i) += ( cdt + tau_i ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                        Ke(i, j) += cdt * cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
                         // Block QVe : Ki
                         // Using lumped mass matrix
-//                        Ke(i, j + n_Q_dofs) += cdt * JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
-
+                        Ke(i, j + n_Q_dofs) += cdt * JxW_qp1[qp] * DigradVe * dphi_qp1[j][qp];
+                        }
 
                         // Block VeQ : (tau_i-tau_e) / cdt * Cm * M + dt * Ki
                         // Using lumped mass matrix
@@ -878,7 +891,7 @@ void BidomainWithBath::assemble_matrices(double dt)
 //    bidomain_system.get_matrix("lumped_mass").print();
 //
 //    std::cout << "bidomain matrix: " << std::endl;
-//    bidomain_system.matrix->print();
+    //bidomain_system.matrix->print();
 
     // set diagonal to 1
     if (M_ground_ve)
@@ -933,7 +946,8 @@ void BidomainWithBath::assemble_matrices(double dt)
 
         MatSetNullSpace(mat->mat(), nullspace);
         MatNullSpaceDestroy(&nullspace);
-    }
+        //MatSetOption(mat->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+     }
 //      PetscBool  isSymmetric;
 //      double tol = 1e-12;
 //      auto code =  MatIsSymmetric(mat->mat(), tol, &isSymmetric);
@@ -953,10 +967,13 @@ void BidomainWithBath::assemble_matrices(double dt)
         ISComplement(is_v_local, nmin, nmax, &is_ve_local);
         typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
         M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
+        M_linearSolver->reuse_preconditioner(true);
 
        PCFieldSplitSetIS(M_linearSolver->pc(),"v",is_v_local);
        PCFieldSplitSetIS(M_linearSolver->pc(),"ve",is_ve_local);
-
+       PetscBool isMatSymm;
+       MatIsSymmetric(dynamic_cast<PetscMatrix *>(bidomain_system.matrix)->mat(), 1e-8,&isMatSymm);
+       std::cout << "PETSC, is the system matrix symmetric? " << isMatSymm << std::endl;
        int size;
        ISGetSize(is_v_global, &size);
        std::cout << "is_v_global size: " << size << std::endl;
@@ -993,6 +1010,11 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     double Cm = M_ionicModelPtr->membraneCapacitance();
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
+    double cdt = dt;
+    if(M_timestep_counter > 0 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+    {
+        cdt = 2.0/3.0*dt;
+    }
 
     // Evaluate vector Ki*V^n
     wave_system.get_vector("KiV").zero();
@@ -1071,7 +1093,7 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]   - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )  - Ki * [4/3*V^n-1/3*V^n-1]
                // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 ) - Ki * [4/3*V^n-1/3*V^n-1]
 
-               if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
+               if(M_timestep_counter > 0 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
                {
                    Iion = (*iion_system.solution)(dof_indices_V[0]); //Iion^* (it contains Istim)
                    dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
@@ -1080,21 +1102,27 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                    double dIion_old = iion_system.get_vector("diion_old")(dof_indices_V[0]); // dIion^*
                    double Iion_old = (*iion_system.old_local_solution)(dof_indices_V[0]); // dIion^*
 
-                   double cdt = 2.0/3.0*dt;
                    // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]   - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )  - Ki * [4/3*V^n-1/3*V^n-1]
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 ) - Ki * [4/3*V^n-1/3*V^n-1]
 
+                   if(!M_symmetricOperator)
+                   {
 
                    // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
                     rhsq = - (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
-                   // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
-                   // rhsq = - cdt * (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                    // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
+                     rhs_oldq = tau_i / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                   }
+                   else
+                   {
+                    // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
+                    rhsq = - cdt * (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                    // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
+                    rhs_oldq = tau_i * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+
+                   }
                    // RHS_Ve =  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 )
                    rhsve =  (tau_e - tau_i) * ( 2 * dIion - dIion_old ) - 0 * (stim_i + stim_e);
-                   // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
-                    rhs_oldq = tau_i / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
-                   // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
-                   // rhs_oldq = tau_i * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]
                    rhs_oldve = (tau_i - tau_e) / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
 
@@ -1107,17 +1135,22 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                    // RHS_Q  = tau_i / cdt * Cm * M * Q^n   - M * I^n - tau_i * M * dI^n - Ki * V^n
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n - ( tau_i - tau_e ) dI^n s - Ki * V^n
 
-                   double cdt = dt;
+                   if(!M_symmetricOperator)
+                   {
+                       // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
+                       rhsq = - (Iion + tau_i * dIion + istim);
+                      // RHS_Q  = tau_i / cdt * Cm * M * Q^n
+                       rhs_oldq = tau_i  / cdt * Cm * Qn;
+                   }
+                   else
+                   {
                    // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
-                   rhsq = - (Iion + tau_i * dIion + istim);
-                   // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
-                   // rhsq = -cdt *  (Iion + tau_i * dIion + istim);
+                      rhsq = -cdt *  (Iion + tau_i * dIion + istim);
+                   // RHS_Q  = tau_i / cdt * Cm * M * Q^n
+                      rhs_oldq = tau_i * Cm * Qn;
+                   }
                    // RHS_Ve  = -( tau_i - tau_e ) dI^n
                    rhsve = (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e);
-                   // RHS_Q  = tau_i / cdt * Cm * M * Q^n
-                   rhs_oldq = tau_i  / cdt * Cm * Qn;
-                   // RHS_Q  = tau_i / cdt * Cm * M * Q^n
-                   // rhs_oldq = tau_i * Cm * Qn;
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n
                    rhs_oldve = (tau_i - tau_e) / cdt * Cm * Qn;
 
@@ -1155,11 +1188,6 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
 
     node = mesh.local_nodes_begin();
     {
-        double cdt = dt;
-        if(M_timestep_counter >= 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
-        {
-            cdt = 2.0/3.0*dt;
-        }
 
         for (; node != end_node; ++node)
         {
@@ -1173,8 +1201,10 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                 dof_map.dof_indices(nn, dof_indices_Q, 0);
                 dof_map.dof_indices(nn, dof_indices_Ve, 1);
                 KiVn = wave_system.get_vector("KiV")(dof_indices_V[0]);
-                bidomain_system.rhs->add(dof_indices_Q[0], -KiVn);
-                //bidomain_system.rhs->add(dof_indices_Q[0], -cdt * KiVn);
+                if(!M_symmetricOperator)
+                    bidomain_system.rhs->add(dof_indices_Q[0], -KiVn);
+                else
+                    bidomain_system.rhs->add(dof_indices_Q[0], -cdt * KiVn);
                 bidomain_system.rhs->add(dof_indices_Ve[0], -KiVn);
             }
         }
@@ -1213,9 +1243,18 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
     double max_iter = 2000;
 //    bidomain_system.matrix->print();
     std::pair<unsigned int, double> rval = std::make_pair(0, 0.0);
+    Timer timer;
+    M_equationSystems.comm().barrier();
+    timer.start();
     rval = M_linearSolver->solve(*bidomain_system.matrix, *bidomain_system.solution, *bidomain_system.rhs, tol, max_iter);
+    M_equationSystems.comm().barrier();
+    timer.stop();
+    M_elapsed_time += timer.elapsed();
+    M_num_linear_iters += rval.first;
+    timer.print(std::cout);
+    std::cout << "Total num iter: " << M_num_linear_iters  << ", Total time: " << M_elapsed_time.count() << ", Average: "<< M_elapsed_time.count() /  (M_timestep_counter+1) << std::endl;
 //    bidomain_system.solution->print();
-
+    //bidomain_system.matrix->print_matlab("matrix.m");
     // Update V_n+1 = V_n + dt * Q_n+1:
     // 1) Copy Q_n+1 in wave_system.solution
     // 2) Evaluate V_n + dt * Q_n+1
@@ -1245,7 +1284,7 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
     wave_system.solution->close();
     // 2) Evaluate V_n + dt * Q_n+1
 
-    if(1 == M_timestep_counter || TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
+    if(0 == M_timestep_counter || TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
     {
         wave_system.solution->scale(dt);
         *wave_system.solution += *wave_system.old_local_solution;
@@ -1258,6 +1297,7 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
         wave_system.solution->add( 4.0/3.0, *wave_system.old_local_solution);
         wave_system.solution->add(-1.0/3.0, *wave_system.older_local_solution);
     }
+    M_timestep_counter++;
 
 }
 
