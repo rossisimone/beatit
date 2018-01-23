@@ -58,9 +58,9 @@ public:
 //    Monodomain( libMesh::MeshBase & mesh );
     Bidomain( libMesh::EquationSystems& es );
     ~Bidomain();
-    void setupSystems(GetPot& data, std::string section = "bidomain");
+    void setup_systems(GetPot& data, std::string section = "bidomain");
 
-    void initSystems(double time);
+    void init_systems(double time);
 
     void assemble_matrices(double dt = 1.0);
     void form_system_matrix(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass") {}

@@ -130,7 +130,7 @@ Bidomain::~Bidomain()
 {
 }
 
-void Bidomain::setupSystems(GetPot& data, std::string section)
+void Bidomain::setup_systems(GetPot& data, std::string section)
 {
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -271,7 +271,7 @@ void Bidomain::setupSystems(GetPot& data, std::string section)
     M_ground_ve = data(section + "/ground_ve", false);
 }
 
-void Bidomain::initSystems(double time)
+void Bidomain::init_systems(double time)
 {
     // WAVE
     ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");

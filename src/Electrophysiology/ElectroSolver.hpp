@@ -19,7 +19,7 @@
 #include "Util/SpiritFunction.hpp"
 #include "Util/Enums.hpp"
 #include "Util/Factory.hpp"
-
+#include "Util/Timer.hpp"
 #include "libmesh/id_types.h"
 
 // Forward Definition
@@ -76,12 +76,12 @@ public:
 
 
     void setup(GetPot& data, std::string section);
-    virtual void setupSystems(GetPot& data, std::string section) = 0;
+    virtual void setup_systems(GetPot& data, std::string section) = 0;
     void restart( EXOExporter& importer, int step = 0, bool restart = true );
-    void readFibers( EXOExporter& importer, int step = 0);
+    void read_fibers( EXOExporter& importer, int step = 0);
 
     void init(double time);
-    virtual void initSystems(double time) = 0;
+    virtual void init_systems(double time) = 0;
     void save(int step);
     void save_exo_timestep(int step, double time);
     void save_ve_timestep(int step, double time);
@@ -170,9 +170,11 @@ public:
     TimeIntegrator M_timeIntegrator;
 protected:
     long int M_timestep_counter;
+    bool M_symmetricOperator;
+
 public:
 
-
+    long int& timestep_counter() { return M_timestep_counter; };
     std::string M_model;
 
     double M_meshSize;
@@ -195,6 +197,9 @@ public:
     };
     EndocardialVe M_boundary_ve;
     void init_endocardial_ve(std::set<libMesh::boundary_id_type>& IDs, std::set<unsigned short>& subdomainIDs);
+
+    Timer::duration_Type M_elapsed_time;
+    unsigned int M_num_linear_iters;
 };
 
 } /* namespace BeatIt */

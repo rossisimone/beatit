@@ -62,11 +62,13 @@ namespace BeatIt
     typedef libMesh::TransientExplicitSystem IonicModelSystem;
     typedef libMesh::ExplicitSystem ParameterSystem;
 
+
     ElectroSolver::ElectroSolver(libMesh::EquationSystems& es, std::string model) :
             M_equationSystems(es), M_exporter(), M_exporterNames(), M_ionicModelExporter(), M_ionicModelExporterNames(), M_parametersExporter(), M_parametersExporterNames(), M_outputFolder(), M_datafile(), M_pacing_i(), M_pacing_e(), M_linearSolver(), M_anisotropy(
                     Anisotropy::Orthotropic), M_equationType(EquationType::ParabolicEllipticBidomain), M_timeIntegratorType(
                     DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(
-                    1.0), M_model(model), M_ground_ve(false), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0)
+                    1.0), M_model(model), M_ground_ve(false), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
+                    M_elapsed_time(), M_num_linear_iters(0)
     {
         // TODO Auto-generated constructor stub
 
@@ -139,7 +141,7 @@ namespace BeatIt
         }
 
         // call setup system of the specific class
-        setupSystems(M_datafile, M_section);
+        setup_systems(M_datafile, M_section);
         // Add ionic current to this system
         IonicModelSystem& Iion_system = M_equationSystems.add_system < IonicModelSystem > ("iion");
         Iion_system.add_variable("iion", libMesh::FIRST);
@@ -159,6 +161,7 @@ namespace BeatIt
         istim_system.add_vector("surf_stim_e");
 
         M_ionicModelExporterNames.insert("istim");
+        M_exporterNames.insert("istim");
 
         std::cout << "* ElectroSolver: Creating parameters spaces " << std::endl;
         ParameterSystem& activation_times_system = M_equationSystems.add_system < ParameterSystem > ("activation_times");
@@ -231,6 +234,8 @@ namespace BeatIt
         M_EXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
         M_potentialEXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
 
+        M_symmetricOperator = M_datafile(M_section+"/symmetric_operator",false);
+        std::cout << "* ElectroSolver: Using Symmetric Operator: " << M_symmetricOperator << std::endl;
     }
 
     void ElectroSolver::init(double time)
@@ -296,7 +301,7 @@ namespace BeatIt
         procID_system.solution->close();
 
         // Call specific system initializations
-        initSystems(time);
+        init_systems(time);
 //    M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
         typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
         M_linearSolver.reset(new PetscSolver(M_equationSystems.comm()));
@@ -380,7 +385,7 @@ namespace BeatIt
         }
     }
 
-    void ElectroSolver::readFibers(EXOExporter& importer, int step)
+    void ElectroSolver::read_fibers(EXOExporter& importer, int step)
     {
         const int num_fiber_systems = 3;
         std::vector < std::string > fibers(num_fiber_systems);
