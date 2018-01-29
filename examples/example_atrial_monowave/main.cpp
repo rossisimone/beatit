@@ -138,7 +138,7 @@ int main(int argc, char ** argv)
         {
             ExodusII_IO fiber_importer(mesh);
             fiber_importer.read(fibers_file);
-            monodomain.readFibers(fiber_importer, fibers_step);
+            monodomain.read_fibers(fiber_importer, fibers_step);
             buildFibers = false;
         }
 

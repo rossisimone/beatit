@@ -827,7 +827,7 @@ void Elasticity::assemble_residual(double /* dt */,
 		}
 
 		apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0,
-				time);
+				time, &solution_k);
 		dof_map.constrain_element_matrix_and_vector(Ke, Fe, dof_indices);
 //      dof_map.heterogenously_constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
 
@@ -1265,8 +1265,16 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 										* solution_k[l + idim * n_phi];
 							} // end grad Uk on qp
 
-							const double value = bc->get_function()(time, xq,
-									yq, zq, 0);
+							double value;
+							if(bc->using_fe_function())
+							{
+							     value = bc->fe_function_component(time, xq, yq, zq, idim);
+							}
+							else
+							{
+	                            value = bc->get_function()(time, xq, yq, zq, 0);
+							}
+
 							for (unsigned int i = 0; i < n_ux_dofs; i++)
 							{
 								Fe(i + idim * n_ux_dofs) += JxW_face[qp] * beta
@@ -1298,8 +1306,15 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 											* solution_k[l + idim * n_phi];
 								} // end grad Uk on qp
 
-								const double value = bc->get_function()(time,
-										xq, yq, zq, idim);
+	                            double value;
+	                            if(bc->using_fe_function())
+	                            {
+	                                 value = bc->fe_function_component(0.0, xq, yq, zq, idim);
+	                            }
+	                            else
+	                            {
+	                                value = bc->get_function()(time, xq, yq, zq, idim);
+	                            }
 								for (unsigned int i = 0; i < n_ux_dofs; i++)
 								{
 									Fe(i + idim * n_ux_dofs) += JxW_face[qp]
@@ -1426,6 +1441,41 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem,
 		}
 	}
 }
+
+
+//void Elasticity::assemble_external_dirichlet_bc(libMesh::EquationSystems& es)
+//{
+//    std::cout << "* ELASTICITY: assembling ... " << std::endl;
+//
+//    using libMesh::UniquePtr;
+//
+//    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+//    const libMesh::MeshBase & mesh_ext = es.get_mesh();
+//
+//    const unsigned int dim = mesh.mesh_dimension();
+//    const unsigned int max_dim = 3;
+//    // Get a reference to the LinearImplicitSystem we are solving
+//    LinearSystem& system = M_equationSystems.get_system<LinearSystem>(M_myName);
+//    unsigned int ux_var = system.variable_number("displacementx");
+//    LinearSystem& system_ext = es.get_system<LinearSystem>(M_myName);
+//    unsigned int ux_var_ext = system_ext.variable_number("displacementx");
+//
+//    unsigned int uy_var, uz_var;
+//    unsigned int uy_var_ext, uz_var_ext;
+//    if (dim > 1)
+//    {
+//        uy_var = system.variable_number("displacementy");
+//        uy_var_ext = system_ext.variable_number("displacementy");
+//    }
+//    if (dim > 2)
+//    {
+//        uz_var = system.variable_number("displacementz");
+//        uz_var_ext = system_ext.variable_number("displacementz");
+//    }
+//
+//
+//}
+
 
 void Elasticity::solve_system()
 {

@@ -38,6 +38,7 @@
 
 #include "Util/SpiritFunction.hpp"
 #include <fstream>
+#include <libmesh/mesh_function.h>
 
 class GetPot;
 
@@ -83,6 +84,13 @@ public:
 		return M_function;
 	}
 
+	bool using_fe_function() const
+	{
+	    return M_using_fe_function;
+	}
+
+	double fe_function_component(double t, double x, double y, double z, int component);
+
 protected:
 	std::vector<unsigned int>         M_flag;
 	SpiritFunction          M_function;
@@ -96,6 +104,10 @@ protected:
     static ModeMap S_modeMap;
     static ComponentMap S_componentMap;
     static TypeMap S_typeMap;
+
+    bool M_using_fe_function;
+public:
+    libMesh::MeshFunction* M_fe_function;
 
 };
 

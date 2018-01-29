@@ -124,7 +124,11 @@ BCData::setup(const GetPot& data, const std::string& section )
 	}
 
 	std::string function = data(section+"/function", "");
-	if( "" != function)
+	if("fe_function" == function)
+	{
+	    M_using_fe_function = true;
+	}
+	else if( "" != function)
 	{
 		M_function.read(function);
 	}
@@ -245,8 +249,30 @@ BCData::showMe( std::ostream& ofstream  )
 		}
 	}
 
-	ofstream << " \t\t FUNCTION: \n";
-	M_function.showMe(ofstream);
+	if(M_using_fe_function)
+	{
+	    ofstream << " \t\t Using FE function \n";
+	}
+	else
+	{
+        ofstream << " \t\t FUNCTION: \n";
+        M_function.showMe(ofstream);
+	}
 }
+
+double
+BCData::fe_function_component(double t, double x, double y, double z, int component)
+{
+    if(M_fe_function)
+    {
+        return M_fe_function->component(component, libMesh::Point(x,y,z), t);
+    }
+    else
+    {
+        throw std::runtime_error("Calling fe_function_component, the fe_function was not set!");
+        return 0.0;
+    }
+}
+
 
 } /* namespace BeatIt */

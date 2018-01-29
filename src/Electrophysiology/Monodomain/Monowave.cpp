@@ -127,7 +127,7 @@ Monowave::~Monowave()
 {
 }
 
-void Monowave::setupSystems(GetPot& data, std::string section)
+void Monowave::setup_systems(GetPot& data, std::string section)
 {
     std::cout << "* MONOWAVE: Setting up data from section " << section << std::endl;
     // ///////////////////////////////////////////////////////////////////////
@@ -240,7 +240,7 @@ void Monowave::setupSystems(GetPot& data, std::string section)
 
 }
 
-void Monowave::initSystems(double time)
+void Monowave::init_systems(double time)
 {
     std::cout << "* MONOWAVE: initSystems: " << std::endl;
 

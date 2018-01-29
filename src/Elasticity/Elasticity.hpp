@@ -72,6 +72,7 @@ class BCHandler;
 class SpiritFunction;
 class Material;
 
+
 class Elasticity
 {
 public:
@@ -96,6 +97,7 @@ public:
     virtual void assemble_residual(
             double dt = 0.0,
             libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+    //void assemble_external_dirichlet_bc(libMesh::MeshFunction& fe_function);
 //    virtual void assemble_residual(
 //            double dt,
 //            const ParameterSystem& activation_system)

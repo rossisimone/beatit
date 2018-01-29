@@ -34,7 +34,7 @@
  */
 // Basic include files needed for the mesh functionality.
 #include "Elasticity/MixedElasticity.hpp"
-
+#include "Elasticity/DynamicElasticity.hpp"
 #include "libmesh/linear_implicit_system.h"
 
 #include "libmesh/wrapped_functor.h"
@@ -47,6 +47,10 @@
 #include "Util/CTestUtil.hpp"
 #include "libmesh/dof_map.h"
 #include <iomanip>
+#include "Util/TimeData.hpp"
+#include <libmesh/mesh_function.h>
+#include "BoundaryConditions/BCData.hpp"
+
 int main (int argc, char ** argv)
 {
 	    // Bring in everything from the libMesh namespace
@@ -61,56 +65,70 @@ int main (int argc, char ** argv)
       // We build a linear tetrahedral mesh (TET4) on  [0,2]x[0,0.7]x[0,0.3]
       // the number of elements on each side is read from the input file
       GetPot commandLine ( argc, argv );
-      std::string datafile_name = commandLine.follow ( "data.pot", 2, "-i", "--input" );
-      GetPot data(datafile_name);
+      std::string datafile_name = commandLine.follow ( "data.beat", 2, "-i", "--input" );
+      GetPot data1(datafile_name);
+      datafile_name = commandLine.follow ( "data.beat", 2, "-j", "--jinput" );
+      GetPot data2(datafile_name);
       // allow us to use higher-order approximation.
       // Create a mesh, with dimension to be overridden later, on the
       // default MPI communicator.
-      libMesh::Mesh mesh(init.comm());
+      libMesh::Mesh mesh1(init.comm());
+      libMesh::Mesh mesh2(init.comm());
 
-  double nu = data("nu", 0.3);
-  double E = data("E", 5e5);
-  int elX = data("elX", 10);
-  int elY = data("elY", 2);
-  std::string elTypeName = data("elType", "TRI6");
-  std::map<std::string, ElemType> orderMap;
-  orderMap["TRI3"] = TRI3;
-  orderMap["QUAD4"] = QUAD4;
-  orderMap["TRI6"] = TRI6;
-  orderMap["QUAD9"] = QUAD9;
-  auto elType = orderMap.find(elTypeName)->second;
-  auto order = FIRST;
-  if(elType == TRI6 || elType == QUAD9 ) order = SECOND;
-  auto elType2 = TRI3;
-  if( elType == QUAD9 ) elType2 = QUAD4;
+      libMesh::EquationSystems es1(mesh1);
+      libMesh::EquationSystems es2(mesh2);
 
-  MeshTools::Generation::build_square (mesh,
-                                       elX, elY,
-                                       0., 10.,
-                                       0., 2.,
-                                       elType);
+      std::string meshfile1 = data1("mesh", "NOMESH");
+      mesh1.read (&meshfile1[0]);
+      std::string meshfile2 = data2("mesh", "NOMESH");
+      mesh2.read (&meshfile2[0]);
 
-//  mesh.read("square.e");
-  libMesh::EquationSystems es(mesh);
+      BeatIt::TimeData datatime;
+      datatime.setup(data1, "elasticity");
+      datatime.print();
+      int save_iter = 1;
 
- std::string formulation = data("elasticity/formulation", "primal");
- std::cout << "Creating " << formulation << std::endl;
- if(formulation == "primal")
- {
-	  BeatIt::Elasticity elas(es, "Elasticity");
-	  elas.setup(data,"elasticity");
-	  elas.init_exo_output("elas_primal.exo");
-	  elas.newton();
-	  elas.save_exo("elas_primal.exo", 1, 1.0);
- }
- else
- {
-  BeatIt::MixedElasticity elas(es, "Elasticity");
-  elas.setup(data,"elasticity");
-  elas.init_exo_output("elas_mixed.exo");
-  elas.newton();
-  elas.save_exo("elas_mixed.exo", 1, 1.0);
- }
-  return 0;
+      BeatIt::DynamicElasticity dynamic(es1, "Elasticity");
+      dynamic.setup(data1,"elasticity");
+      dynamic.init_exo_output("elas_dynamic.exo");
+      dynamic.save_exo("elas_dynamic.exo", save_iter, datatime.M_time);
+
+      libMesh::LinearImplicitSystem& system  =  dynamic.M_equationSystems.get_system<libMesh::LinearImplicitSystem>("displacement");
+      std::vector<unsigned int> vars(3,0);
+      vars[1] = 1;
+      vars[2] = 2;
+      libMesh::MeshFunction fe_function(es1, *system.solution, system.get_dof_map(), vars );
+      fe_function.init();
+
+
+      BeatIt::Elasticity quasistatic(es2, "Elasticity");
+      quasistatic.setup(data2,"elasticity");
+      quasistatic.M_bch.get_bc(5)->M_fe_function = &fe_function;
+      quasistatic.init_exo_output("elas_static.exo");
+      quasistatic.save_exo("elas_static.exo", save_iter, datatime.M_time);
+      libMesh::LinearImplicitSystem& system2  =  quasistatic.M_equationSystems.get_system<libMesh::LinearImplicitSystem>(quasistatic.M_myName);
+
+      for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
+      {
+          std::cout << "time: " << datatime.M_time << std::endl;
+
+          datatime.advance();
+          dynamic.setTime(datatime.M_time);
+          dynamic.newton(datatime.M_dt);
+          dynamic.advance();
+          quasistatic.newton();
+          if (0 == datatime.M_iter % datatime.M_saveIter)
+          {
+              std::cout << "* Test dynamic elasticity: Time: " << datatime.M_time << std::endl;
+              save_iter++;
+              dynamic.save_exo("elas_dynamic.exo", save_iter, datatime.M_time);
+              quasistatic.save_exo("elas_static.exo", save_iter, datatime.M_time);
+//                elas.save("dg.vtk", save_iter);
+//                elas.save("dg.gmv", save_iter);
+          }
+          system2.solution->zero();
+
+      }
+      return 0;
 }
 

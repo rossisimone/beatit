@@ -1040,7 +1040,9 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     // RHS_Q  = M * (tau_i * Cm * Q^n + dt * Iion + dt * tau_i * dIion )
     // RHS_Ve  = M * [ ( tau_i - tau_e ) / dt * Cm * Q^n + ( tau_i - tau_e ) dIion )
     double Qn = 0.0;
+    double Q_nm1 = 0.0;
     double Vn = 0.0;
+    double V_nm1 = 0.0;
     double kv = 0.0;
 
     double istim = 0.0;
@@ -1049,7 +1051,9 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     double stim_e = 0.0;
     double surf_stim_e = 0.0;
     double Iion = 0.0;
+    double Iion_old = 0.0;
     double dIion = 0.0;
+    double dIion_old = 0.0;
 
     double rhsq = 0.0;
     double rhsve = 0.0;
@@ -1072,6 +1076,7 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     std::vector<libMesh::dof_id_type> dof_indices_Ve;
     std::vector<libMesh::dof_id_type> dof_indices_Q;
 //    bidomain_system.old_local_solution->print();
+    std::cout << "The first loop" << std::endl;
     for (; node != end_node; ++node)
     {
         const libMesh::Node * nn = *node;
@@ -1099,6 +1104,13 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
             Iion = (*iion_system.solution)(dof_indices_iion[0]); //Iion^* (it contains Istim)
             dIion = iion_system.get_vector("diion")(dof_indices_iion[0]); // dIion^*
 
+//            Iion = (*iion_system.solution)(dof_indices_V[0]); //Iion^* (it contains Istim)
+//            dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
+            Q_nm1 = (*bidomain_system.older_local_solution)(dof_indices_Q[0]); //Q^n
+            V_nm1 = (*wave_system.older_local_solution)(dof_indices_V[0]);
+            dIion_old = iion_system.get_vector("diion_old")(dof_indices_iion[0]); // dIion^*
+            Iion_old = (*iion_system.old_local_solution)(dof_indices_iion[0]); // dIion^*
+
             // BFE:
                // RHS_Q  = tau_i / cdt * Cm * M * Q^n   - M * I^n - tau_i * M * dI^n - Ki * V^n
                // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n - ( tau_i - tau_e ) dI^n s - Ki * V^n
@@ -1108,12 +1120,6 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
 
                if(M_timestep_counter > 0 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
                {
-                   Iion = (*iion_system.solution)(dof_indices_V[0]); //Iion^* (it contains Istim)
-                   dIion = iion_system.get_vector("diion")(dof_indices_V[0]); // dIion^*
-                   double Q_nm1 = (*bidomain_system.older_local_solution)(dof_indices_Q[0]); //Q^n
-                   double V_nm1 = (*wave_system.older_local_solution)(dof_indices_V[0]);
-                   double dIion_old = iion_system.get_vector("diion_old")(dof_indices_V[0]); // dIion^*
-                   double Iion_old = (*iion_system.old_local_solution)(dof_indices_V[0]); // dIion^*
 
                    // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]   - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )  - Ki * [4/3*V^n-1/3*V^n-1]
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 ) - Ki * [4/3*V^n-1/3*V^n-1]
@@ -1199,6 +1205,8 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     // Add KiVn to the rhs
     double KiVn = 0.0;
 
+    std::cout << "The second loop" << std::endl;
+
     node = mesh.local_nodes_begin();
     {
 
@@ -1240,7 +1248,10 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
     // If we are using SBDF2 we need to form the matrix at the second timestep
     if(M_timestep_counter == 1 && TimeIntegrator::SecondOrderIMEX == M_timeIntegrator)
     {
+        //std::cout << "* BidomainWithBath: Reassembling: " << std::flush;
         assemble_matrices(dt);
+        M_equationSystems.comm().barrier();
+        //std::cout << "* BidomainWithBath: Reassembling done. " << std::endl;
     }
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
@@ -1248,7 +1259,9 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
     BidomainSystem& bidomain_system = M_equationSystems.get_system<BidomainSystem>(M_model); // Q and Ve
     BidomainSystem& wave_system = M_equationSystems.get_system<BidomainSystem>("wave"); // V
 
+    //std::cout << "* BidomainWithBath: Form RHS" << std::endl;
     form_system_rhs(dt, useMidpoint, mass);
+    //std::cout << "* BidomainWithBath: Form RHS done" << std::endl;
 
     // bidomain_system.matrix->print();
     // bidomain_system.rhs->print();
@@ -1260,11 +1273,19 @@ void BidomainWithBath::solve_diffusion_step(double dt, double time, bool useMidp
     M_equationSystems.comm().barrier();
     timer.start();
     if(M_timestep_counter > 1)
+    {
         M_linearSolver->reuse_preconditioner(true);
+    }
     else
+    {
+        //std::cout << "* BidomainWithBath: Calling reuse preconditioner: false" << std::endl;
         M_linearSolver->reuse_preconditioner(false);
+        //std::cout << "* BidomainWithBath: not reusing preconditioner: " << std::endl;
+    }
+    //std::cout << "* BidomainWithBath: Calling linear solver: " << std::endl;
 
     rval = M_linearSolver->solve(*bidomain_system.matrix, *bidomain_system.solution, *bidomain_system.rhs, tol, max_iter);
+    //std::cout << "* BidomainWithBath: linear solver converged to: " << rval.second << std::endl;
     M_equationSystems.comm().barrier();
     timer.stop();
     M_elapsed_time += timer.elapsed();
