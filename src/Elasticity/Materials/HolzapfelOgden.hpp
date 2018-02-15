@@ -68,7 +68,6 @@ public:
     /// This method is used for primal elasticity
     void evaluateVolumetricStress();
     void evaluateDeviatoricStress();
-    void evaluateStress( ElasticSolverType solverType);
     /// This method is used only for mixed elasticy
     void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) ;
 

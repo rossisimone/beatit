@@ -889,8 +889,7 @@ MixedDynamicElasticity::solve_system()
     double max_iter = 2000;
 
     std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
-    rval = M_linearSolver->solve (*system.matrix, nullptr,
-                                                        system.get_vector("step"),
+    rval = M_linearSolver->solve (*system.matrix, system.get_vector("step"),
                                                         *system.rhs, tol, max_iter);
 
     std::cout << "Solving for pressure" << std::endl;

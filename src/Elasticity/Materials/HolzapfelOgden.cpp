@@ -204,11 +204,6 @@ HolzapfelOgden::updateVariables()
 
 
 
-void
-HolzapfelOgden::evaluateStress( ElasticSolverType solverType)
-{
-    IsotropicMaterial::evaluateStress(solverType);
-}
 
 /// This method is used only for mixed elasticy
 void

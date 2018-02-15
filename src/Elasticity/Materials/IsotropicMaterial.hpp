@@ -61,17 +61,13 @@ public:
 	/// This method is used for primal elasticity
 	void evaluateVolumetricStress();
 	void evaluateDeviatoricStress();
-	void evaluateStress( ElasticSolverType solverType);
 	/// This method is used only for mixed elasticy
 	void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) ;
-	void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0);
 
 	/// This method is used for primal elasticity
 	void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0);
 
 	double evaluatePressure();
-    double evaluatePressureResidual();
-    double dpdF(const libMesh::TensorValue <double>&  dF);
 
     double d2U( double J = 1.0);
     double d3U( double J = 1.0);

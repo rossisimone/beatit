@@ -47,7 +47,13 @@ namespace BeatIt {
 
 enum class BCMode { Full, Component, Normal, Tangential };
 enum class BCComponent{ X, Y,  Z, All };
-enum class BCType   { Dirichlet, Neumann, Robin, NitscheSymmetric, NitscheUnsymmetric, Penalty };
+enum class BCType   { Dirichlet,
+                      Neumann,
+                      Robin,
+                      NitscheSymmetric,
+                      NitscheUnsymmetric,
+                      Penalty,
+                      NormalPressure};
 
 class BCData {
 public:

@@ -78,6 +78,11 @@
 #include "Elasticity/Materials/Neohookean.hpp"
 #include "Elasticity/Materials/IsotropicMaterial.hpp"
 #include "Elasticity/Materials/HolzapfelOgden.hpp"
+
+#include "libmesh/petsc_linear_solver.h"
+#include "libmesh/petsc_vector.h"
+#include "libmesh/petsc_matrix.h"
+
 namespace BeatIt {
 
 
@@ -439,7 +444,9 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                 // In this way we can do the compressible and the incopressible case together
                 // pk + p = pk - k div u
                 // if assemble_pressure_mass == 0 then we are solving the incompressible case
-                Fe(n+dim*n_ux_dofs) -=   JxW_p[qp] * ( assemble_pressure_mass * pk + p ) * phi_p[n][qp];
+                // Fe(n+dim*n_ux_dofs) -=   JxW_p[qp] * ( assemble_pressure_mass * pk + p ) * phi_p[n][qp];
+                // Changing sign to make it symmetric!!!
+                Fe(n+dim*n_ux_dofs) +=   JxW_p[qp] * ( assemble_pressure_mass * pk + p ) * phi_p[n][qp];
                 if(stabilize)
                 {
                     // the stabilized version is
@@ -470,7 +477,9 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                     // These 2 terms should have the opposite sign
                     // q * pk - q * U' - U'' * ( tau Res_k ) * ( H * grad q )
                     //Fe(n+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U() * res_k * ( Hk * dphi_p[n][qp] );
-                    Fe(n+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk) * h2 * res_k * ( Hk * dphi_p[n][qp] );
+
+                    //Fe(n+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk) * h2 * res_k * ( Hk * dphi_p[n][qp] );
+                    Fe(n+dim*n_ux_dofs) -= JxW_p[qp] * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk) * h2 * res_k * ( Hk * dphi_p[n][qp] );
                 }
             }
 
@@ -539,7 +548,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                         dU(idim, 2) =  dphi_u[m][qp](2);
 
                         dp = M_materialMap[0]->dpdF(dU);
-                        Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) += dp * q;
+                        Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= dp * q;
 
                         if(stabilize)
                         {
@@ -561,11 +570,12 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                             //  U'' * tau * ( H  grad_p ) * ( H * grad q )
                             // The linearization is composed of 4 terms
                             //  1) U''' * (H: dF ) * tau * ( H  grad pk ) * ( H * grad q )
-                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) += tau * M_materialMap[0]->d3U( M_materialMap[0]->M_Jk ) * Hk.contract(dU) * ( Hk *  grad_pk ) * ( Hk * grad_q );
+
+                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[0]->d3U( M_materialMap[0]->M_Jk ) * Hk.contract(dU) * ( Hk *  grad_pk ) * ( Hk * grad_q );
                             //  2) U'' * tau * ( dH  grad pk ) * ( H * grad q )
-                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) += tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk ) * ( dH *  grad_pk ) * ( Hk * grad_q );
+                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk ) * ( dH *  grad_pk ) * ( Hk * grad_q );
                             //  3) U'' * tau * ( H  grad pk ) * ( dH * grad q )
-                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) += tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk ) * ( Hk *  grad_pk ) * ( dH * grad_q );
+                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk ) * ( Hk *  grad_pk ) * ( dH * grad_q );
                             // The last term is assembled afterwards
 
                         }
@@ -574,7 +584,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                 // For each pressure trial function
                 for(unsigned int m = 0; m < phi_p.size(); ++m )
                 {
-                    Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) += assemble_pressure_mass * q * phi_p[m][qp];
+                    Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) -= assemble_pressure_mass * q * phi_p[m][qp];
                     if(stabilize)
                     {
                         // the stabilized version is
@@ -610,151 +620,19 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 //                        Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U()
 //                                                                         * (Hk * dphi_p[n][qp])
 //                                                                         * (Hk * dphi_p[m][qp]);
-                        Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) += h2 * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk)
+                        Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) -= h2 * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk)
                                                                          * (Hk * dphi_p[m][qp])
                                                                          * (Hk * grad_q);
                     }
                 }
             }
         }
-//        for(unsigned int n = 0; n < phi_p.size(); ++n )
-//        {
-//            for(unsigned int m = 0; m < phi_p.size(); ++m )
-//            {
-//                std::cout << "elID: " << elID << ", n: " << n << ", m: " << m << std::endl;
-//                dphi_p[m][0].print(std::cout);
-//                dphi_p[n][0].print(std::cout);
-//                std::cout << "\nelJac: " << std::endl;
-//                for(int idim = 0; idim < dim+1; idim++)
-//                {
-//                    double v1 = Ke(n+idim*n_ux_dofs,m+0*n_ux_dofs);
-//                    double v2 = Ke(n+idim*n_ux_dofs,m+1*n_ux_dofs);
-//                    double p1 = Ke(n+idim*n_ux_dofs,m+2*n_ux_dofs);
-//                    std::cout << "[ " << v1 << ", " << v2 << ", " << p1 << " ]" << std::endl;
-//                }
-//
-//            }
-//        }
+
 
 
         Elasticity::apply_BC(elem, Ke, Fe, fe_face, qface, mesh, n_ux_dofs, nullptr, 0.0, time, &solution_k);
 
-        // Nietsch BC
-//        if (elem->neighbor(side) == libmesh_nullptr)
-//        {
-//            const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
-//            auto bc = M_bch.get_bc(boundary_id);
-//            if (bc)
-//            {
-//                const std::vector<libMesh::Real> & JxW_face = fe_face->get_JxW();
-//                const std::vector<std::vector<libMesh::Real> > & phi_face = fe_face->get_phi();
-//                const std::vector<libMesh::Point> & qface_point = fe_face->get_xyz();
-//                const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_face->get_dphi();
-//                const std::vector<libMesh::Point>& normals = fe_face->get_normals();
-//                int n_phi = phi_face.size();
-//
-//                auto bc_type = bc->get_type();
-//
-//                if (BCType::NitscheSymmetric == bc_type)
-//                {
-//                    double mu = 96.0;
-//                    double gamma_mu = M_datafile("gm",6.0);
-//                    double kappa = 208.0;
-//                    double gamma_kappa = M_datafile("gk",5.0);
-//
-//                    fe_face->reinit(elem, side);
-//
-//                    double length = elem->side(side)->volume();
-//                    double area = elem->volume();
-//                    double hE = area / length;
-//                    // loop over quadrature nodes
-//                    for (unsigned int qp = 0; qp < qface.n_points(); qp++)
-//                    {
-//                        Uk *= 0.0;
-//                        dUk *= 0.0;
-//                        // Evaluate displacements velocities and gradients at the quadrature node
-//                        for (unsigned int l = 0; l < phi_face.size(); l++)
-//                        {
-//                            for (int idim = 0; idim < dim; idim++)
-//                            {
-//                                Uk(idim) += phi_face[l][qp] * solution_k[l + idim * n_phi];
-//                                for (int jdim = 0; jdim < dim; jdim++)
-//                                {
-//                                    dUk(idim, jdim) +=
-//                                                    dphi_face[l][qp](jdim) * solution_k[l + idim * n_phi];
-//                                }
-//                            }
-//                        }
-//                        // Position of the quadrature node
-//                        const double xq = qface_point[qp](0);
-//                        const double yq = qface_point[qp](1);
-//                        const double zq = qface_point[qp](2);
-//
-//                        //Fill with the value of bc
-//                        g *= 0.0;
-//                        for (int pdim = 0; pdim < dim; ++pdim)
-//                            g(pdim) = bc->get_function()(0.0, xq, yq, zq, pdim);
-//
-//                        for (int idim = 0; idim < dim; ++idim)
-//                        {
-//                            for (unsigned int i = 0; i < phi_face.size(); i++)
-//                            {
-//                                test *= 0.0;
-//                                test(idim) = JxW_face[qp] * phi_face[i][qp];
-//                                // \int g
-//                                auto val = mu * gamma_mu / hE * (g - Uk) * test;
-//                                auto val2 = Uk(idim) ;
-////                                    std::cout << "Fee mu: " << val << ", val2: " << val2 << ", gm: " << gamma_mu << std::endl;
-//                                Fe(i + idim * n_ux_dofs) +=
-//                                                mu * gamma_mu / hE * (g - Uk) * test;
-//
-//                                double gdotn = g.contract(normals[qp]);
-//                                double ukdotn = Uk.contract(normals[qp]);
-//                                val = kappa * gamma_kappa / hE * (gdotn - ukdotn) * (test * normals[qp]);
-////                                    std::cout << "Fee kappa: " << val << std::endl;
-//                                Fe(i + idim * n_ux_dofs) +=
-//                                                kappa * gamma_kappa / hE * (gdotn - ukdotn) * (test * normals[qp]);
-//
-//
-//                                dW *= 0.0;
-//                                for (int pdim = 0; pdim < dim; ++pdim)
-//                                    dW(idim, pdim) = JxW_face[qp] * dphi_face[i][qp](pdim);
-//                                M_materialMap[0]->M_gradU = dUk;
-//                                M_materialMap[0]->updateVariables();
-//                                M_materialMap[0]->evaluateStress(ElasticSolverType::Primal);
-//                                Sk = M_materialMap[0]->M_PK1;
-//
-//                                for (int jdim = 0; jdim < dim; ++jdim)
-//                                {
-//                                    for (unsigned int j = 0; j < phi_face.size(); j++)
-//                                    {
-//                                        trial *= 0.0;
-//                                        trial(jdim) = dt * phi_face[j][qp];
-//                                        // \int g
-//                                        Ke(i + idim * n_ux_dofs, j + jdim * n_ux_dofs) +=
-//                                                        mu * gamma_mu / hE * trial * test;
-//                                        double wdotn = trial.contract(normals[qp]);
-//                                        Ke(i + idim * n_ux_dofs, j + jdim * n_ux_dofs)  +=
-//                                                        kappa * gamma_kappa / hE *  wdotn * (test * normals[qp]);
-//                                    } // end loop over trial functions
-//                                } // end loop over dimension trial functions
-//                            }// end loop over test
-//                        } // end loop over dimension test function
-//                    }// end loop over qp
-//
-//                }
-//            }
-//        }
-
-//        Ke.print();
         dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
-//        dof_map.heterogenously_constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
-//        std::cout << "\nMatrix: " <<std::endl;
-//        Ke.print();
-//        std::cout << "\nVector: " <<std::endl;
-//        std::cout << Fe(0) << ", " << Fe(1) << ", " << Fe(2) << ",\n "
-//                  << Fe(3) << ", " << Fe(4) << ", " << Fe(5) << ",\n "
-//                  << Fe(6) << ", " << Fe(7) << ", " << Fe(8) << std::endl;
         system.matrix->add_matrix (Ke, dof_indices);
         system.rhs->add_vector    (Fe, dof_indices);
 
@@ -763,32 +641,43 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
     std::cout << " closing. " << std::endl;
     system.matrix->close();
 
-//    std::cout << " vector. " << std::endl;
-//    std::vector< unsigned int > dirichlet_dof(6,0);
-//    dirichlet_dof[0] = 0;
-//    dirichlet_dof[1] = 1;
-//    dirichlet_dof[2] = 10;
-//    dirichlet_dof[3] = 9;
-//    dirichlet_dof[4] = 21;
-//    dirichlet_dof[5] = 22;
-//    std::cout << " setting zero rows. " << std::endl;
-//
-//    system.matrix->zero_rows(dirichlet_dof, 1.0);
-//    system.matrix->close();
-//    std::cout << " done. " << std::endl;
-
-//    system.matrix->print(std::cout);
     system.rhs->close();
-//    system.rhs->set(0,0);
-//    system.rhs->set(1,0);
-//    system.rhs->set(10,0);
-//    system.rhs->set(11,0);
-//    system.rhs->set(22,0);
-//    system.rhs->set(23,0);
-//    system.rhs->close();
-
-//    system.rhs->print(std::cout);
     std::cout << " done. " << std::endl;
+
+    {
+            std::cout << "* MIXED ELASTICITY: Assigning field split information ... " << std::flush;
+
+            IS is_u_local;
+            IS is_p_global;
+            IS is_p_local;
+            std::vector<libMesh::dof_id_type> p_indices;
+            int var_num = 3;
+            dof_map.local_variable_indices(p_indices, mesh, var_num);
+
+            ISCreateGeneral(PETSC_COMM_SELF, p_indices.size(), reinterpret_cast<int*>(&p_indices[0]),PETSC_COPY_VALUES,&is_p_local);
+            ISAllGather(is_p_local, &is_p_global);
+            int nmin =  dof_map.first_dof();
+            int nmax = dof_map.end_dof();
+            ISComplement(is_p_local, nmin, nmax, &is_u_local);
+            typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
+            M_linearSolver->init(dynamic_cast<PetscMatrix *>(system.matrix));
+
+           PCFieldSplitSetIS(M_linearSolver->pc(),"p",is_p_local);
+           PCFieldSplitSetIS(M_linearSolver->pc(),"u",is_u_local);
+           std::cout << "  done" << std::endl;
+
+    //       PetscBool isMatSymm;
+    //       MatIsSymmetric(dynamic_cast<PetscMatrix *>(bidomain_system.matrix)->mat(), 1e-8,&isMatSymm);
+    //       std::cout << "PETSC, is the system matrix symmetric? " << isMatSymm << std::endl;
+           int size;
+           ISGetSize(is_u_local, &size);
+           std::cout << "is_u_local size: " << size << std::endl;
+           ISGetSize(is_p_local, &size);
+           std::cout << "is_p_local size: " << size << std::endl;
+           ISGetSize(is_p_global, &size);
+           std::cout << "is_p_global size: " << size << std::endl;
+
+        }
 
 }
 

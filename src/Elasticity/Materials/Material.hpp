@@ -72,21 +72,21 @@ public:
 
 	virtual void evaluateVolumetricStress() = 0;
 	virtual void evaluateDeviatoricStress() = 0;
-	virtual void evaluateStress( ElasticSolverType solverType) = 0;
+	virtual void evaluateStress( ElasticSolverType solverType);
 	// Evaluate First Piola-Kirchhoff Stress Tensor from PK2
 	// Paperinik 1
 
 
 	/// This method is used only for mixed elasticy
-    virtual void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0) = 0;
+    virtual void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0);
 	/// This method is used only for mixed elasticy
 	virtual void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) = 0;
 	/// This method is used for primal elasticity
 	virtual void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) = 0;
 
 	virtual double evaluatePressure() = 0;
-	virtual double evaluatePressureResidual() = 0;
-	virtual double dpdF(const libMesh::TensorValue <double>&  dF) = 0;
+	virtual double evaluatePressureResidual();
+	virtual double dpdF(const libMesh::TensorValue <double>&  dF);
 
 	//virtual double dU ( double J) = 0;
     virtual double d2U( double J = 1.0) = 0;
@@ -119,6 +119,7 @@ public:
    std::vector<double>  M_parameters;
    libMesh::VectorValue <double> M_f0;
    libMesh::VectorValue <double> M_s0;
+   libMesh::VectorValue <double> M_n0;
    bool M_isIncompressible;
    int M_ndim;
    libMesh::TensorValue <double> M_FA;

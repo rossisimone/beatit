@@ -138,76 +138,6 @@ BenNeohookean::evaluateVolumetricStress()
 	M_volumetric_stress = M_Jk * p * M_Cinvk;
 }
 
-
-void
-BenNeohookean::evaluateStress(ElasticSolverType solverType)
-{
-    /*
-     *  Consider the energy W(I1bar, I2bar) + U(J)
-     *
-     *  TODO: add the I2bar terms
-     *
-     *  Consider only W(I1bar) + U(J), with Fbar = J^(-1/3) * F
-     *
-     *  Then
-     *
-     *  W1 = dW / dI1bar
-     *
-     *  Pdev = W1 * dI1bar / dF = 2 W1 J^(-2/3) ( F - I1 / 3 * F^-T )
-     *
-     *  U = k * U(J)
-     *  Pvol = U'(J) * J * F^-T
-     *  p = U'(J)
-     *
-     *  P = F * S
-     *  S = 2 * W1 * J^(-2/3) * ( I - I1 / 3 * C^-1) + J p C^-1
-     */
-
-//    std::cout << "evaluating Stress" << std::endl;
-
-	M_Fk = M_identity + M_gradU;
-//	M_Fk.print(std::cout);
-	MaterialUtilities::cof(M_Fk, M_Hk);
-	M_Ck = M_Fk.transpose() * M_Fk;
-	M_Cinvk = M_Ck.inverse();
-	M_Jk = M_Fk.det();
-
-
-	evaluateDeviatoricStress();
-    M_total_stress = M_deviatoric_stress;
-    switch(solverType)
-    {
-        case ElasticSolverType::Mixed:
-        {
-            std::cout << "MIXED FORMULATION NOT CODED FOR BEN NEOHOOEKAN!!!!" << std::endl;
-
-            throw std::runtime_error("not coded!");
-            M_total_stress += M_Jk * M_pressure * M_Cinvk;
-            break;
-        }
-        default:
-        case ElasticSolverType::Primal:
-        {
-            evaluateVolumetricStress();
-            M_total_stress += M_volumetric_stress;
-            break;
-        }
-    }
-	M_PK1 = M_Fk * M_total_stress;
-//    std::cout << "End evaluating Stress" << std::endl;
-
-//	double mu = M_parameters[1];
-//	M_PK1 = mu * (M_Fk - M_identity) +  M_Jk * M_pressure * M_Cinvk;
-}
-
-
-void
-BenNeohookean::evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q)
-{
-	M_volumetric_jacobian = q *  M_Jk * M_Fk * M_Cinvk;
-}
-
-
 void
 BenNeohookean::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q )
 {
@@ -371,52 +301,6 @@ BenNeohookean::evaluatePressure()
     M_Jk = M_Fk.det();
     double p = kappa * std::log(M_Jk) / M_Jk;
     return p;
-}
-
-double
-BenNeohookean::evaluatePressureResidual()
-{
-	/*
-	 * 	Evaluate the RHS of the pressure equation with a minus, that is
-	 * 	p = RHS
-	 * 	p - RHS = 0
-	 * 	return -RHS
-	 */
-	double RHS;
-	if(M_isIncompressible)
-	{
-		RHS = ( M_Jk - 1);
-	}
-	else
-	{
-		double kappa = M_parameters[2];
-		double dU = kappa * std::log(M_Jk) / M_Jk;
-		RHS = dU;
-	}
-	return - RHS;
-
-}
-
-double
-BenNeohookean::dpdF(const libMesh::TensorValue <double>&  dF)
-{
-	/*
-	 * 	 p - k U'(J) = 0
-	 *
-	 * 	 dp / dF = k U''(J) dJ/DF = k U''(J) J F^-T
-	 *
-	 * 	dPvol/dp =
-	 */
-	auto cofF = M_Jk * M_Fk * M_Cinvk;
-	if(M_isIncompressible)
-	{
-		return - cofF.contract(dF);
-	}
-	else
-	{
-		double d2U = M_parameters[2] * ( 1.0 - std::log(M_Jk) )/ M_Jk / M_Jk;
-		return - d2U * cofF.contract(dF);
-	}
 }
 
 double

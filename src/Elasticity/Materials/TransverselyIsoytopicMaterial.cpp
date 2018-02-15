@@ -205,11 +205,6 @@ TransverselyIsoytopicMaterial::updateVariables()
 
 
 
-void
-TransverselyIsoytopicMaterial::evaluateStress( ElasticSolverType solverType)
-{
-    IsotropicMaterial::evaluateStress(solverType);
-}
 
 /// This method is used only for mixed elasticy
 void

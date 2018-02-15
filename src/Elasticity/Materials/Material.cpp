@@ -100,7 +100,6 @@ Material::Material()
 	, M_tau(0.0)
     , M_FA()
 {
-	// TODO Auto-generated constructor stub
 
 }
 
@@ -121,6 +120,116 @@ void
 Material::dH(const libMesh::TensorValue <double>&  dU, libMesh::TensorValue <double> dcof)   const
 {
     MaterialUtilities::cross_product(M_Fk, dU, dcof);
+}
+
+void
+Material::evaluateStress( ElasticSolverType solverType)
+{
+    /*
+     *  Consider the energy W(I1bar, I2bar) + U(J)
+     *
+     *  TODO: add the I2bar terms
+     *
+     *  Consider only W(I1bar) + U(J), with Fbar = J^(-1/3) * F
+     *
+     *  Then
+     *
+     *  W1 = dW / dI1bar
+     *
+     *  Pdev = W1 * dI1bar / dF = 2 W1 J^(-2/3) ( F - I1 / 3 * F^-T )
+     *
+     *  U = k * U(J)
+     *  Pvol = U'(J) * J * F^-T
+     *  p = U'(J)
+     *
+     *  P = F * S
+     *  S = 2 * W1 * J^(-2/3) * ( I - I1 / 3 * C^-1) + J p C^-1
+     */
+
+    evaluateDeviatoricStress();
+    M_total_stress = M_deviatoric_stress;
+    switch(solverType)
+    {
+        case ElasticSolverType::Mixed:
+        {
+            M_total_stress += M_Jk * M_pressure * M_Cinvk;
+            break;
+        }
+        default:
+        case ElasticSolverType::Primal:
+        {
+            evaluateVolumetricStress();
+            M_total_stress += M_volumetric_stress;
+
+            //std::cout << "--- ISOTROPIC MATERIAL: Primal Formulation not coded for isotropic material!!!" << std::endl;
+            //throw std::runtime_error("Primal Formulation not coded for isotropic material");
+            break;
+        }
+    }
+    M_PK1 = M_Fk * M_total_stress;
+
+//  double mu = M_parameters[1];
+//  M_PK1 = mu * (M_Fk - M_identity) +  M_Jk * M_pressure * M_Cinvk;
+}
+
+void
+Material::evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q)
+{
+    // This term represets
+    // Pdev = J p F^-T
+    // J dp F^-T * phi
+    M_volumetric_jacobian = M_Jk * q * M_Fk * M_Cinvk;
+}
+
+double
+Material::evaluatePressureResidual()
+{
+    /*
+     *  Evaluate the RHS of the pressure equation with a minus, that is
+     *  p = RHS
+     *  p - RHS = 0
+     *  return -RHS
+     */
+    double RHS;
+    if(M_isIncompressible)
+    {
+        RHS = ( M_Jk - 1);
+    }
+    else
+    {
+        RHS = evaluatePressure();
+        //std::cout << "--- ISOTROPIC MATERIAL: evaluatePressureResidual compressible case not coded for isotropic material!!!" << std::endl;
+        //throw std::runtime_error("Primal Formulation not coded for isotropic material");
+    }
+    return - RHS;
+}
+
+double
+Material::dpdF(const libMesh::TensorValue <double>&  dF)
+{
+    /*
+     *   p - k U'(J) = 0
+     *
+     *   dp / dF = k U''(J) dJ/DF = k U''(J) J F^-T
+     *
+     *  dPvol/dp =
+     */
+    /*
+     *   p - k U'(J) = 0
+     *
+     *   dp / dF = k U''(J) dJ/DF = k U''(J) J F^-T
+     *
+     *  dPvol/dp =
+     */
+    auto cofF = M_Jk * M_Fk * M_Cinvk;
+    if(M_isIncompressible)
+    {
+        return - cofF.contract(dF);
+    }
+    else
+    {
+        return - d2U(M_Jk) * cofF.contract(dF);
+    }
 }
 
 

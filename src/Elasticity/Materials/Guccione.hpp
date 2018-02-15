@@ -67,47 +67,17 @@ public:
 	void evaluateStress( ElasticSolverType solverType);
 	/// This method is used only for mixed elasticy
 	void evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0) ;
-	void evaluateVolumetricJacobian( const libMesh::TensorValue <double>& dU, double q = 0.0);
 
 	/// This method is used for primal elasticity
 	void evaluateJacobian(  const libMesh::TensorValue <double>&  dU, double q = 0.0);
 
 	double evaluatePressure();
-    double evaluatePressureResidual();
-    double dpdF(const libMesh::TensorValue <double>&  dF);
 
     double d2U( double J = 1.0);
     double d3U( double J = 1.0);
 
 
-    // Helper parameters
-    double Q (double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
 
-    // Derivatives
-    double Q4f(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-    double Q4s(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-    double Q4n(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-    double Q8fs(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-    double Q8fn(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-    double Q8sn(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-
-    //Second derivatives Q4f
-    double Q4f4f(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-
-    //Second derivatives Q4s
-    double Q4s4s(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-
-    //Second derivatives Q4n
-    double Q4n4n(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-
-    //Second derivatives Q8fs
-    double Q8fs8fs(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-
-    //Second derivatives Q8fn
-    double Q8fn8fn(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
-
-    //Second derivatives Q8sn
-    double Q8sn8sn(double I4f, double I4s, double I4s, double I8fs, double I8fn, double I8sn, double J);
 
 
     // Invariants
@@ -131,54 +101,17 @@ public:
     double M_expQ;
     double M_CexpQ;
 
-    // Derivatives
-    double M_Q4f;
-    double M_Q4s;
-    double M_Q4n;
-    double M_Q8fs;
-    double M_Q8fn;
-    double M_Q8sn;
-
-
-    //Second derivatives Q4f
-    double M_Q4f4f;
-
-    //Second derivatives Q4s
-    double M_Q4s4s;
-
-    //Second derivatives Q4n
-    double M_Q4n4n;
-
-    //Second derivatives Q8fs
-    double M_Q8fs8fs;
-
-    //Second derivatives Q8fn
-    double M_Q8fn8fn;
-
-    //Second derivatives Q8sn
-    double M_Q8sn8sn;
-
     double M_kappa;
     bool M_active;
 
-    libMesh::TensorValue <double> M_fof;
-    libMesh::TensorValue <double> M_sos;
-    libMesh::TensorValue <double> M_non;
-    libMesh::TensorValue <double> M_fos;
-    libMesh::TensorValue <double> M_sof;
-    libMesh::TensorValue <double> M_fon;
-    libMesh::TensorValue <double> M_nof;
-    libMesh::TensorValue <double> M_nos;
-    libMesh::TensorValue <double> M_son;
-
-    libMesh::TensorValue <double> M_S;
-    // ordered as f, s, n, fs, fn, sn
-    double dQ[6];
-    // ordered as f, s, n, fs, fn, sn
-    double d2Q[6];
-    // ordered as fof, sos, non, sym(fos), sym(fon), sym(son)
-    libMesh::TensorValue <double> dIdE[6]; // dIdE = 2 * dIdC
-    libMesh::TensorValue <double> dIdEDEV[6]; // dIdE = dIdE - 1 / (3J) (dIdE:C) Cinv
+    libMesh::TensorValue <double> M_Sk;
+    libMesh::TensorValue <double> M_R; // Rotation Matrix
+    libMesh::TensorValue <double> M_Ek; // Rotation Matrix
+    libMesh::TensorValue <double> M_EFk; // Rotation Matrix
+    libMesh::TensorValue <double> M_dEFk; // Rotation Matrix
+    libMesh::TensorValue <double> M_A; // Rotation Matrix
+    libMesh::TensorValue <double> M_AEFk; // Rotation Matrix
+    libMesh::TensorValue <double> M_AdEFk; // Rotation Matrix
 
     virtual void updateVariables();
 
@@ -190,7 +123,7 @@ Material* createGuccione();
 
 namespace
 {
-	static bool register_isotropic_material = BeatIt::Material::MaterialFactory::Register("guccione", &createGuccione);
+	static bool register_guccione_material = BeatIt::Material::MaterialFactory::Register("guccione", &createGuccione);
 }
 
 

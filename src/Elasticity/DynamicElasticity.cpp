@@ -1508,7 +1508,7 @@ void DynamicElasticity::project_pressure()
 
     std::pair<unsigned int, double> rval = std::make_pair(0, 0.0);
 
-    rval = M_projectionsLinearSolver->solve(*system_p.matrix, nullptr, *system_p.solution,
+    rval = M_projectionsLinearSolver->solve(*system_p.matrix, *system_p.solution,
                     *system_p.rhs, tol, max_iter);
 }
 

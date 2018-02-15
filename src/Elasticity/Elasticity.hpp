@@ -39,7 +39,7 @@
 // Include file that defines (possibly multiple) systems of equations.
 #include "libmesh/equation_systems.h"
 #include "libmesh/linear_solver.h"
-
+#include "libmesh/petsc_linear_solver.h"
 #include <memory>
 #include "libmesh/getpot.h"
 #include "BoundaryConditions/BCHandler.hpp"
@@ -80,6 +80,7 @@ public:
     typedef libMesh::VTKIO VTKExporter;
     typedef libMesh::ExplicitSystem ParameterSystem;
     typedef libMesh::GMVIO Exporter;
+    typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
 
     Elasticity(libMesh::EquationSystems& es, std::string system_name);
     virtual void setup(const GetPot& data, std::string section = "elasticity");
@@ -97,6 +98,8 @@ public:
     virtual void assemble_residual(
             double dt = 0.0,
             libMesh::NumericVector<libMesh::Number>* activation_ptr = nullptr);
+
+    void reset_material(std::string material, std::string path);
     //void assemble_external_dirichlet_bc(libMesh::MeshFunction& fe_function);
 //    virtual void assemble_residual(
 //            double dt,
@@ -146,7 +149,7 @@ public:
     std::unique_ptr<EXOExporter> M_exporter;
     std::unique_ptr<Exporter> M_GMVexporter;
     std::unique_ptr<VTKExporter> M_VTKexporter;
-    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
+    libMesh::UniquePtr<libMesh::PetscLinearSolver<libMesh::Number> > M_linearSolver;
     libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_projectionsLinearSolver;
     std::string M_outputFolder;
     SpiritFunction M_rhsFunction;

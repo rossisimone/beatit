@@ -63,7 +63,8 @@ BCData::TypeMap  BCData::S_typeMap =
 		{"Robin", BCType::Robin},
         {"NitscheSymmetric", BCType::NitscheSymmetric},
         {"NitscheUnsymmetric", BCType::NitscheUnsymmetric},
-        {"Penalty", BCType::Penalty}
+        {"Penalty", BCType::Penalty},
+        {"NormalPressure", BCType::NormalPressure}
 };
 
 
@@ -180,6 +181,11 @@ BCData::showMe( std::ostream& ofstream  )
         case BCType::Penalty:
         {
             ofstream << " Penalty" << std::endl;
+            break;
+        }
+        case BCType::NormalPressure:
+        {
+            ofstream << " Normal Pressure" << std::endl;
             break;
         }
 		default:
