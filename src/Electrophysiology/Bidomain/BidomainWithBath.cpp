@@ -291,6 +291,7 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
 
 }
 
+
 void BidomainWithBath::init_systems(double time)
 {
     // WAVE
@@ -302,24 +303,8 @@ void BidomainWithBath::init_systems(double time)
         std::cout << "* BIDOMAIN+BATH: Found bidomain initial condition: " << v_ic << std::endl;
         SpiritFunction bidomain_ic;
         bidomain_ic.read(v_ic);
-        M_equationSystems.parameters.set<libMesh::Real>("time") = time;
-        wave_system.time = time;
-        std::cout << "* BIDOMAIN+BATH: Projecting initial condition to bidomain system ... " << std::flush;
-        wave_system.project_solution(&bidomain_ic);
-        std::cout << " done" << std::endl;
+        setup_ic(bidomain_ic);
     }
-//    wave_system.solution->print();
-    std::cout << "* BIDOMAIN+BATH: Copying initial conditions to vectors at n nd at n-1... " << std::flush;
-//    BidomainSystem& bidomain_system = M_equationSystems.get_system
-//            < BidomainSystem > (M_model);
-//    bidomain_system.solution->print();
-
-    // Close vectors and update the values in old_local_solution and older_local_solution
-    wave_system.solution->close();
-    wave_system.old_local_solution->close();
-    wave_system.older_local_solution->close();
-    advance();
-    std::cout << " done" << std::endl;
 
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
     std::cout << "* BIDOMAIN+BATH: Initializing activation times to -1  ... " << std::flush;
@@ -920,13 +905,14 @@ void BidomainWithBath::assemble_matrices(double dt)
             const libMesh::Node * nn = *node;
             dof_map_bidomain.dof_indices(nn, dof_indices_Q, Q_var);
             dof_map_bidomain.dof_indices(nn, dof_indices_Ve, Ve_var);
-            bidomain_system.get_vector("nullspace").set(dof_indices_Q[0], 0.0);
+            if(dof_indices_Q.size() > 0) bidomain_system.get_vector("nullspace").set(dof_indices_Q[0], 0.0);
             bidomain_system.get_vector("nullspace").set(dof_indices_Ve[0], 1.0);
         }
         bidomain_system.get_vector("nullspace").close();
         int size = bidomain_system.get_vector("nullspace").size();
         bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
         }
+
         // setting solver type
 //        std::string solver_type = M_datafile(M_section + "/linear_solver/type", "gmres");
 //        std::cout << "* BIDOMAIN+BATH: using " << solver_type << std::endl;
@@ -979,7 +965,8 @@ void BidomainWithBath::assemble_matrices(double dt)
         ISComplement(is_v_local, nmin, nmax, &is_ve_local);
         typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
         M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
-
+        KSPSetOptionsPrefix(M_linearSolver->ksp(),"bidomain_");
+       //PCSetOptionsPrefix(M_linearSolver->pc(),"bidomain_");
        PCFieldSplitSetIS(M_linearSolver->pc(),"v",is_v_local);
        PCFieldSplitSetIS(M_linearSolver->pc(),"ve",is_ve_local);
        std::cout << "  done" << std::endl;
@@ -1076,7 +1063,6 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     std::vector<libMesh::dof_id_type> dof_indices_Ve;
     std::vector<libMesh::dof_id_type> dof_indices_Q;
 //    bidomain_system.old_local_solution->print();
-    std::cout << "The first loop" << std::endl;
     for (; node != end_node; ++node)
     {
         const libMesh::Node * nn = *node;
@@ -1204,8 +1190,6 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
 
     // Add KiVn to the rhs
     double KiVn = 0.0;
-
-    std::cout << "The second loop" << std::endl;
 
     node = mesh.local_nodes_begin();
     {

@@ -61,7 +61,6 @@ public:
     void setup_systems(GetPot& data, std::string section = "");
 
     void init_systems(double time);
-
     void assemble_matrices(double dt = 1.0);
     void form_system_matrix(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass") {}
     void form_system_rhs(double dt, bool useMidpoint = true, const std::string& mass = "lumped_mass");

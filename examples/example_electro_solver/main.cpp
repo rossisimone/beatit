@@ -24,6 +24,8 @@
 // subdomains).
 
 // C++ include files that we need
+#include "PoissonSolver/Poisson.hpp"
+
 #include "Electrophysiology/Bidomain/BidomainWithBath.hpp"
 #include "Electrophysiology/Monodomain/MonodomainUtil.hpp"
 
@@ -37,15 +39,15 @@
 #include "libmesh/mesh_generation.h"
 #include "libmesh/mesh_modification.h"
 #include "Util/SpiritFunction.hpp"
+#include "libmesh/dof_map.h"
 
 #include "libmesh/numeric_vector.h"
+#include <libmesh/boundary_mesh.h>
+#include <libmesh/serial_mesh.h>
 
-#include "libmesh/error_vector.h"
-#include "libmesh/kelly_error_estimator.h"
-#include "libmesh/mesh_refinement.h"
-#include "libmesh/fourth_error_estimators.h"
-
+#include "libmesh/analytic_function.h"
 #include "Util/CTestUtil.hpp"
+#include "Util/GenerateFibers.hpp"
 #include <iomanip>
 //#include "libmesh/vtk_io.h"
 #include "libmesh/exodusII_io.h"
@@ -53,6 +55,296 @@
 #include "Util/IO/io.hpp"
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
+
+namespace Data
+{
+static std::string path = "";
+}
+void ic_patient2(DenseVector<Number> & output, const Point & p, const Real)
+{
+    double x = p(0);
+    double y = p(1);
+    double z = p(2);
+    double ic = 0.0;
+    if ((x - 0.859551) * (x - 0.859551) + (y + 3.864244) * (y + 3.864244) + (z - 9.460777) * (z - 9.460777) <= 1.0)
+    {
+        ic = 1.0;
+    }
+    else if ((x + 1.514039) * (x + 1.514039) + (y + 4.166581) * (y + 4.166581) + (z - 9.359025) * (z - 9.359025) <= 0.64)
+    {
+        ic = 1.0;
+    }
+    else if (0.08229 * (x - 0.077095) - 0.97814 * (y + 3.758875) - 0.19096 * (z - 10.016066) > 0)
+    {
+        ic = 1.0;
+    }
+    output(0) = ic;
+}
+
+void ic_patient2_ext(DenseVector<Number> & output, const Point & p, const Real)
+{
+    double x = p(0);
+    double y = p(1);
+    double z = p(2);
+    double ic = 0.0;
+    if ((x +0.4520240907997266) * (x +0.4520240907997266) + (y+6.631625) * (y+6.631625) + (z - 10.13692) * (z - 10.13692) <= 4.0)
+    {
+        ic = 1.0;
+    }
+    output(0) = ic;
+}
+
+struct EndoRankMap
+{
+    EndoRankMap() : data_unique_ID(), mesh_ID(), rank(), endo_ID() {}
+    std::vector<int>  data_unique_ID;
+    std::vector<int>  mesh_ID;
+    std::vector<int>  endo_ID;
+    std::vector<int>  rank;
+    bool check()
+    {
+        int size1 = data_unique_ID.size();
+        int size2 = mesh_ID.size();
+        int size3 = rank.size();
+        int size4 = endo_ID.size();
+        if(size1 == size2 && size2 == size3 && size3 == size4) return true;
+        else return false;
+    }
+};
+
+
+void init_files( libMesh::MeshBase& endo,
+                 EndoRankMap& id_map, std::map<dof_id_type, dof_id_type>& reverse_node_id_map, std::string meshfile, int unipole)
+{
+    std::cout << "initializing: " << meshfile << std::endl;
+    ReplicatedMesh mesh_unip1(endo.comm());
+    mesh_unip1.read(meshfile);
+    mesh_unip1.print_info(std::cout);
+    libMesh::MeshBase::const_node_iterator node_data = mesh_unip1.nodes_begin();
+    const libMesh::MeshBase::const_node_iterator end_node_data = mesh_unip1.nodes_end();
+    unsigned int my_rank = endo.comm().rank();
+
+    //std::cout << "endo num nodes: " << endo.n_nodes() << std::endl;
+    int n_unip_nodes = mesh_unip1.n_nodes();
+    std::vector<int> data_IDs;
+    std::vector<int> mesh_IDs;
+    std::vector<int> ranks;
+    std::vector<int> endo_IDs;
+    int c = 0;
+    for (; node_data != end_node_data; ++node_data)
+    {
+        c++;
+        const libMesh::Node * nn = *node_data;
+        auto dataID = nn->id();
+
+        libMesh::Point p_data((*nn)(0), (*nn)(1), (*nn)(2));
+        //std::cout << p_data(0) << ", " << p_data(1) << ", " << p_data(2) << std::endl;
+        libMesh::MeshBase::const_node_iterator enode = endo.pid_nodes_begin(my_rank);
+        const libMesh::MeshBase::const_node_iterator end_enode = endo.pid_nodes_end(my_rank);
+        double dist_min = 1000000.0;
+        int ID = -1;
+        //libMesh::MeshBase::const_node_iterator closest_node = enode;
+        libMesh::Node * cs_node;
+        for (; enode != end_enode; ++enode)
+        {
+            libMesh::Node * enn = *enode;
+            libMesh::Point p((*enn)(0), (*enn)(1), (*enn)(2));
+            //std::cout << "p_data = " << p_data(0) << ", " << p_data(1) << ", " << p_data(2) << std::endl;
+            //std::cout << "p = " << p(0) << ", " << p(1) << ", " << p(2) << std::endl;
+            p -= p_data;
+            double current_dist = p.norm_sq();
+            //std::cout << "p_diff = " << p(0) << ", " << p(1) << ", " <<  p(2) << ", norm: " << current_dist << std::endl;
+            //std::cout << current_dist << std::endl;
+            if (current_dist < dist_min)
+            {
+                cs_node = enn;
+                ID = cs_node->id();
+                dist_min = current_dist;
+            }
+        }
+
+        unsigned int rank = endo.comm().rank();
+
+        //std::cout << my_rank << ": cn" << &closest_node << ", ID: " << ID << ", dist: " <<  dist_min << std::endl;
+        //std::cout << my_rank << ": " << rank << ", min: " << dist_min << std::endl;
+        //endo.comm().maxloc(dist_min, rank);
+        double global_dist_min = dist_min;
+        //endo.comm().min(global_dist_min);
+
+        struct {
+            double val;
+            int rank;
+        } mp, mp_global;
+
+        mp.val=global_dist_min;
+        mp.rank=my_rank;
+
+        MPI_Allreduce(&mp, &mp_global, 1, MPI_DOUBLE_INT, MPI_MINLOC, MPI_COMM_WORLD);
+        global_dist_min = mp_global.val;
+        rank = mp_global.rank;
+        //std::cout << my_rank << ": minloc " << mp_global.rank << ", min: " << mp_global.val << ", ID: " << ID << std::endl;
+        //std::cout << my_rank << ": " << rank << std::endl;
+        //std::cout <<  "rank " << rank << " writes the file" << std::endl;
+
+        //if (rank == my_rank)
+
+        if(dist_min == global_dist_min && rank == my_rank)
+        {
+            int mesh_ID = reverse_node_id_map.find(ID)->second;
+
+            data_IDs.push_back(dataID);
+            mesh_IDs.push_back(mesh_ID);
+            ranks.push_back(rank);
+            endo_IDs.push_back(ID);
+
+
+            std::string filename;
+            if(unipole == 1)
+            {
+                filename = Data::path + "/uni1_node_" + std::to_string(dataID) + ".txt";
+            }
+            else if(unipole == 2)
+            {
+                filename = Data::path + "/uni2_node_" + std::to_string(dataID) + ".txt";
+            }
+            else
+            {
+                filename = Data::path + "/at_node_" + std::to_string(dataID) + ".txt";
+            }
+
+            std::ofstream file(filename);
+
+            file << "Data Point: " << dataID << std::endl;
+            file << (*nn)(0) << " " << (*nn)(1) << " " << (*nn)(2) << std::endl;
+            file << "Point: " << mesh_ID << std::endl;
+            //const libMesh::Node * cnn = *closest_node;
+            file << (*cs_node)(0) << " " << (*cs_node)(1) << " " << (*cs_node)(2) << std::endl;
+
+            file << "time Ve V Q at" << std::endl;
+            file.close();
+            ID = mesh_ID;
+
+        }
+        endo.comm().broadcast(ID, rank);
+        //std::cout <<  my_rank <<": rank " << rank << " ID: " << ID << ", dataID: " << dataID << ", dist min: " << global_dist_min << std::endl;
+    }
+    endo.comm().barrier();
+    endo.comm().allgather(ranks);
+    endo.comm().allgather(data_IDs);
+    endo.comm().allgather(mesh_IDs);
+    endo.comm().allgather(endo_IDs);
+
+    int size1 = ranks.size();
+    int endo_n_nodes = endo.n_nodes();
+    if(size1 != n_unip_nodes)
+    {
+        throw std::runtime_error("Wrong num nodes");
+    }
+
+    int size2 = data_IDs.size();
+    std::cout << "data_IDs: " << size2 << std::endl;
+    if(size2 != n_unip_nodes) throw std::runtime_error("Wrong num nodes");
+    int size3 = mesh_IDs.size();
+    std::cout << "mesh_IDs: " << size3 << std::endl;
+    if(size3 != n_unip_nodes) throw std::runtime_error("Wrong num nodes");
+
+    std::cout << "swapping vectors" << std::endl;
+    id_map.data_unique_ID.swap(data_IDs);
+    id_map.mesh_ID.swap(mesh_IDs);
+    id_map.rank.swap(ranks);
+    id_map.endo_ID.swap(endo_IDs);
+    std::cout << "done" << std::endl;
+
+    if(id_map.check())
+    {
+        std::cout << "size id map: " << id_map.data_unique_ID.size() << std::endl;
+    }
+    else
+    {
+        throw std::runtime_error("WWRONG!!!");
+    }
+    std::cout << "initializing: " << meshfile << ". done."<< std::endl;
+}
+
+void write_to_file(libMesh::MeshBase& mesh, const EndoRankMap& id_map, double time, libMesh::TransientLinearImplicitSystem& V_sys,
+        libMesh::TransientLinearImplicitSystem& bid_sys, libMesh::ExplicitSystem& at_sys, int unipole)
+{
+    std::cout << "write_to_file" << std::endl;
+    int n = id_map.data_unique_ID.size();
+    int my_rank = mesh.comm().rank();
+//    for (auto && elm : rank_point_map)
+    std::cout << my_rank << ": my rank size: " << n << std::endl;
+    for(int i = 0; i < n; ++i)
+    {
+        //std::cout << i << std::endl;
+
+        if (id_map.rank[i] == my_rank)
+        {
+
+            int ID = id_map.mesh_ID[i];
+            int dataID = id_map.data_unique_ID[i];
+            //std::cout << my_rank << ": " << id_map.rank[i] << ", " << ID << ", " << id_map.endo_ID[i] << ", " << dataID << std::endl;
+            const libMesh::Node * nn = mesh.query_node_ptr(ID);
+//            // get V
+            libMesh::DofMap * dof_map = &V_sys.get_dof_map();
+            std::vector<libMesh::dof_id_type> dof_indices;
+            dof_map->dof_indices(nn, dof_indices, 0);
+            double V = (*V_sys.current_local_solution)(dof_indices[0]);
+//
+//            // get at
+            dof_indices.clear();
+            dof_map = &at_sys.get_dof_map();
+            dof_map->dof_indices(nn, dof_indices, 0);
+            double at = (*at_sys.current_local_solution)(dof_indices[0]);
+
+            // get Q & Ve
+            dof_indices.clear();
+            dof_map = &bid_sys.get_dof_map();
+            dof_map->dof_indices(nn, dof_indices);
+            double Q = (*bid_sys.current_local_solution)(dof_indices[0]);
+            double Ve = (*bid_sys.current_local_solution)(dof_indices[1]);
+
+            if (unipole == 1)
+            {
+                std::ofstream file(Data::path + "/uni1_node_" + std::to_string(dataID) + ".txt", std::ios::app);
+                //file << "time Ve V Q at" << std::endl;
+                file << time << " " << Ve << " " << V << " " << Q << " " << at << std::endl;
+                file.close();
+            }
+            else if (unipole == 2)
+            {
+                std::ofstream file(Data::path + "/uni2_node_" + std::to_string(dataID) + ".txt", std::ios::app);
+                //file << "time Ve V Q at" << std::endl;
+                file << time << " " << Ve << " " << V << " " << Q << " " << at << std::endl;
+                file.close();
+            }
+            else
+            {
+                std::ofstream file(Data::path + "/at_node_" + std::to_string(dataID) + ".txt", std::ios::app);
+                //file << "time Ve V Q at" << std::endl;
+                file << time << " " << Ve << " " << V << " " << Q << " " << at << std::endl;
+                file.close();
+            }
+        }
+    }
+    std::cout << "write_to_file done" << std::endl;
+
+}
+
+
+void extract_endocardial_mesh(libMesh::BoundaryMesh& endo, libMesh::MeshBase& mesh, int bdID, int subdomainID)
+{
+//    endo.set_n_partitions() = mesh.n_partitions();
+//    std::map<dof_id_type, dof_id_type> node_id_map;
+//    std::map<std::pair<dof_id_type, unsigned char>, dof_id_type> side_id_map;
+//
+//    MeshBase::const_element_iterator el = mesh.active_subdomain_elements_begin();
+//    const MeshBase::const_element_iterator end_el = mesh.elements_end();
+//
+//    this->_find_id_maps(requested_boundary_ids, 0, &node_id_map, 0, &side_id_map, subdomains_relative_to);
+
+}
+
 
 // Begin the main program.
 int main(int argc, char ** argv)
@@ -89,7 +381,7 @@ int main(int argc, char ** argv)
         double maxZ = data("mesh/maxZ", 0.3);
         // No reason to use high-order geometric elements if we are
         // solving with low-order finite elements.
-        if(elZ > 0)
+        if (elZ > 0)
             MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TET4);
         else
             MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TRI3);
@@ -98,6 +390,7 @@ int main(int argc, char ** argv)
 
         {
             double z_interface = data("mesh/z_interface", 10000.0);
+            double r_interface = data("mesh/r_interface", 0.0);
             double y_interface = data("mesh/y_interface", 10000.0);
             std::cout << "z_interface: " << z_interface << std::endl;
 
@@ -109,14 +402,18 @@ int main(int argc, char ** argv)
                 Elem * elem = *el;
                 const Point cent = elem->centroid();
                 // BATH
-                if (cent(2) > z_interface || cent(1)>y_interface )
+                if (cent(2) > z_interface || cent(1) > y_interface)
                 {
                     elem->subdomain_id() = 2;
+                    double h = elem->hmax();
+                    if (cent(2) < r_interface)
+                        elem->set_refinement_flag(libMesh::Elem::REFINE);
                 }
                 // TISSUE
                 else
                 {
                     elem->subdomain_id() = 1;
+                    elem->set_refinement_flag(libMesh::Elem::REFINE);
                 }
 
             }
@@ -132,33 +429,233 @@ int main(int argc, char ** argv)
         std::cout << "n_refs: " << n_refinements << std::endl;
         BeatIt::serial_mesh_partition(init.comm(), meshname, &mesh, n_refinements);
 
-
         double xscale = data("mesh/x_scale", 1);
         double yscale = data("mesh/y_scale", 1);
         double zscale = data("mesh/z_scale", 1);
-        if(xscale != 1 || yscale != 1 || zscale != 1) libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
+        if (xscale != 1 || yscale != 1 || zscale != 1)
+            libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
     }
 
+    MeshRefinement refinement(mesh);
+    refinement.refine_elements();
     std::cout << "Mesh done!" << std::endl;
-
-    // Print information about the mesh to the screen.
     mesh.print_info();
+
+//    auto* node = mesh.query_node_ptr(1);
+//    std::cout << mesh.comm().rank() << ": node 1 proc id: " << node->processor_id() << std::endl;
+    //mesh.get_boundary_info().print_info(std::cout);
     // Create an equation systems object.
     std::cout << "Create equation system ..." << std::endl;
     EquationSystems es(mesh);
+
+
+
+
+    //////////////////
+    // CREATING FIBERS
+    //////////////////
+    std::string pois1 = "poisson1";
+    BeatIt::Poisson poisson1(es, pois1);
+
+    std::cout << "Calling setup: ..." << std::flush;
+    poisson1.setup(data, pois1);
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling assemble system: ..." << std::flush;
+    poisson1.assemble_system();
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling solve system: ..." << std::flush;
+    poisson1.solve_system();
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling gradient: ..." << std::flush;
+    poisson1.compute_elemental_solution_gradient();
+    std::cout << " Done!" << std::endl;
+
+    std::string pois2 = "poisson2";
+    BeatIt::Poisson poisson2(es, pois2);
+
+    std::cout << "Calling setup: ..." << std::flush;
+    poisson2.setup(data, pois2);
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling assemble system: ..." << std::flush;
+    poisson2.assemble_system();
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling solve system: ..." << std::flush;
+    poisson2.solve_system();
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling gradient: ..." << std::flush;
+    poisson2.compute_elemental_solution_gradient();
+    std::cout << " Done!" << std::endl;
+
+    std::string pois3 = "poisson3";
+    BeatIt::Poisson poisson3(es, pois3);
+
+    std::cout << "Calling setup: ..." << std::flush;
+    poisson3.setup(data, pois3);
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling assemble system: ..." << std::flush;
+    poisson3.assemble_system();
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling solve system: ..." << std::flush;
+    poisson3.solve_system();
+    std::cout << " Done!" << std::endl;
+    std::cout << "Calling gradient: ..." << std::flush;
+    poisson3.compute_elemental_solution_gradient();
+    std::cout << " Done!" << std::endl;
+
+
+    auto& grad1 = poisson1.M_equationSystems.get_system<libMesh::ExplicitSystem>(pois1 + "_gradient").solution;
+    // through thickness
+    auto& grad2 = poisson2.M_equationSystems.get_system<libMesh::ExplicitSystem>(pois2 + "_gradient").solution;
+    // short direction
+    auto& grad3 = poisson3.M_equationSystems.get_system<libMesh::ExplicitSystem>(pois3 + "_gradient").solution;
+
+    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+    const libMesh::DofMap & dof_map = es.get_system<libMesh::ExplicitSystem>(pois1 + "_gradient").get_dof_map();
+
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+    for (; el != end_el; ++el)
+    {
+        libMesh::Elem * elem = *el;
+        dof_map.dof_indices(elem, dof_indices);
+        const auto blockID = elem->subdomain_id();
+
+        if (blockID == 1)
+        {
+
+            double sx = (*grad2)(dof_indices[0]);
+            double sy = (*grad2)(dof_indices[1]);
+            double sz = (*grad2)(dof_indices[2]);
+
+            double xfx = (*grad3)(dof_indices[0]);
+            double xfy = (*grad3)(dof_indices[1]);
+            double xfz = (*grad3)(dof_indices[2]);
+
+            double fx = xfy * sz - xfz * sy;
+            double fy = xfz * sx - xfx * sz;
+            double fz = xfx * sy - xfy * sx;
+
+            grad1->set(dof_indices[0], fx);
+            grad1->set(dof_indices[1], fy);
+            grad1->set(dof_indices[2], fz);
+        }
+    }
+    auto& phi = poisson2.get_P0_solution();
+
+    BeatIt::Util::normalize(*grad1, 1.0, 0.0, 0.0);
+    BeatIt::Util::normalize(*grad2, 0.0, 1.0, 0.0);
+    BeatIt::Util::normalize(*grad3, 0.0, 0.0, 1.0);
+
+    poisson1.save_exo("poisson1.exo");
+
+    ///////////////////
+    ///////////////////
+    ///////////////////
+    ///////////////////
+    ///////////////////
+
     // Constructor
     std::cout << "Create bidomain with bath..." << std::endl;
-    std::string model = data("model" , "monowave");
+    std::string model = data("model", "monowave");
     BeatIt::ElectroSolver* solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
     std::string section = data("section", "monowave");
     std::cout << "Calling setup..." << std::endl;
     solver->setup(data, model);
     std::cout << "Calling init ..." << std::endl;
     solver->init(0.0);
-    std::cout << "Import fibers ... " << std::endl;
-    //bidomain.restart(importer, 1);
-    std::cout << "Assembling matrices" << std::endl;
-    solver->assemble_matrices(datatime.M_dt);
+
+    // set fibers
+    // Fibers
+    auto& fibers = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("fibers").solution;
+    // Sheets
+    auto& sheets = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("sheets").solution;
+    // XFibers
+    auto& xfibers = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("xfibers").solution;
+
+    // Set fibers;
+    *fibers = *grad1;
+    *sheets = *grad2;
+    *xfibers = *grad3;
+
+    poisson1.deleteSystems();
+    poisson2.deleteSystems();
+    poisson3.deleteSystems();
+
+    Data::path = solver->M_outputFolder;
+    int patient = data("patient", -1);
+    std::map<int, int> rank_uni1_map;
+    std::map<int, int> rank_uni2_map;
+    std::map<int, int> rank_at_map;
+    EndoRankMap uni1_id_map;
+    EndoRankMap uni2_id_map;
+    EndoRankMap at_id_map;
+
+    if (patient > 0)
+    {
+        // Create an AnalyticFunction object that we use to project the BC
+        // This function just calls the function exact_solution via exact_solution_wrapper
+        if (patient == 2)
+        {
+            std::cout << "Found Patient 2!" << std::endl;
+            libMesh::AnalyticFunction<> ic_function(ic_patient2_ext);
+            solver->setup_ic(ic_function);
+            BoundaryMesh endo(init.comm());
+            std::set<boundary_id_type> endoIDs;
+            endoIDs.insert(1);
+            std::set<unsigned short> subdomains;
+            subdomains.insert(1);
+            //mesh.boundary_info->print_info(std::cout);
+            //mesh.boundary_info->print_summary(std::cout);
+            std::cout << "Sync endo" << std::endl;
+            mesh.boundary_info->sync(endoIDs, endo, subdomains);
+            //endo.prepare_for_use();
+            endo.print_info(std::cout);
+            // Create map to access point from boundary mesh to point of the whole mesh
+            std::map<dof_id_type, dof_id_type> reverse_node_id_map;
+            std::cout << "Creating reverse map" <<std::endl;
+
+            libMesh::MeshBase::const_node_iterator node_endo = endo.local_nodes_begin();
+            const libMesh::MeshBase::const_node_iterator end_node_endo = endo.local_nodes_end();
+            bool stop = false;
+            for(; node_endo != end_node_endo; ++node_endo)
+            {
+                bool found = false;
+                libMesh::MeshBase::const_node_iterator node_interior = mesh.nodes_begin();
+                const libMesh::MeshBase::const_node_iterator end_node_interior = mesh.nodes_end();
+                for(; node_interior != end_node_interior; ++node_interior)
+                {
+                    libMesh::Node * enode = *node_endo;
+                    libMesh::Node * inode = *node_interior;
+                    libMesh::Node nodo(*enode);
+                    nodo -= *inode;
+                    if(nodo.norm()< 1e-6)
+                    {
+                        found = true;
+                        //std::cout << "Endo ID: " << enode->id() << ", mesh ID: " << inode->id() << std::endl;
+                        reverse_node_id_map[enode->id()] = inode->id();
+                        break;
+                    }
+                }
+                if(found == false)
+                {
+                    libMesh::Node * enode = *node_endo;
+                    stop = true;
+                    std::cout << endo.comm().rank() << ": Node: " << enode->id() << " was not found in the interior mesh" << std::endl;
+                    throw std::runtime_error("error");
+                }
+
+
+            }
+            if(stop) exit(-1);
+
+            std::cout << "Creating reverse map done: "  << reverse_node_id_map.size() <<std::endl;
+            init_files(endo, uni1_id_map, reverse_node_id_map, "unip1.e", 1);
+            init_files(endo, uni2_id_map, reverse_node_id_map, "unip2.e", 2);
+            init_files(endo, at_id_map, reverse_node_id_map, "at_data.e", 0);
+
+        }
+    }
 
     // Declare the system and its variables.
     // Create a system named "Poisson"
@@ -174,32 +671,39 @@ int main(int argc, char ** argv)
     std::cout << "Init Output" << std::endl;
     //solver->init_exo_output();
     //solver->save_exo_timestep(save_iter++, datatime.M_time);
-    if(export_data)
+    if (export_data)
     {
         solver->save_potential(save_iter, 0.0);
         solver->save_parameters();
     }
-    std::string system_mass = data(model+"/diffusion_mass", "mass");
-    std::string iion_mass = data(model+"/reaction_mass", "lumped_mass");
-
+    //return 0;
+    std::string system_mass = data(model + "/diffusion_mass", "mass");
+    std::string iion_mass = data(model + "/reaction_mass", "lumped_mass");
+    //bidomain.restart(importer, 1);
+    std::cout << "Assembling matrices" << std::endl;
+    solver->assemble_matrices(datatime.M_dt);
 
     bool useMidpointMethod = false;
     int step0 = 0;
     int step1 = 1;
 
-    auto & V = *es.get_system<libMesh::TransientLinearImplicitSystem>("wave").solution;
-    auto & Vn = *es.get_system<libMesh::TransientLinearImplicitSystem>("wave").old_local_solution;
-    auto & Vnm1 = *es.get_system<libMesh::TransientLinearImplicitSystem>("wave").older_local_solution;
-    auto & Iionn = *es.get_system < libMesh::TransientExplicitSystem > ("iion").solution;
-    auto & Iionnm1 = *es.get_system < libMesh::TransientExplicitSystem > ("iion").old_local_solution;
+    auto & V_sys = es.get_system<libMesh::TransientLinearImplicitSystem>("wave");
+    auto & bid_sys = es.get_system<libMesh::TransientLinearImplicitSystem>(solver->model());
+    auto & at_sys = es.get_system<libMesh::ExplicitSystem>("activation_times");
+
+    init.comm().barrier();
+    write_to_file(mesh, uni1_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 1);
+    write_to_file(mesh, uni2_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 2);
+    write_to_file(mesh, at_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 0);
+    init.comm().barrier();
+
     std::cout << "Time loop starts:" << std::endl;
-
+    //return 0;
     //export initial condition
-
     for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
     {
         datatime.advance();
-        std::cout << "Time:" << datatime.M_time << ", Iter: " <<  datatime.M_iter << std::endl;
+        std::cout << "Time:" << datatime.M_time << ", Iter: " << datatime.M_iter << std::endl;
         solver->advance();
         //std::cout << "Reaction:" << datatime.M_time << std::endl;
         solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, iion_mass);
@@ -216,10 +720,19 @@ int main(int argc, char ** argv)
         //++save_iter_ve;
         //bidomain.save_ve_timestep(save_iter_ve, datatime.M_time);
 
+        if ( 0 == datatime.M_iter % static_cast<int>(1.0/datatime.M_dt) )
+        {
+            init.comm().barrier();
+            write_to_file(mesh, uni1_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 1);
+            write_to_file(mesh, uni2_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 2);
+            write_to_file(mesh, at_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 0);
+            init.comm().barrier();
+        }
+
         if (0 == datatime.M_iter % datatime.M_saveIter && export_data)
         {
             save_iter++;
-            solver->save_potential(save_iter,datatime.M_time);
+            solver->save_potential(save_iter, datatime.M_time);
 
             //solver->save_potential(save_iter, datatime.M_time);
             //solver->save_exo_timestep(save_iter, datatime.M_time);
@@ -227,7 +740,8 @@ int main(int argc, char ** argv)
         }
 
     }
-    if(export_data) solver->save_activation_times(save_iter);
+    if (export_data)
+        solver->save_activation_times(save_iter);
     delete solver;
     return 0;
 }

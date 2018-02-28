@@ -115,6 +115,7 @@ public:
    double potential_norm();
 
    void set_potential_on_boundary(unsigned int boundID, double value = 1.0);
+   void setup_ic(libMesh::FunctionBase<libMesh::Number>& ic, double time=0.0); // setup initial conditions
 
    std::string  get_ionic_model_name() const;
 
@@ -176,6 +177,7 @@ public:
 
     long int& timestep_counter() { return M_timestep_counter; };
     std::string M_model;
+    std::string model() const {return M_model;}
 
     double M_meshSize;
     ModelType M_modelType;

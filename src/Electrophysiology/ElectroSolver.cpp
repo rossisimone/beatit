@@ -343,6 +343,21 @@ namespace BeatIt
 
     }
 
+    void ElectroSolver::setup_ic(libMesh::FunctionBase<libMesh::Number>& ic, double time) // setup initial conditions
+    {
+        // WAVE
+        ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
+        M_equationSystems.parameters.set<libMesh::Real>("time") = time;
+        wave_system.time = time;
+        std::cout << "* BIDOMAIN+BATH: Projecting initial condition to bidomain system ... " << std::flush;
+        wave_system.project_solution(&ic);
+        std::cout << "* BIDOMAIN+BATH: Copying initial conditions to vectors at n nd at n-1... " << std::flush;
+        // Close vectors and update the values in old_local_solution and older_local_solution
+        advance();
+        std::cout << " done" << std::endl;
+    }
+
+
     void ElectroSolver::restart(EXOExporter& importer, int step, bool restart)
     {
         if (restart)
@@ -472,6 +487,7 @@ namespace BeatIt
 //    }
 
         //std::cout << "* ElectroSolver: Loop over the map " << std::endl;
+        // Loop over node of the
         for (auto it = M_boundary_ve.M_node_id_map.begin(); it != M_boundary_ve.M_node_id_map.end(); ++it)
         {
             //std::cout << "nn" << std::endl;
@@ -616,6 +632,7 @@ namespace BeatIt
         }
 
         activation_times_system.solution->close();
+        activation_times_system.update();
     }
 
     void ElectroSolver::advance()
@@ -623,19 +640,37 @@ namespace BeatIt
         ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
         IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
 
+        system.solution->close();
+        system.old_local_solution->close();
+        system.older_local_solution->close();
+        *system.older_local_solution = *system.old_local_solution;
         *system.old_local_solution = *system.solution;
+        system.update();
+
+        ionic_model_system.solution->close();
+        ionic_model_system.old_local_solution->close();
+        ionic_model_system.older_local_solution->close();
         *ionic_model_system.older_local_solution = *ionic_model_system.old_local_solution;
         *ionic_model_system.old_local_solution = *ionic_model_system.solution;
         ionic_model_system.get_vector("rhs_old") = *ionic_model_system.rhs;
+        ionic_model_system.update();
         // WAVE
         ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
+        wave_system.solution->close();
+        wave_system.old_local_solution->close();
+        wave_system.older_local_solution->close();
         *wave_system.older_local_solution = *wave_system.old_local_solution;
         *wave_system.old_local_solution = *wave_system.solution;
+        wave_system.update();
 
         IonicModelSystem& iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
+        iion_system.solution->close();
+        iion_system.old_local_solution->close();
+        iion_system.older_local_solution->close();
         *iion_system.older_local_solution = *iion_system.old_local_solution;
         *iion_system.old_local_solution = *iion_system.solution;
         iion_system.get_vector("diion_old") = iion_system.get_vector("diion");
+        iion_system.update();
     }
 
     std::string ElectroSolver::get_ionic_model_name() const

@@ -39,6 +39,7 @@
 // Include file that defines (possibly multiple) systems of equations.
 #include "libmesh/equation_systems.h"
 #include "libmesh/linear_solver.h"
+#include "libmesh/petsc_linear_solver.h"
 
 #include <memory>
 #include "libmesh/getpot.h"
@@ -109,7 +110,8 @@ public:
 
     std::set<std::string> M_parametersExporterNames;
     std::unique_ptr<EXOExporter> M_exporter;
-    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
+    std::unique_ptr<libMesh::PetscLinearSolver<libMesh::Number> > M_linearSolver;
+//    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
     std::string  M_outputFolder;
     SpiritFunction M_rhsFunction;
     std::string M_myName;

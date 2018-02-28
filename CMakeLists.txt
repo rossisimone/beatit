@@ -27,8 +27,11 @@ message("-- VTK_DIR: ${VTK_DIR}")
 message("-- VTK_INCLUDE_DIRS: ${VTK_INCLUDE_DIRS}")
 message("-- VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
 message("-- VTK_LIBRARIES: ${VTK_LIBRARIES}")
-find_package(Boost REQUIRED)
 
+find_package(Boost REQUIRED mpi serialization)
+message("-- BOOST_LIBRARYDIR: ${BOOST_LIBRARYDIR}")
+message("-- Boost_LIBRARIES: ${Boost_LIBRARIES}")
+message("-- Boost_COMPILER: ${Boost_COMPILER}")
 
 #
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)

@@ -164,12 +164,15 @@ Poisson::setup(const GetPot& data, std::string section )
 //    prec_map["lu"] =  libMesh::LU_PRECOND;
 //    prec_map["ilu"] =  libMesh::ILU_PRECOND;
 //    prec_map["amg"] =  libMesh::AMG_PRECOND;
-    M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
+//    M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
+    typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
+
+    M_linearSolver.reset(new PetscSolver(M_equationSystems.comm()));
     M_linearSolver->set_solver_type(libMesh::CG);
     M_linearSolver->set_preconditioner_type( libMesh::AMG_PRECOND);
     M_linearSolver->init();
-
-
+    KSPSetOptionsPrefix(M_linearSolver->ksp(),"poisson_");
+    PCSetOptionsPrefix(M_linearSolver->pc(),"poisson_");
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -206,8 +209,7 @@ Poisson::solve_system()
 
     std::pair<unsigned int, double> rval = std::make_pair(0,0.0);
 
-    rval = M_linearSolver->solve (*system.matrix, nullptr,
-														*system.solution,
+    rval = M_linearSolver->solve (*system.matrix, *system.solution,
 														*system.rhs, tol, max_iter);
 }
 
