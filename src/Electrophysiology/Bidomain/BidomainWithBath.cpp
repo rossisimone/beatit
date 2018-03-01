@@ -472,6 +472,7 @@ void BidomainWithBath::assemble_matrices(double dt)
     const unsigned int dim = mesh.mesh_dimension();
     const unsigned int max_dim = 3;
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
+    //const libMesh::Real Cm = M_equationSystems.parameters.get<libMesh::Real>("Cm");
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
     double Cm = M_ionicModelPtr->membraneCapacitance();
@@ -742,8 +743,8 @@ void BidomainWithBath::assemble_matrices(double dt)
             break;
         }
         }
-        D0i /= Chi;
-        D0e /= Chi;
+        //D0i /= Chi;
+        //D0e /= Chi;
 
         Ke.resize(n_dofs, n_dofs);
         Kie.resize(n_dofs_V, n_dofs_V);
@@ -778,7 +779,7 @@ void BidomainWithBath::assemble_matrices(double dt)
                         {
                         // Block QQ :  ( ( tau_i / cdt + 1 ) * Cm * M_L + cdt * Ki )
 //                        // Using lumped mass matrix
-                        Ke(i, i) += ( 1.0 + tau_i/cdt ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                        Ke(i, i) += ( 1.0 + tau_i/cdt ) * Cm * Chi * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Ke(i, j) += cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 //                        // Block QVe : Ki
 //                        // Using lumped mass matrix
@@ -787,7 +788,7 @@ void BidomainWithBath::assemble_matrices(double dt)
                         else
                         {
                         // Using lumped mass matrix
-                        Ke(i, i) += ( cdt + tau_i ) * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                        Ke(i, i) += ( cdt + tau_i ) * Cm * Chi * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Ke(i, j) += cdt * cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
                         // Block QVe : Ki
                         // Using lumped mass matrix
@@ -796,7 +797,7 @@ void BidomainWithBath::assemble_matrices(double dt)
 
                         // Block VeQ : (tau_i-tau_e) / cdt * Cm * M + dt * Ki
                         // Using lumped mass matrix
-                        Ke(i + n_Q_dofs, i) += (tau_i - tau_e) / cdt * Cm * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
+                        Ke(i + n_Q_dofs, i) += (tau_i - tau_e) / cdt * Cm * Chi * JxW_qp1[qp] * (phi_qp1[i][qp] * phi_qp1[j][qp]);
                         Ke(i + n_Q_dofs, j) += cdt * JxW_qp1[qp] * DigradV * dphi_qp1[j][qp];
 
                         // Block VeVe : Kie
@@ -1008,6 +1009,7 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     iion_system.get_vector("diion").close();
 
     double Cm = M_ionicModelPtr->membraneCapacitance();
+    const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
     double cdt = dt;
@@ -1114,22 +1116,22 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                    {
 
                    // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
-                    rhsq = - (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                    rhsq = - Chi * (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
                     // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
-                     rhs_oldq = tau_i / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                     rhs_oldq = tau_i / cdt * Cm * Chi * ( 4 * Qn - Q_nm1 ) / 3.0;
                    }
                    else
                    {
                     // RHS_Q  =  - M * (2 I^n - I^n-1 + 2 tau_i *  dI^n - tau_i dI^n-1 )
-                    rhsq = - cdt * (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
+                    rhsq = - cdt * Chi * (2*Iion - Iion_old + 2 * tau_i * dIion  - tau_i * dIion_old + istim);
                     // RHS_Q  = tau_i / cdt * Cm * M * [ 4/3*Q^n  - 1/3*Q^n-1 ]
-                    rhs_oldq = tau_i * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                    rhs_oldq = tau_i * Cm * Chi * ( 4 * Qn - Q_nm1 ) / 3.0;
 
                    }
                    // RHS_Ve =  - ( tau_i - tau_e ) ( 2 dI^n - dI^n-1 )
-                   rhsve =  (tau_e - tau_i) * ( 2 * dIion - dIion_old ) - 0 * (stim_i + stim_e);
+                   rhsve =  Chi * (tau_e - tau_i) * ( 2 * dIion - dIion_old ) - 0 * (stim_i + stim_e);
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * [ 4/3*Q^n  - 1/3*Q^n-1 ]
-                   rhs_oldve = (tau_i - tau_e) / cdt * Cm * ( 4 * Qn - Q_nm1 ) / 3.0;
+                   rhs_oldve = (tau_i - tau_e) / cdt * Cm * Chi * ( 4 * Qn - Q_nm1 ) / 3.0;
 
                    // Form: 4/3*Vn - 1/3 V^n-1
                    kv = ( 4 * Vn - V_nm1 ) / 3.0;
@@ -1143,21 +1145,21 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                    if(!M_symmetricOperator)
                    {
                        // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
-                       rhsq = - (Iion + tau_i * dIion + istim);
+                       rhsq = - Chi * (Iion + tau_i * dIion + istim);
                       // RHS_Q  = tau_i / cdt * Cm * M * Q^n
-                       rhs_oldq = tau_i  / cdt * Cm * Qn;
+                       rhs_oldq = tau_i  / cdt * Cm * Chi * Qn;
                    }
                    else
                    {
                    // RHS_Q  = -( M * I^n + tau_i * M * dI^n )
-                      rhsq = -cdt *  (Iion + tau_i * dIion + istim);
+                      rhsq = -cdt *  Chi * (Iion + tau_i * dIion + istim);
                    // RHS_Q  = tau_i / cdt * Cm * M * Q^n
-                      rhs_oldq = tau_i * Cm * Qn;
+                      rhs_oldq = tau_i * Cm * Chi * Qn;
                    }
                    // RHS_Ve  = -( tau_i - tau_e ) dI^n
-                   rhsve = (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e);
+                   rhsve = Chi * (tau_e - tau_i) * dIion - 0 * (stim_i + stim_e);
                    // RHS_Ve  = M * [ ( tau_i - tau_e ) / cdt * Cm * Q^n
-                   rhs_oldve = (tau_i - tau_e) / cdt * Cm * Qn;
+                   rhs_oldve = (tau_i - tau_e) / cdt * Cm * Chi * Qn;
 
                    // Form: Vn
                    kv = Vn;
