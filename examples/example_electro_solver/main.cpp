@@ -118,7 +118,7 @@ void init_files( libMesh::MeshBase& endo,
 {
     std::cout << "initializing: " << meshfile << std::endl;
     ReplicatedMesh mesh_unip1(endo.comm());
-    mesh_unip1.read(meshfile);
+    mesh_unip1.read(meshfile, nullptr, true, true);
     mesh_unip1.print_info(std::cout);
     libMesh::MeshBase::const_node_iterator node_data = mesh_unip1.nodes_begin();
     const libMesh::MeshBase::const_node_iterator end_node_data = mesh_unip1.nodes_end();
@@ -214,11 +214,14 @@ void init_files( libMesh::MeshBase& endo,
 
             std::ofstream file(filename);
 
+            std::streamsize ss = file.precision();
+            file.precision(10);
             file << "Data Point: " << dataID << std::endl;
             file << (*nn)(0) << " " << (*nn)(1) << " " << (*nn)(2) << std::endl;
             file << "Point: " << mesh_ID << std::endl;
             //const libMesh::Node * cnn = *closest_node;
             file << (*cs_node)(0) << " " << (*cs_node)(1) << " " << (*cs_node)(2) << std::endl;
+            file.precision(ss);
 
             file << "time Ve V Q at" << std::endl;
             file.close();
