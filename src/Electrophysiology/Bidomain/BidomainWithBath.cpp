@@ -496,6 +496,8 @@ void BidomainWithBath::assemble_matrices(double dt)
     bidomain_system.get_matrix("high_order_mass").zero();
     bidomain_system.get_matrix("stiffness").zero();
     bidomain_system.get_vector("lumped_mass_vector").zero();
+    wave_system.get_matrix("Ki").zero();
+
 
     ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
     ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
