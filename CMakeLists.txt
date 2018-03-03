@@ -28,7 +28,7 @@ message("-- VTK_INCLUDE_DIRS: ${VTK_INCLUDE_DIRS}")
 message("-- VTK_LIBRARY_DIRS: ${VTK_LIBRARY_DIRS}")
 message("-- VTK_LIBRARIES: ${VTK_LIBRARIES}")
 
-find_package(Boost REQUIRED mpi serialization)
+find_package(Boost REQUIRED)
 message("-- BOOST_LIBRARYDIR: ${BOOST_LIBRARYDIR}")
 message("-- Boost_LIBRARIES: ${Boost_LIBRARIES}")
 message("-- Boost_COMPILER: ${Boost_COMPILER}")
