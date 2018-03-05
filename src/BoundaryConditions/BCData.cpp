@@ -35,6 +35,7 @@
 
 #include "BoundaryConditions/BCData.hpp"
 #include "libmesh/getpot.h"
+#include "libmesh/point.h"
 #include "Util/IO/io.hpp"
 
 namespace BeatIt {
