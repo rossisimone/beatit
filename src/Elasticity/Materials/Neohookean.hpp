@@ -62,6 +62,7 @@ public:
     double d2U( double J = 1.0);
     double d3U( double J = 1.0);
 
+    virtual void updateVariables();
 
     enum class U { Quadratic, Liu, Reese };
 

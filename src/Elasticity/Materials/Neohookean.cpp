@@ -108,6 +108,15 @@ Neohookean::setup(GetPot& data, std::string section)
     std::cout << "\t tau = " << M_tau << std::endl;
 }
 
+void Neohookean::updateVariables()
+{
+    M_Fk = M_identity + M_gradU;
+    MaterialUtilities::cof(M_Fk, M_Hk);
+    M_Ck = M_Fk.transpose() * M_Fk;
+    M_Cinvk = M_Ck.inverse();
+    M_Jk = M_Fk.det();
+}
+
 
 void
 Neohookean::evaluateDeviatoricStress()
