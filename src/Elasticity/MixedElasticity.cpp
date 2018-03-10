@@ -651,7 +651,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
             IS is_p_global;
             IS is_p_local;
             std::vector<libMesh::dof_id_type> p_indices;
-            int var_num = 3;
+            int var_num = dim;
             dof_map.local_variable_indices(p_indices, mesh, var_num);
 
             ISCreateGeneral(PETSC_COMM_SELF, p_indices.size(), reinterpret_cast<int*>(&p_indices[0]),PETSC_COPY_VALUES,&is_p_local);
