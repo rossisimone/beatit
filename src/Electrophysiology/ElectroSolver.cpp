@@ -31,6 +31,7 @@
 // Define the DofMap, which handles degree of freedom
 // indexing.
 #include "libmesh/dof_map.h"
+#include "libmesh/quadrature_gauss.h"
 
 #include "libmesh/exodusII_io.h"
 //#include "libmesh/exodusII_io_helper.h"
@@ -38,6 +39,7 @@
 #include "libmesh/vtk_io.h"
 
 #include "libmesh/perf_log.h"
+#include "libmesh/string_to_enum.h"
 
 #include <sys/stat.h>
 
@@ -68,7 +70,7 @@ namespace BeatIt
                     Anisotropy::Orthotropic), M_equationType(EquationType::ParabolicEllipticBidomain), M_timeIntegratorType(
                     DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(
                     1.0), M_model(model), M_ground_ve(false), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
-                    M_elapsed_time(), M_num_linear_iters(0)
+                    M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST)
     {
         // TODO Auto-generated constructor stub
 
@@ -140,11 +142,13 @@ namespace BeatIt
             }
         }
 
+        std::string order = data(M_section + "/order", "FIRST");
+        M_order = libMesh::Utility::string_to_enum<libMesh::Order>(order);
         // call setup system of the specific class
         setup_systems(M_datafile, M_section);
         // Add ionic current to this system
         IonicModelSystem& Iion_system = M_equationSystems.add_system < IonicModelSystem > ("iion");
-        Iion_system.add_variable("iion", libMesh::FIRST);
+        Iion_system.add_variable("iion", M_order);
         Iion_system.add_vector("diion");
         Iion_system.add_vector("diion_old");
         Iion_system.add_vector("total_current");
@@ -153,7 +157,7 @@ namespace BeatIt
 
         // Add the applied current to this system
         IonicModelSystem& istim_system = M_equationSystems.add_system < IonicModelSystem > ("istim");
-        istim_system.add_variable("istim", libMesh::FIRST);
+        istim_system.add_variable("istim", M_order);
         istim_system.init();
         istim_system.add_vector("stim_i");
         istim_system.add_vector("stim_e");
@@ -165,8 +169,14 @@ namespace BeatIt
 
         std::cout << "* ElectroSolver: Creating parameters spaces " << std::endl;
         ParameterSystem& activation_times_system = M_equationSystems.add_system < ParameterSystem > ("activation_times");
-        activation_times_system.add_variable("activation_times", libMesh::FIRST);
+        activation_times_system.add_variable("activation_times", M_order);
         activation_times_system.init();
+        // CV = Conduction Velocity
+        ParameterSystem& CV_system = M_equationSystems.add_system < ParameterSystem > ("CV");
+        CV_system.add_variable("cvx", libMesh::CONSTANT, libMesh::MONOMIAL);
+        CV_system.add_variable("cvy", libMesh::CONSTANT, libMesh::MONOMIAL);
+        CV_system.add_variable("cvz", libMesh::CONSTANT, libMesh::MONOMIAL);
+        CV_system.init();
 
         if (!M_equationSystems.has_system("fibers"))
         {
@@ -568,6 +578,17 @@ namespace BeatIt
         std::cout << "done " << std::endl;
     }
 
+    void ElectroSolver::save_conduction_velocity(int step)
+    {
+        std::cout << "* " << M_model << ": VTKIO::Exporting Conduction Velocity: " << M_outputFolder << " ... " << std::flush;
+        Exporter vtk(M_equationSystems.get_mesh());
+        std::set < std::string > output;
+        output.insert("CV");
+        vtk.write_equation_systems(M_outputFolder + "CV"+std::to_string(step)+".pvtu", M_equationSystems, &output);
+        std::cout << "done " << std::endl;
+    }
+
+
     void ElectroSolver::save(int step)
     {
         std::ostringstream ss;
@@ -589,6 +610,81 @@ namespace BeatIt
         M_linearSolver->set_solver_type(libMesh::CG);
         M_linearSolver->set_preconditioner_type(libMesh::AMG_PRECOND);
         M_linearSolver->init();
+    }
+
+    void ElectroSolver::evaluate_conduction_velocity()
+    {
+        ParameterSystem& activation_times_system = M_equationSystems.get_system < ParameterSystem > ("activation_times");
+        activation_times_system.update();
+        // WAVE
+        ParameterSystem& CV_system = M_equationSystems.get_system < ParameterSystem > ("CV");
+
+        const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+        const unsigned int dim = mesh.mesh_dimension();
+
+        libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+        const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+        const libMesh::DofMap & dof_map_CV = CV_system.get_dof_map();
+        const libMesh::DofMap & dof_map_at = activation_times_system.get_dof_map();
+
+        std::vector < libMesh::dof_id_type > dof_indices_CV;
+        std::vector < libMesh::dof_id_type > dof_indices_at;
+
+        std::vector<double> at;
+
+        libMesh::FEType fe_type = dof_map_at.variable_type(0);
+        libMesh::UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type));
+        // A 5th order Gauss quadrature rule for numerical integration.
+        libMesh::QGauss qrule(dim, libMesh::FIRST);
+        // Tell the finite element object to use our quadrature rule.
+        fe_qp1->attach_quadrature_rule(&qrule);
+        // The element shape functions evaluated at the quadrature points.
+        const std::vector<std::vector<libMesh::Real> > & phi= fe_qp1->get_phi();
+
+        // The element shape function gradients evaluated at the quadrature
+        // points.
+        const std::vector<std::vector<libMesh::RealGradient> > & dphi = fe_qp1->get_dphi();
+
+        libMesh::VectorValue<libMesh::Number> CV;
+        libMesh::VectorValue<libMesh::Number> CV_direction;
+        libMesh::VectorValue<libMesh::Number> grad_at;
+
+
+        for (; el != end_el; ++el)
+        {
+            const libMesh::Elem * elem = *el;
+            dof_map_at.dof_indices(elem, dof_indices_at);
+            dof_map_CV.dof_indices(elem, dof_indices_CV);
+
+            const unsigned int n_dofs = dof_indices_at.size();
+            at.resize(n_dofs);
+            activation_times_system.current_local_solution->get(dof_indices_at, at);
+            fe_qp1->reinit(elem);
+            CV *= 0.0;
+            CV_direction *= 0.0;
+            grad_at *= 0.0;
+            const unsigned int n_phi = phi.size();
+            // use single quadrature point;
+            int qp = 0;
+            for (unsigned int l = 0; l < n_phi; l++)
+            {
+                grad_at += dphi[l][qp] * at[l];
+            }
+            double grad_at_mag2 = grad_at.norm_sq();
+            double grad_at_mag = std::sqrt(grad_at_mag2);
+
+            double cv0 = 1000*grad_at(0)/grad_at_mag2;
+            double cv1 = 1000*grad_at(1)/grad_at_mag2;
+            double cv2 = 1000*grad_at(2)/grad_at_mag2;
+           // std::cout << "grad_at_mag2: " << grad_at_mag2 << ", cv = " << cv0 << ", " << cv1 << ", " << cv2 << std::endl;
+
+            CV_system.solution->set(dof_indices_CV[0], cv0);
+            CV_system.solution->set(dof_indices_CV[1], cv1);
+            CV_system.solution->set(dof_indices_CV[2], cv2);
+        }
+        // WAVE
+
     }
 
     void ElectroSolver::update_activation_time(double time, double threshold)

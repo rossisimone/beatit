@@ -42,6 +42,7 @@
 #include "libmesh/numeric_vector.h"
 #include <libmesh/boundary_mesh.h>
 #include <libmesh/serial_mesh.h>
+#include "libmesh/string_to_enum.h"
 
 #include "libmesh/analytic_function.h"
 #include "Util/CTestUtil.hpp"
@@ -85,15 +86,25 @@ int main(int argc, char ** argv)
         int elX = data("mesh/elX", 15);
         int elY = data("mesh/elY", 5);
         int elZ = data("mesh/elZ", 4);
+        double minX = data("mesh/minX", 0.0);
+        double minY = data("mesh/minY", 0.0);
+        double minZ = data("mesh/minZ", 0.0);
         double maxX = data("mesh/maxX", 2.0);
         double maxY = data("mesh/maxY", 0.7);
         double maxZ = data("mesh/maxZ", 0.3);
         // No reason to use high-order geometric elements if we are
         // solving with low-order finite elements.
         if (elZ > 0)
-            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TET4);
+        {
+            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, minX, maxX, minY, maxY, minZ, maxZ, TET4);
+            //MeshTools::Generation::build_cube(mesh, elX, elY, elZ, minX, maxX, minY, maxY, minZ, maxZ, TET4);
+        }
         else
-            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, 0., maxX, 0., maxY, 0., maxZ, TRI3);
+        {
+            std::string elType = data("mesh/elType", "TRI3");
+            ElemType elt = libMesh::Utility::string_to_enum<ElemType>(elType);
+            MeshTools::Generation::build_cube(mesh, elX, elY, elZ, minX, maxX, minY, maxY, minZ, maxZ, elt);
+        }
 
         std::cout << "Creating subdomains!" << std::endl;
 
@@ -123,9 +134,36 @@ int main(int argc, char ** argv)
                 }
 
             }
-        }
         mesh.get_boundary_info().regenerate_id_sets();
         std::cout << "Creating subdomains done!" << std::endl;
+
+        bool circle = data("mesh/circle", false);
+        if(circle)
+        {
+            bool in_tissue = data("mesh/in_tissue", false);
+            double pi_fraction = data("mesh/pi_fraction", 1.0);
+            double angle = M_PI/pi_fraction;
+            //Map unit square onto cook's membrane
+            MeshBase::const_node_iterator nd = mesh.nodes_begin();
+            const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
+            for (; nd != end_nd; ++nd)
+            {
+                    double x = (**nd)(0);
+                    double y = (**nd)(1);
+                    if(x > 0)
+                    {
+                        int outside_tissue = (in_tissue == true ) ? 1 : -1;
+                        double R0= maxX / angle; // + outside_tissue *  ( y - y_interface);
+                        double R = R0 + outside_tissue * y; // + outside_tissue *  ( y - y_interface);
+                        double theta = - 0.5 * M_PI + angle * x / maxX;
+                        (**nd)(0) = R * std::cos(theta);
+                        (**nd)(1) = - outside_tissue * ( R * std::sin(theta) + R0 );
+                    }
+            }
+
+        }
+        }
+
 
     }
     else
@@ -142,6 +180,8 @@ int main(int argc, char ** argv)
             libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
     }
 
+
+    libMesh::ExodusII_IO(mesh).write("mesh.e");
     MeshRefinement refinement(mesh);
     refinement.refine_elements();
     std::cout << "Mesh done!" << std::endl;
@@ -177,7 +217,6 @@ int main(int argc, char ** argv)
     if (export_data)
     {
         solver->save_potential(save_iter, 0.0);
-        solver->save_parameters();
     }
     //return 0;
     std::string system_mass = data(model + "/diffusion_mass", "mass");
@@ -219,7 +258,13 @@ int main(int argc, char ** argv)
 
     }
     if (export_data)
+    {
         solver->save_activation_times(save_iter);
+        solver->evaluate_conduction_velocity();
+        solver->save_conduction_velocity(save_iter);
+        solver->save_parameters();
+
+    }
     delete solver;
     return 0;
 }

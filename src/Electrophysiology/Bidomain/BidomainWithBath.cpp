@@ -95,6 +95,8 @@
 #include "Electrophysiology/IonicModels/Grandi11.hpp"
 #include "Electrophysiology/IonicModels/ORd.hpp"
 #include "Electrophysiology/IonicModels/TP06.hpp"
+#include "Electrophysiology/IonicModels/Cubic.hpp"
+
 #include "Electrophysiology/Bidomain/BidomainWithBath.hpp"
 #include "Util/SpiritFunction.hpp"
 
@@ -147,10 +149,10 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     BidomainSystem& bidomain_system = M_equationSystems.add_system<BidomainSystem>(M_model);
     // TO DO: Generalize to higher order
     if (M_tissueBlockID >= 0)
-        bidomain_system.add_variable("Q", libMesh::FIRST, &active_tissue_subdomain);
+        bidomain_system.add_variable("Q", M_order, &active_tissue_subdomain);
     else
-        bidomain_system.add_variable("Q", libMesh::FIRST);
-    bidomain_system.add_variable("Ve", libMesh::FIRST);
+        bidomain_system.add_variable("Q", M_order);
+    bidomain_system.add_variable("Ve", M_order);
 
     // Add 3 matrices
     bidomain_system.add_matrix("lumped_mass");
@@ -176,9 +178,9 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
 
     BidomainSystem& wave_system = M_equationSystems.add_system<BidomainSystem>("wave");
     if (M_tissueBlockID >= 0)
-        wave_system.add_variable("V", libMesh::FIRST, &active_tissue_subdomain);
+        wave_system.add_variable("V", M_order, &active_tissue_subdomain);
     else
-        wave_system.add_variable("V", libMesh::FIRST);
+        wave_system.add_variable("V", M_order);
 
     wave_system.add_matrix("Ki");
     wave_system.add_vector("KiV");
@@ -204,9 +206,9 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
         std::string var_name = M_ionicModelPtr->variableName(nv);
         // For the time being we use P1 for the variables
         if (M_tissueBlockID >= 0)
-            ionic_model_system.add_variable(&var_name[0], libMesh::FIRST, &active_tissue_subdomain);
+            ionic_model_system.add_variable(&var_name[0], M_order, &active_tissue_subdomain);
         else
-            ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
+            ionic_model_system.add_variable(&var_name[0], M_order);
     }
     ionic_model_system.add_vector("rhs_old");
     //ionic_model_system.add_vector("rhs_older");
@@ -526,7 +528,7 @@ void BidomainWithBath::assemble_matrices(double dt)
     UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
 
     // A 5th order Gauss quadrature rule for numerical integration.
-    libMesh::QGauss qrule(dim, libMesh::THIRD);
+    libMesh::QGauss qrule(dim, libMesh::FIFTH);
 
     // Tell the finite element object to use our quadrature rule.
     fe_qp1->attach_quadrature_rule(&qrule);

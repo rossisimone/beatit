@@ -89,11 +89,14 @@ public:
     void save_potential(int step, double time = 0.0);
     void save_parameters();
     void save_activation_times(int step = 1);
+    void save_conduction_velocity(int step = 1);
 
     virtual void amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& type = "kelly" ) {}
     void reinit_linear_solver();
     //void update_pacing(double time);
     void update_activation_time(double time, double threshold = 0.8);
+    void evaluate_conduction_velocity();
+
 
 
     //void cut(double time, std::string f);
@@ -186,7 +189,7 @@ public:
     std::set<unsigned int> M_transmembranePotentialActiveSubdomains;
     int M_constraint_dof_id;
     bool M_ground_ve;
-
+    libMesh::Order M_order;
 
     struct EndocardialVe
     {

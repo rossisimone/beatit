@@ -94,6 +94,8 @@
 #include "Electrophysiology/IonicModels/Grandi11.hpp"
 #include "Electrophysiology/IonicModels/ORd.hpp"
 #include "Electrophysiology/IonicModels/TP06.hpp"
+#include "Electrophysiology/IonicModels/Cubic.hpp"
+
 #include "Electrophysiology/Monodomain/Monowave.hpp"
 #include "Util/SpiritFunction.hpp"
 
