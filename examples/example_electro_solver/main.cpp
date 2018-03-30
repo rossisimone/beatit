@@ -364,6 +364,8 @@ int main(int argc, char ** argv)
     GetPot data(datafile_name);
 
     bool export_data = data("export", false);
+    bool compare_data = data("compare", false);
+
     BeatIt::TimeData datatime;
     datatime.setup(data);
     datatime.print();
@@ -686,6 +688,13 @@ int main(int argc, char ** argv)
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
 
+    int boundary_ic = data(model + "/boundary_ic", -1);
+    if(boundary_ic > 0)
+    {
+        double boundary_value = data(model + "/boundary_value", 30.0);
+        solver->set_potential_on_boundary(boundary_ic, boundary_value, 1);
+    }
+
     bool useMidpointMethod = false;
     int step0 = 0;
     int step1 = 1;
@@ -694,11 +703,14 @@ int main(int argc, char ** argv)
     auto & bid_sys = es.get_system<libMesh::TransientLinearImplicitSystem>(solver->model());
     auto & at_sys = es.get_system<libMesh::ExplicitSystem>("activation_times");
 
-    init.comm().barrier();
-    write_to_file(mesh, uni1_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 1);
-    write_to_file(mesh, uni2_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 2);
-    write_to_file(mesh, at_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 0);
-    init.comm().barrier();
+    if (patient > 0)
+    {
+        init.comm().barrier();
+        write_to_file(mesh, uni1_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 1);
+        write_to_file(mesh, uni2_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 2);
+        write_to_file(mesh, at_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 0);
+        init.comm().barrier();
+    }
 
     std::cout << "Time loop starts:" << std::endl;
     //return 0;
@@ -725,11 +737,14 @@ int main(int argc, char ** argv)
 
         if ( 0 == datatime.M_iter % static_cast<int>(1.0/datatime.M_dt) )
         {
-            init.comm().barrier();
-            write_to_file(mesh, uni1_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 1);
-            write_to_file(mesh, uni2_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 2);
-            write_to_file(mesh, at_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 0);
-            init.comm().barrier();
+            if (patient > 0)
+            {
+                init.comm().barrier();
+                write_to_file(mesh, uni1_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 1);
+                write_to_file(mesh, uni2_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 2);
+                write_to_file(mesh, at_id_map, datatime.M_time, V_sys, bid_sys, at_sys, 0);
+                init.comm().barrier();
+            }
         }
 
         if (0 == datatime.M_iter % datatime.M_saveIter && export_data)
@@ -743,7 +758,7 @@ int main(int argc, char ** argv)
         }
 
     }
-    if (export_data)
+//    if (export_data)
         solver->save_activation_times(save_iter);
     delete solver;
     return 0;

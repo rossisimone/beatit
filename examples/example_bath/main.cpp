@@ -55,7 +55,6 @@
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
-
 // Begin the main program.
 int main(int argc, char ** argv)
 {
@@ -134,37 +133,48 @@ int main(int argc, char ** argv)
                 }
 
             }
-        mesh.get_boundary_info().regenerate_id_sets();
-        std::cout << "Creating subdomains done!" << std::endl;
+            mesh.get_boundary_info().regenerate_id_sets();
+            std::cout << "Creating subdomains done!" << std::endl;
 
-        bool circle = data("mesh/circle", false);
-        if(circle)
-        {
-            bool in_tissue = data("mesh/in_tissue", false);
-            double pi_fraction = data("mesh/pi_fraction", 1.0);
-            double angle = M_PI/pi_fraction;
-            //Map unit square onto cook's membrane
-            MeshBase::const_node_iterator nd = mesh.nodes_begin();
-            const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
-            for (; nd != end_nd; ++nd)
+            bool circle = data("mesh/circle", false);
+            if (circle)
             {
+                bool in_tissue = data("mesh/in_tissue", false);
+                bool z_bend = data("mesh/z_bend", false);
+                double pi_fraction = data("mesh/pi_fraction", 1.0);
+                double angle = M_PI / pi_fraction;
+                //Map unit square onto cook's membrane
+                MeshBase::const_node_iterator nd = mesh.nodes_begin();
+                const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
+                for (; nd != end_nd; ++nd)
+                {
                     double x = (**nd)(0);
                     double y = (**nd)(1);
-                    if(x > 0)
+                    double z = (**nd)(2);
+                    if (x > 0)
                     {
-                        int outside_tissue = (in_tissue == true ) ? 1 : -1;
-                        double R0= maxX / angle; // + outside_tissue *  ( y - y_interface);
-                        double R = R0 + outside_tissue * y; // + outside_tissue *  ( y - y_interface);
-                        double theta = - 0.5 * M_PI + angle * x / maxX;
-                        (**nd)(0) = R * std::cos(theta);
-                        (**nd)(1) = - outside_tissue * ( R * std::sin(theta) + R0 );
+                        if (z_bend)
+                        {
+                            int outside_tissue = (in_tissue == true) ? 1 : -1;
+                            double R0 = maxX / angle; // + outside_tissue *  ( y - y_interface);
+                            double R = R0 + outside_tissue * z; // + outside_tissue *  ( y - y_interface);
+                            double theta = -0.5 * M_PI + angle * x / maxX;
+                            (**nd)(0) = R * std::cos(theta);
+                            (**nd)(2) = -outside_tissue * (R * std::sin(theta) + R0);
+                        }
+                        else
+                        {
+                            int outside_tissue = (in_tissue == true) ? 1 : -1;
+                            double R0 = maxX / angle; // + outside_tissue *  ( y - y_interface);
+                            double R = R0 + outside_tissue * y; // + outside_tissue *  ( y - y_interface);
+                            double theta = -0.5 * M_PI + angle * x / maxX;
+                            (**nd)(0) = R * std::cos(theta);
+                            (**nd)(1) = -outside_tissue * (R * std::sin(theta) + R0);
+                        }
                     }
+                }
             }
-
         }
-        }
-
-
     }
     else
     {
@@ -180,7 +190,6 @@ int main(int argc, char ** argv)
             libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
     }
 
-
     libMesh::ExodusII_IO(mesh).write("mesh.e");
     MeshRefinement refinement(mesh);
     refinement.refine_elements();
@@ -193,10 +202,6 @@ int main(int argc, char ** argv)
     // Create an equation systems object.
     std::cout << "Create equation system ..." << std::endl;
     EquationSystems es(mesh);
-
-
-
-
 
     // Constructor
     std::cout << "Create bidomain with bath..." << std::endl;
@@ -216,6 +221,7 @@ int main(int argc, char ** argv)
     //solver->save_exo_timestep(save_iter++, datatime.M_time);
     if (export_data)
     {
+        solver->save_parameters();
         solver->save_potential(save_iter, 0.0);
     }
     //return 0;
@@ -249,7 +255,6 @@ int main(int argc, char ** argv)
         solver->update_activation_time(datatime.M_time);
         //std::cout << "at done:" << datatime.M_time << std::endl;
 
-
         if (0 == datatime.M_iter % datatime.M_saveIter && export_data)
         {
             save_iter++;
@@ -259,12 +264,11 @@ int main(int argc, char ** argv)
     }
     if (export_data)
     {
-        solver->save_activation_times(save_iter);
         solver->evaluate_conduction_velocity();
         solver->save_conduction_velocity(save_iter);
-        solver->save_parameters();
-
     }
+    solver->save_activation_times(save_iter);
+
     delete solver;
     return 0;
 }

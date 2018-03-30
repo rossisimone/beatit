@@ -786,9 +786,9 @@ namespace BeatIt
         return system.solution->l1_norm();
     }
 
-    void ElectroSolver::set_potential_on_boundary(unsigned int boundID, double value)
+    void ElectroSolver::set_potential_on_boundary(unsigned int boundID, double value, int subdomain)
     {
-        std::cout << "* " << M_model << ": WARNING:  set_potential_on_boundary works only for TET4" << std::endl;
+        std::cout << "* " << M_model << ": WARNING:  set_potential_on_boundary works only for TET4" << std::flush;
         libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
         const unsigned int dim = mesh.mesh_dimension();
 
@@ -798,28 +798,38 @@ namespace BeatIt
         std::vector < libMesh::dof_id_type > dof_indices;
 
         libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
-        const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+        libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+        if(subdomain >= 0 )
+        {
+            el = mesh.active_local_subdomain_elements_begin(subdomain);
+            end_el = mesh.active_local_subdomain_elements_end(subdomain);
+        }
 
         for (; el != end_el; ++el)
         {
             const libMesh::Elem * elem = *el;
-            dof_map.dof_indices(elem, dof_indices);
-            for (unsigned int side = 0; side < elem->n_sides(); side++)
+
             {
-                if (elem->neighbor(side) == libmesh_nullptr)
+                dof_map.dof_indices(elem, dof_indices);
+                for (unsigned int side = 0; side < elem->n_sides(); side++)
                 {
-                    const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
-                    if (boundary_id == boundID)
+                    if (elem->neighbor(side) == libmesh_nullptr)
                     {
-                        wave_system.solution->set(dof_indices[0], value);
-                        wave_system.solution->set(dof_indices[1], value);
-                        wave_system.solution->set(dof_indices[2], value);
+                        const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
+                        if (boundary_id == boundID)
+                        {
+                            wave_system.solution->set(dof_indices[0], value);
+                            wave_system.solution->set(dof_indices[1], value);
+                            wave_system.solution->set(dof_indices[2], value);
+                        }
                     }
                 }
-
             }
         }
+        std::cout << "done" << std::endl;
         wave_system.solution->close();
+        std::cout << "done" << std::endl;
     }
 
     const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
