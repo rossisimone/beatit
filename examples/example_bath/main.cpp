@@ -252,7 +252,7 @@ int main(int argc, char ** argv)
         //solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, "mass");
 
         //std::cout << "at:" << datatime.M_time << std::endl;
-        solver->update_activation_time(datatime.M_time);
+        solver->update_activation_time(datatime.M_time, -5.0);
         //std::cout << "at done:" << datatime.M_time << std::endl;
 
         if (0 == datatime.M_iter % datatime.M_saveIter && export_data)

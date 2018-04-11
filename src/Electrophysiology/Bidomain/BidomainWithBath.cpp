@@ -108,6 +108,8 @@
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
 #include "Util/IO/io.hpp"
 #include "petscmat.h"
+#include "petscksp.h"
+#include <petsc/private/kspimpl.h>
 
 namespace BeatIt
 {
@@ -969,11 +971,11 @@ void BidomainWithBath::assemble_matrices(double dt)
         int nmax = dof_map_bidomain.end_dof();
         ISComplement(is_v_local, nmin, nmax, &is_ve_local);
         typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
-        M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix));
-        KSPSetOptionsPrefix(M_linearSolver->ksp(),"bidomain_");
-       //PCSetOptionsPrefix(M_linearSolver->pc(),"bidomain_");
-       PCFieldSplitSetIS(M_linearSolver->pc(),"v",is_v_local);
-       PCFieldSplitSetIS(M_linearSolver->pc(),"ve",is_ve_local);
+        M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix), "bidomain_");
+        KSPAppendOptionsPrefix(M_linearSolver->ksp(),"bidomain_");
+        KSPSetFromOptions(M_linearSolver->ksp());
+        PCFieldSplitSetIS(M_linearSolver->ksp()->pc,"v",is_v_local);
+        PCFieldSplitSetIS(M_linearSolver->ksp()->pc,"ve",is_ve_local);
        std::cout << "  done" << std::endl;
 
 //       PetscBool isMatSymm;

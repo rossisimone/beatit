@@ -65,19 +65,20 @@ void ic_patient2(DenseVector<Number> & output, const Point & p, const Real)
     double x = p(0);
     double y = p(1);
     double z = p(2);
-    double ic = 0.0;
+    double ic = -81.2;
     if ((x - 0.859551) * (x - 0.859551) + (y + 3.864244) * (y + 3.864244) + (z - 9.460777) * (z - 9.460777) <= 1.0)
     {
-        ic = 1.0;
+        ic = 10.0;
     }
     else if ((x + 1.514039) * (x + 1.514039) + (y + 4.166581) * (y + 4.166581) + (z - 9.359025) * (z - 9.359025) <= 0.64)
     {
-        ic = 1.0;
+        ic = 10.0;
     }
     else if (0.08229 * (x - 0.077095) - 0.97814 * (y + 3.758875) - 0.19096 * (z - 10.016066) > 0)
     {
-        ic = 1.0;
+        ic = 10.0;
     }
+
     output(0) = ic;
 }
 
@@ -86,10 +87,10 @@ void ic_patient2_ext(DenseVector<Number> & output, const Point & p, const Real)
     double x = p(0);
     double y = p(1);
     double z = p(2);
-    double ic = 0.0;
+    double ic = -81.2;
     if ((x +0.4520240907997266) * (x +0.4520240907997266) + (y+6.631625) * (y+6.631625) + (z - 10.13692) * (z - 10.13692) <= 4.0)
     {
-        ic = 1.0;
+        ic = 10.0;
     }
     output(0) = ic;
 }
@@ -269,6 +270,257 @@ void init_files( libMesh::MeshBase& endo,
     std::cout << "initializing: " << meshfile << ". done."<< std::endl;
 }
 
+
+void find_point(libMesh::MeshBase& endo,
+                libMesh::Point& point,
+                int data_ID,
+                libMesh::Point& cs_point,
+                EndoRankMap& id_map,
+                std::map<dof_id_type, dof_id_type>& reverse_node_id_map,
+                std::string file_name = "" )
+{
+    std::vector<int> mesh_IDs;
+    std::vector<int> ranks;
+    std::vector<int> endo_IDs;
+
+    unsigned int my_rank = endo.comm().rank();
+    libMesh::MeshBase::const_node_iterator enode = endo.pid_nodes_begin(my_rank);
+    const libMesh::MeshBase::const_node_iterator end_enode = endo.pid_nodes_end(my_rank);
+
+    // Define minimum distance and ID of the point to find on the endo mesh
+    double dist_min = 1000000.0;
+    int ID = -1;
+    // Fine closest node
+    libMesh::Node * cs_node;
+    for (; enode != end_enode; ++enode)
+    {
+        libMesh::Node * enn = *enode;
+        libMesh::Point p((*enn)(0), (*enn)(1), (*enn)(2));
+        p -= point;
+        double current_dist = p.norm_sq();
+        if (current_dist < dist_min)
+        {
+            cs_node = enn;
+            ID = cs_node->id();
+            dist_min = current_dist;
+        }
+    }
+
+    // On each processor we have found the closest node
+    // Now we need to take closest over all processors
+    unsigned int rank = endo.comm().rank();
+    double global_dist_min = dist_min;
+    // We define a local class that will contain the local and global values
+    struct {
+        double val;
+        int rank;
+    } mp, mp_global;
+    // Initialize the local values
+    mp.val=global_dist_min;
+    mp.rank=my_rank;
+    // Find the minimum using AllReduce
+    MPI_Allreduce(&mp, &mp_global, 1, MPI_DOUBLE_INT, MPI_MINLOC, MPI_COMM_WORLD);
+    // Give the values just found to everyone using local variables
+    global_dist_min = mp_global.val;
+    rank = mp_global.rank;
+
+    double x = (*cs_node)(0);
+    double y = (*cs_node)(1);
+    double z = (*cs_node)(2);
+
+    endo.comm().broadcast(x, rank);
+    endo.comm().broadcast(y, rank);
+    endo.comm().broadcast(z, rank);
+
+    cs_point(0) = x;
+    cs_point(1) = y;
+    cs_point(2) = z;
+    // Populate EndoRank map
+    // Do this only if we are the processor that holds the closest point
+    if(dist_min == global_dist_min && rank == my_rank)
+    {
+        // Given the ID of the surface mesh, find the ID on the volumetric mesh
+        int mesh_ID = reverse_node_id_map.find(ID)->second;
+        // store the data ID
+        id_map.data_unique_ID.push_back(data_ID);
+        // store the volumetric mesh ID
+        id_map.mesh_ID.push_back(mesh_ID);
+        // store rank where this point is
+        id_map.rank.push_back(rank);
+        // store the surface mesh ID
+        id_map.endo_ID.push_back(ID);
+
+        // If the filename is not empty,
+        // initialize the file for output
+        if(file_name != "")
+        {
+            std::ostringstream data_ss;
+            data_ss << std::setw(4) << std::setfill('0') << data_ID;
+            std::string data_ID_str = data_ss.str();
+
+            std::string filename;
+            filename = Data::path + "/" + file_name + data_ID_str + ".txt";
+            std::ofstream file(filename);
+            std::streamsize ss = file.precision();
+            file.precision(10);
+            // Write the coordinates of the original point
+            file << "Data Point: " << data_ID << std::endl;
+            file << point(0) << " " << point(1) << " " << point(2) << std::endl;
+            // Write the coordinates of the mesh point
+            file << "Point: " << mesh_ID << std::endl;
+            file << (*cs_node)(0) << " " << (*cs_node)(1) << " " << (*cs_node)(2) << std::endl;
+            file.precision(ss);
+            file << "time Ve V Q at" << std::endl;
+            file.close();
+        }
+    }
+}
+
+void project_unipolar_data( libMesh::MeshBase& endo,
+                             EndoRankMap& unipolar1_id_map,
+                             EndoRankMap& unipolar2_id_map,
+                             EndoRankMap& bipolar_id_map,
+                             std::map<dof_id_type, dof_id_type>& reverse_node_id_map)
+{
+    std::string unip1_data = "uni1_unprojected.csv";
+    std::string unip2_data = "uni2_unprojected.csv";
+    std::string bip_data = "bipolar_unprojected.csv";
+    std::string line_uni1;
+    std::string line_uni2;
+    std::string line_bip;
+
+    std::ifstream unip1_file (unip1_data);
+    std::ifstream unip2_file (unip2_data);
+    std::ifstream bip_file (bip_data);
+
+    libMesh::Point bip_point;
+    libMesh::Point unip1_point;
+    libMesh::Point unip2_point;
+
+    // Read files
+    int data_ID = 0;
+
+    EndoRankMap tmp_bipolar_map;
+    EndoRankMap tmp_unipolar1_map;
+    EndoRankMap tmp_unipolar2_map;
+
+    std::ofstream bipolar_projected_file("bipolar_projected_points.csv");
+    std::ofstream unipolar1_projected_file("unipolar1_projected_points.csv");
+    std::ofstream unipolar2_projected_file("unipolar2_projected_points.csv");
+
+    while( std::getline(bip_file,line_bip) )
+    {
+        data_ID++;
+
+        std::getline(unip1_file,line_uni1);
+        std::getline(unip2_file,line_uni2);
+
+        std::istringstream bip_str(line_bip);
+        std::istringstream unip1_str(line_uni1);
+        std::istringstream unip2_str(line_uni2);
+        std::string coordinate;
+        std::stringstream value;
+
+        // populate points
+        for(int i = 0; i < 3; ++i)
+        {
+            std::getline(bip_str,coordinate,',');
+            bip_point(i) = std::stod( coordinate );
+
+            std::getline(unip1_str,coordinate,',');
+            unip1_point(i) = std::stod( coordinate );
+
+            std::getline(unip2_str,coordinate,',');
+            unip2_point(i) = std::stod( coordinate );
+        } // populate points
+
+        std::cout << "\nPoint ID: " << data_ID << std::endl;
+        bip_point.print();
+        std::cout << std::endl;
+        // Find the closest point to the bipolar position, and push back data to tmp_bipolar_map
+        libMesh::Point bipolar_closest_point;
+        find_point(endo, bip_point, data_ID, bipolar_closest_point, tmp_bipolar_map, reverse_node_id_map, "at_node_");
+        bipolar_projected_file << bipolar_closest_point(0) << ", ";
+        bipolar_projected_file << bipolar_closest_point(1) << ", ";
+        bipolar_projected_file << bipolar_closest_point(2)  << ", ";
+        bipolar_projected_file << data_ID << std::endl;
+        bipolar_closest_point.print();
+
+        // Compute displacement vecotr between bipolar and unipolar positions
+        libMesh::Point unipolar1_dislacement(unip1_point);
+        unipolar1_dislacement -= bip_point;
+        // Displace the projected bipolar point with the displacement vector
+        libMesh::Point displaced_unipolar1_point(bipolar_closest_point);
+        displaced_unipolar1_point += unipolar1_dislacement;
+        // Find point closest to the displaced bipolar point
+        libMesh::Point unipolar1_closest_point;
+        find_point(endo, displaced_unipolar1_point, data_ID, unipolar1_closest_point, tmp_unipolar1_map, reverse_node_id_map, "uni1_node_");
+        unipolar1_projected_file << unipolar1_closest_point(0) << ", ";
+        unipolar1_projected_file << unipolar1_closest_point(1) << ", ";
+        unipolar1_projected_file << unipolar1_closest_point(2) << ", ";
+        unipolar1_projected_file << data_ID << std::endl;
+
+        // Repeat for unipolar position 2:
+        // Compute displacement vecotr between bipolar and unipolar positions
+        libMesh::Point unipolar2_dislacement(unip2_point);
+        unipolar2_dislacement -= bip_point;
+        // Displace the projected bipolar point with the displacement vector
+        libMesh::Point displaced_unipolar2_point(bipolar_closest_point);
+        displaced_unipolar2_point += unipolar2_dislacement;
+        // Find point closest to the displaced bipolar point
+        libMesh::Point unipolar2_closest_point;
+        find_point(endo, displaced_unipolar2_point, data_ID, unipolar2_closest_point, tmp_unipolar2_map, reverse_node_id_map, "uni2_node_");
+        unipolar2_projected_file << unipolar2_closest_point(0) << ", ";
+        unipolar2_projected_file << unipolar2_closest_point(1) << ", ";
+        unipolar2_projected_file << unipolar2_closest_point(2) << ", ";
+        unipolar2_projected_file << data_ID << std::endl;
+
+        //if (data_ID == 2) exit(-1);
+    } // Read file line
+
+    bip_file.close();
+    unip1_file.close();
+    unip2_file.close();
+
+    bipolar_projected_file.close();
+    unipolar1_projected_file.close();
+    unipolar2_projected_file.close();
+    // Gather the the maps:
+    endo.comm().barrier();
+    endo.comm().allgather(tmp_bipolar_map.rank);
+    endo.comm().allgather(tmp_unipolar1_map.rank);
+    endo.comm().allgather(tmp_unipolar2_map.rank);
+
+    endo.comm().allgather(tmp_bipolar_map.data_unique_ID);
+    endo.comm().allgather(tmp_unipolar1_map.data_unique_ID);
+    endo.comm().allgather(tmp_unipolar2_map.data_unique_ID);
+
+    endo.comm().allgather(tmp_bipolar_map.mesh_ID);
+    endo.comm().allgather(tmp_unipolar1_map.mesh_ID);
+    endo.comm().allgather(tmp_unipolar2_map.mesh_ID);
+
+    endo.comm().allgather(tmp_bipolar_map.endo_ID);
+    endo.comm().allgather(tmp_unipolar1_map.endo_ID);
+    endo.comm().allgather(tmp_unipolar2_map.endo_ID);
+
+    // swap the gathered vector with the actual ones
+    bipolar_id_map.data_unique_ID.swap( tmp_bipolar_map.data_unique_ID);
+    bipolar_id_map.rank.swap( tmp_bipolar_map.rank);
+    bipolar_id_map.mesh_ID.swap( tmp_bipolar_map.mesh_ID);
+    bipolar_id_map.endo_ID.swap( tmp_bipolar_map.endo_ID);
+
+    unipolar1_id_map.data_unique_ID.swap( tmp_unipolar1_map.data_unique_ID);
+    unipolar1_id_map.rank.swap( tmp_unipolar1_map.rank);
+    unipolar1_id_map.mesh_ID.swap( tmp_unipolar1_map.mesh_ID);
+    unipolar1_id_map.endo_ID.swap( tmp_unipolar1_map.endo_ID);
+
+    unipolar2_id_map.data_unique_ID.swap( tmp_unipolar2_map.data_unique_ID);
+    unipolar2_id_map.rank.swap( tmp_unipolar2_map.rank);
+    unipolar2_id_map.mesh_ID.swap( tmp_unipolar2_map.mesh_ID);
+    unipolar2_id_map.endo_ID.swap( tmp_unipolar2_map.endo_ID);
+
+}
+
 void write_to_file(libMesh::MeshBase& mesh, const EndoRankMap& id_map, double time, libMesh::TransientLinearImplicitSystem& V_sys,
         libMesh::TransientLinearImplicitSystem& bid_sys, libMesh::ExplicitSystem& at_sys, int unipole)
 {
@@ -307,23 +559,26 @@ void write_to_file(libMesh::MeshBase& mesh, const EndoRankMap& id_map, double ti
             double Q = (*bid_sys.current_local_solution)(dof_indices[0]);
             double Ve = (*bid_sys.current_local_solution)(dof_indices[1]);
 
+            std::ostringstream ss;
+            ss << std::setw(4) << std::setfill('0') << dataID;
+            std::string data_ID_str = ss.str();
             if (unipole == 1)
             {
-                std::ofstream file(Data::path + "/uni1_node_" + std::to_string(dataID) + ".txt", std::ios::app);
+                std::ofstream file(Data::path + "/uni1_node_" + data_ID_str + ".txt", std::ios::app);
                 //file << "time Ve V Q at" << std::endl;
                 file << time << " " << Ve << " " << V << " " << Q << " " << at << std::endl;
                 file.close();
             }
             else if (unipole == 2)
             {
-                std::ofstream file(Data::path + "/uni2_node_" + std::to_string(dataID) + ".txt", std::ios::app);
+                std::ofstream file(Data::path + "/uni2_node_" + data_ID_str + ".txt", std::ios::app);
                 //file << "time Ve V Q at" << std::endl;
                 file << time << " " << Ve << " " << V << " " << Q << " " << at << std::endl;
                 file.close();
             }
             else
             {
-                std::ofstream file(Data::path + "/at_node_" + std::to_string(dataID) + ".txt", std::ios::app);
+                std::ofstream file(Data::path + "/at_node_" + data_ID_str + ".txt", std::ios::app);
                 //file << "time Ve V Q at" << std::endl;
                 file << time << " " << Ve << " " << V << " " << Q << " " << at << std::endl;
                 file.close();
@@ -637,7 +892,6 @@ int main(int argc, char ** argv)
                     if(nodo.norm()< 1e-6)
                     {
                         found = true;
-                        //std::cout << "Endo ID: " << enode->id() << ", mesh ID: " << inode->id() << std::endl;
                         reverse_node_id_map[enode->id()] = inode->id();
                         break;
                     }
@@ -655,13 +909,15 @@ int main(int argc, char ** argv)
             if(stop) exit(-1);
 
             std::cout << "Creating reverse map done: "  << reverse_node_id_map.size() <<std::endl;
-            init_files(endo, uni1_id_map, reverse_node_id_map, "unip1.e", 1);
-            init_files(endo, uni2_id_map, reverse_node_id_map, "unip2.e", 2);
-            init_files(endo, at_id_map, reverse_node_id_map, "at_data.e", 0);
+            //init_files(endo, uni1_id_map, reverse_node_id_map, "unip1.e", 1);
+            //init_files(endo, uni2_id_map, reverse_node_id_map, "unip2.e", 2);
+            //init_files(endo, at_id_map, reverse_node_id_map, "at_data.e", 0);
+            project_unipolar_data(endo, uni1_id_map, uni2_id_map, at_id_map, reverse_node_id_map);
 
         }
     }
 
+    //return 0 ;
     // Declare the system and its variables.
     // Create a system named "Poisson"
     std::cout << "Create Boundary Structure" << std::endl;
@@ -729,7 +985,7 @@ int main(int argc, char ** argv)
         //solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, "mass");
 
         //std::cout << "at:" << datatime.M_time << std::endl;
-        solver->update_activation_time(datatime.M_time);
+        solver->update_activation_time(datatime.M_time, -5.0);
         //std::cout << "at done:" << datatime.M_time << std::endl;
 
         //++save_iter_ve;
