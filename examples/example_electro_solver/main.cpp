@@ -60,25 +60,22 @@ namespace Data
 {
 static std::string path = "";
 }
-void ic_patient2(DenseVector<Number> & output, const Point & p, const Real)
+void ic_patient2_plane_wave(DenseVector<Number> & output, const Point & p, const Real)
 {
     double x = p(0);
     double y = p(1);
     double z = p(2);
-    double ic = -81.2;
-    if ((x - 0.859551) * (x - 0.859551) + (y + 3.864244) * (y + 3.864244) + (z - 9.460777) * (z - 9.460777) <= 1.0)
-    {
-        ic = 10.0;
-    }
-    else if ((x + 1.514039) * (x + 1.514039) + (y + 4.166581) * (y + 4.166581) + (z - 9.359025) * (z - 9.359025) <= 0.64)
-    {
-        ic = 10.0;
-    }
-    else if (0.08229 * (x - 0.077095) - 0.97814 * (y + 3.758875) - 0.19096 * (z - 10.016066) > 0)
-    {
-        ic = 10.0;
-    }
 
+    Point N(-0.11, 0.95, 0.28);
+    N.unit();
+    Point X0(-1.86, -4.6, 9.4);
+
+    double ic = -81.2;
+
+    if( N.contract(p-X0) < 0 )
+    {
+        ic = 10.0;
+    }
     output(0) = ic;
 }
 
@@ -858,7 +855,9 @@ int main(int argc, char ** argv)
         if (patient == 2)
         {
             std::cout << "Found Patient 2!" << std::endl;
-            libMesh::AnalyticFunction<> ic_function(ic_patient2_ext);
+
+            //libMesh::AnalyticFunction<> ic_function(ic_patient2_ext);
+            libMesh::AnalyticFunction<> ic_function(ic_patient2_plane_wave);
             solver->setup_ic(ic_function);
             BoundaryMesh endo(init.comm());
             std::set<boundary_id_type> endoIDs;
