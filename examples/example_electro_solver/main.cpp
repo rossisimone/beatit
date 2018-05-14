@@ -53,6 +53,8 @@
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
 #include "Util/IO/io.hpp"
+#include "Util/SetNumericVectorValues.hpp"
+
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
@@ -811,11 +813,40 @@ int main(int argc, char ** argv)
     ///////////////////
     ///////////////////
     ///////////////////
-
     // Constructor
     std::cout << "Create bidomain with bath..." << std::endl;
     std::string model = data("model", "monowave");
-    BeatIt::ElectroSolver* solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
+    BeatIt::ElectroSolver* solver = nullptr;
+
+    bool solve_on_endo = data("endo_solve", false);
+    BoundaryMesh *  endo_mesh = nullptr;
+    EquationSystems * endo_es = nullptr;
+    if(solve_on_endo)
+    {
+        std::cout << "CREATING ENDO MESH" << std::endl;
+        endo_mesh = new BoundaryMesh(init.comm());
+        std::set<boundary_id_type> endoIDs;
+        endoIDs.insert(1);
+        std::set<unsigned short> subdomains;
+        subdomains.insert(1);
+        //mesh.boundary_info->print_info(std::cout);
+        //mesh.boundary_info->print_summary(std::cout);
+        std::cout << "Sync endo" << std::endl;
+        mesh.boundary_info->sync(endoIDs, *endo_mesh, subdomains);
+        //endo.prepare_for_use();
+
+        endo_mesh->print_info(std::cout);
+        std::cout << "CREATING NEW EQUATION SYSTEM" << std::endl;
+        endo_es = new EquationSystems(*endo_mesh);
+
+        std::cout << "CREATING ENDOCARDIAL SOLVER" << std::endl;
+        solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, *endo_es);
+    }
+    else
+    {
+        std::cout << "CREATING VOLUMETRIC SOLVER" << std::endl;
+        BeatIt::ElectroSolver* solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
+    }
     std::string section = data("section", "monowave");
     std::cout << "Calling setup..." << std::endl;
     solver->setup(data, model);
@@ -831,9 +862,115 @@ int main(int argc, char ** argv)
     auto& xfibers = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("xfibers").solution;
 
     // Set fibers;
-    *fibers = *grad1;
-    *sheets = *grad2;
-    *xfibers = *grad3;
+    if(solve_on_endo)
+    {
+        std::cout << "CREATING ENDOCARDIAL FIBERS" << std::endl;
+
+        libMesh::MeshBase::const_element_iterator el_endo = endo_mesh->local_elements_begin();
+        const libMesh::MeshBase::const_element_iterator end_el_endo = endo_mesh->local_elements_end();
+
+        const auto& endo_fibers_dof_map = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("fibers").get_dof_map();
+        const auto& grad1_dof_map = poisson1.M_equationSystems.get_system<libMesh::ExplicitSystem>(pois1 + "_gradient").get_dof_map();
+        std::vector<unsigned int> fibers_dofs;
+        std::vector<unsigned int> grad1_dofs;
+        for( ; el_endo != end_el_endo; el_endo++)
+        {
+            const libMesh::Elem * elem = *el_endo;
+            endo_fibers_dof_map.dof_indices(elem, fibers_dofs);
+
+            const  libMesh::Elem * interior_parent = elem->interior_parent();
+            grad1_dof_map.dof_indices(interior_parent, grad1_dofs);
+
+            double fx = (*grad1)(grad1_dofs[0]);
+            double fy = (*grad1)(grad1_dofs[1]);
+            double fz = (*grad1)(grad1_dofs[2]);
+            fibers->set(fibers_dofs[0], fx);
+            fibers->set(fibers_dofs[1], fy);
+            fibers->set(fibers_dofs[2], fz);
+
+            double xfx = (*grad3)(grad1_dofs[0]);
+            double xfy = (*grad3)(grad1_dofs[1]);
+            double xfz = (*grad3)(grad1_dofs[2]);
+            xfibers->set(fibers_dofs[0], xfx);
+            xfibers->set(fibers_dofs[1], xfy);
+            xfibers->set(fibers_dofs[2], xfz);
+
+            double sx = (*grad2)(grad1_dofs[0]);
+            double sy = (*grad2)(grad1_dofs[1]);
+            double sz = (*grad2)(grad1_dofs[2]);
+            sheets->set(fibers_dofs[0], sx);
+            sheets->set(fibers_dofs[1], sy);
+            sheets->set(fibers_dofs[2], sz);
+        }
+        std::cout << "DONE!" << std::endl;
+        std::cout << "n sys: " << solver->M_equationSystems.n_systems() << std::endl;
+        std::cout << "n sys: " << endo_es->n_systems() << std::endl;
+        solver->M_equationSystems.print_info(std::cout);
+
+    }
+    else
+    {
+        *fibers = *grad1;
+        *sheets = *grad2;
+        *xfibers = *grad3;
+    }
+
+    int boundary_ic = data(model + "/boundary_ic", -1);
+    if(boundary_ic > 0)
+    {
+        double boundary_value = data(model + "/boundary_value", 30.0);
+        if(solve_on_endo)
+        {
+            std::map< dof_id_type, dof_id_type > node_id_map;
+            std::map< dof_id_type, unsigned char > side_id_map;
+            mesh.boundary_info->get_side_and_node_maps  (  *endo_mesh, node_id_map, side_id_map);
+
+            libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+            libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+            libMesh::MeshBase::const_element_iterator el_endo = endo_mesh->active_local_elements_begin();
+            const libMesh::MeshBase::const_element_iterator end_el_endo = endo_mesh->active_local_elements_end();
+
+            auto & wave_system = solver->M_equationSystems.get_system<TransientLinearImplicitSystem>("wave");
+            const libMesh::DofMap & dof_map = wave_system.get_dof_map();
+            std::vector < libMesh::dof_id_type > v_dof_indices;
+
+            for ( ; el != end_el; el++)
+            {
+                const libMesh::Elem * interior_parent = *el;
+                for (unsigned int side = 0; side < interior_parent->n_sides(); side++)
+                {
+                    const unsigned int boundary_id = mesh.boundary_info->boundary_id(interior_parent, side);
+                    if(boundary_id == boundary_ic)
+                    {
+                        std::unique_ptr<const Elem> side_el = interior_parent->build_side_ptr(side);
+                        for(int nn = 0; nn < side_el->n_nodes() ; ++nn )
+                        {
+                            unsigned int nodeID = side_el->node_id(nn);
+                            auto it_n = node_id_map.find(nodeID);
+                            if(it_n != node_id_map.end())
+                            {
+                                unsigned int endo_nodeID = it_n->second;
+                                Node * endo_node = endo_mesh->node_ptr(endo_nodeID);
+                                dof_map.dof_indices(endo_node, v_dof_indices);
+                                wave_system.solution->set(v_dof_indices[0], boundary_value);
+
+                            }
+                        }
+                    }
+                }
+
+            }
+            wave_system.solution->close();
+
+
+        }
+        else
+        {
+            solver->set_potential_on_boundary(boundary_ic, boundary_value, 1);
+        }
+    }
+
 
     poisson1.deleteSystems();
     poisson2.deleteSystems();
@@ -859,23 +996,26 @@ int main(int argc, char ** argv)
             //libMesh::AnalyticFunction<> ic_function(ic_patient2_ext);
             libMesh::AnalyticFunction<> ic_function(ic_patient2_plane_wave);
             solver->setup_ic(ic_function);
-            BoundaryMesh endo(init.comm());
-            std::set<boundary_id_type> endoIDs;
-            endoIDs.insert(1);
-            std::set<unsigned short> subdomains;
-            subdomains.insert(1);
-            //mesh.boundary_info->print_info(std::cout);
-            //mesh.boundary_info->print_summary(std::cout);
-            std::cout << "Sync endo" << std::endl;
-            mesh.boundary_info->sync(endoIDs, endo, subdomains);
-            //endo.prepare_for_use();
-            endo.print_info(std::cout);
+            if(!endo_mesh)
+            {
+                endo_mesh = new BoundaryMesh(init.comm());
+                std::set<boundary_id_type> endoIDs;
+                endoIDs.insert(1);
+                std::set<unsigned short> subdomains;
+                subdomains.insert(1);
+                //mesh.boundary_info->print_info(std::cout);
+                //mesh.boundary_info->print_summary(std::cout);
+                std::cout << "Sync endo" << std::endl;
+                mesh.boundary_info->sync(endoIDs, *endo_mesh, subdomains);
+                //endo.prepare_for_use();
+                endo_mesh->print_info(std::cout);
+            }
             // Create map to access point from boundary mesh to point of the whole mesh
             std::map<dof_id_type, dof_id_type> reverse_node_id_map;
             std::cout << "Creating reverse map" <<std::endl;
 
-            libMesh::MeshBase::const_node_iterator node_endo = endo.local_nodes_begin();
-            const libMesh::MeshBase::const_node_iterator end_node_endo = endo.local_nodes_end();
+            libMesh::MeshBase::const_node_iterator node_endo = endo_mesh->local_nodes_begin();
+            const libMesh::MeshBase::const_node_iterator end_node_endo = endo_mesh->local_nodes_end();
             bool stop = false;
             for(; node_endo != end_node_endo; ++node_endo)
             {
@@ -899,7 +1039,7 @@ int main(int argc, char ** argv)
                 {
                     libMesh::Node * enode = *node_endo;
                     stop = true;
-                    std::cout << endo.comm().rank() << ": Node: " << enode->id() << " was not found in the interior mesh" << std::endl;
+                    std::cout << endo_mesh->comm().rank() << ": Node: " << enode->id() << " was not found in the interior mesh" << std::endl;
                     throw std::runtime_error("error");
                 }
 
@@ -911,7 +1051,7 @@ int main(int argc, char ** argv)
             //init_files(endo, uni1_id_map, reverse_node_id_map, "unip1.e", 1);
             //init_files(endo, uni2_id_map, reverse_node_id_map, "unip2.e", 2);
             //init_files(endo, at_id_map, reverse_node_id_map, "at_data.e", 0);
-            project_unipolar_data(endo, uni1_id_map, uni2_id_map, at_id_map, reverse_node_id_map);
+            project_unipolar_data(*endo_mesh, uni1_id_map, uni2_id_map, at_id_map, reverse_node_id_map);
 
         }
     }
@@ -931,11 +1071,6 @@ int main(int argc, char ** argv)
     std::cout << "Init Output" << std::endl;
     //solver->init_exo_output();
     //solver->save_exo_timestep(save_iter++, datatime.M_time);
-    if (export_data)
-    {
-        solver->save_potential(save_iter, 0.0);
-        solver->save_parameters();
-    }
     //return 0;
     std::string system_mass = data(model + "/diffusion_mass", "mass");
     std::string iion_mass = data(model + "/reaction_mass", "lumped_mass");
@@ -943,20 +1078,21 @@ int main(int argc, char ** argv)
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
 
-    int boundary_ic = data(model + "/boundary_ic", -1);
-    if(boundary_ic > 0)
+
+    if (export_data)
     {
-        double boundary_value = data(model + "/boundary_value", 30.0);
-        solver->set_potential_on_boundary(boundary_ic, boundary_value, 1);
+        solver->save_parameters();
+        solver->save_potential(save_iter, 0.0);
     }
+
 
     bool useMidpointMethod = false;
     int step0 = 0;
     int step1 = 1;
 
-    auto & V_sys = es.get_system<libMesh::TransientLinearImplicitSystem>("wave");
-    auto & bid_sys = es.get_system<libMesh::TransientLinearImplicitSystem>(solver->model());
-    auto & at_sys = es.get_system<libMesh::ExplicitSystem>("activation_times");
+    auto & V_sys = solver->M_equationSystems.get_system<libMesh::TransientLinearImplicitSystem>("wave");
+    auto & bid_sys = solver->M_equationSystems.get_system<libMesh::TransientLinearImplicitSystem>(solver->model());
+    auto & at_sys = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("activation_times");
 
     if (patient > 0)
     {
@@ -1016,6 +1152,8 @@ int main(int argc, char ** argv)
 //    if (export_data)
         solver->save_activation_times(save_iter);
     delete solver;
+    if(endo_es) delete endo_es;
+    if(endo_mesh) delete endo_mesh;
     return 0;
 }
 
