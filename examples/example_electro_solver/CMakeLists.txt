@@ -11,6 +11,7 @@ include_directories ("${LIBMESH_DIR}/include")
 target_link_libraries(${TESTNAMEV} beatit)
 target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
 target_link_libraries(${TESTNAMEV} ${VTK_LIBRARY_DIRS})
+target_link_libraries(${TESTNAMEV} ${PETSC_LIBRARIES})
 
 
 SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
