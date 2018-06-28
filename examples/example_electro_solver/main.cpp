@@ -806,7 +806,7 @@ int main(int argc, char ** argv)
     BeatIt::Util::normalize(*grad2, 0.0, 1.0, 0.0);
     BeatIt::Util::normalize(*grad3, 0.0, 0.0, 1.0);
 
-    poisson1.save_exo("poisson1.exo");
+    //poisson1.save_exo("poisson1.exo");
 
     ///////////////////
     ///////////////////
@@ -845,7 +845,7 @@ int main(int argc, char ** argv)
     else
     {
         std::cout << "CREATING VOLUMETRIC SOLVER" << std::endl;
-        BeatIt::ElectroSolver* solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
+        solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
     }
     std::string section = data("section", "monowave");
     std::cout << "Calling setup..." << std::endl;
