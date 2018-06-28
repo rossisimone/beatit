@@ -321,7 +321,7 @@ namespace BeatIt
         //M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
         //M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
         M_linearSolver->init();
-
+        std::cout << "* ElectroSolver: Init complete " << std::endl;
     }
 
     void ElectroSolver::init_endocardial_ve(std::set<libMesh::boundary_id_type>& IDs, std::set<unsigned short>& subdomainIDs)

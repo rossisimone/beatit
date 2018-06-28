@@ -854,12 +854,14 @@ int main(int argc, char ** argv)
     solver->init(0.0);
 
     // set fibers
+    std::cout << "Copying fibers ... " << std::flush;
     // Fibers
     auto& fibers = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("fibers").solution;
     // Sheets
     auto& sheets = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("sheets").solution;
     // XFibers
     auto& xfibers = solver->M_equationSystems.get_system<libMesh::ExplicitSystem>("xfibers").solution;
+    std::cout << " done " << std::endl;
 
     // Set fibers;
     if(solve_on_endo)
@@ -910,9 +912,17 @@ int main(int argc, char ** argv)
     }
     else
     {
+        std::cout << "Copying .. " << std::flush;
+        //fibers->close();
+        //sheets->close();
+        //xfibers->close();
+        grad1->close();
+        grad2->close();
+        grad3->close();
         *fibers = *grad1;
         *sheets = *grad2;
         *xfibers = *grad3;
+        std::cout << " done " << std::endl;
     }
 
     int boundary_ic = data(model + "/boundary_ic", -1);
