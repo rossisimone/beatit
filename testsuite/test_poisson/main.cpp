@@ -62,6 +62,8 @@
 #include "libmesh/numeric_vector.h"
 
 #include "Util/CTestUtil.hpp"
+#include "Util/IO/io.hpp"
+
 #include <iomanip>
 
 int main (int argc, char ** argv)
@@ -74,15 +76,20 @@ int main (int argc, char ** argv)
 
       // Create a mesh, with dimension to be overridden later, distributed
       // across the default MPI communicator.
-      Mesh mesh(init.comm());
+      ParallelMesh mesh(init.comm());
 
       // Use the MeshTools::Generation mesh generator to create a uniform
       // 3D grid
       // We build a linear tetrahedral mesh (TET4) on  [0,2]x[0,0.7]x[0,0.3]
       // the number of elements on each side is read from the input file
       GetPot commandLine ( argc, argv );
-      std::string datafile_name = commandLine.follow ( "nash_panfilov.pot", 2, "-i", "--input" );
+      std::string datafile_name = commandLine.follow ( "poisson.beat", 2, "-i", "--input" );
       GetPot data(datafile_name);
+
+      // check if we are using a separate mesh.
+      std::string mesh_name = data("mesh/input_mesh_name", "NONE");
+      if(mesh_name == "NONE")
+      {
       // allow us to use higher-order approximation.
       int numElementsX = data("mesh/elX", 15);
       int numElementsY = data("mesh/elY",   5);
@@ -97,6 +104,11 @@ int main (int argc, char ** argv)
                                          0., maxY,
                                          0., maxZ,
                                          TET4);
+      }
+      else
+      {
+          BeatIt::serial_mesh_partition(init.comm(), mesh_name, &mesh);
+      }
 
        libMesh::EquationSystems es(mesh);
       BeatIt::Poisson poisson(es);
