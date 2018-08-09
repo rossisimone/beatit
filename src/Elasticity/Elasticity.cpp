@@ -61,6 +61,8 @@
 #include "libmesh/dense_vector.h"
 #include "libmesh/elem.h"
 #include "libmesh/petsc_linear_solver.h"
+#include "libmesh/enum_preconditioner_type.h"
+#include "libmesh/enum_solver_type.h"
 // Define the DofMap, which handles degree of freedom
 // indexing.
 #include "libmesh/dof_map.h"
@@ -113,13 +115,13 @@ Elasticity::~Elasticity()
 
 void Elasticity::write_equation_system(const std::string& es)
 {
-    M_equationSystems.write(es, libMesh::WRITE);
+    M_equationSystems.write(es);
 }
 
 void Elasticity::read_equation_system(const std::string& es)
 {
     M_equationSystems.clear();
-    M_equationSystems.read(es, libMesh::READ);
+    M_equationSystems.read(es);
 }
 
 void Elasticity::init_exo_output(const std::string& output_filename)
@@ -1235,6 +1237,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMe
                             else
                             {
                                 value = bc->get_function()(time, xq, yq, zq, 0);
+                                beta = bc->get_function()(time, xq, yq, zq, 1);
                             }
 
                             for (unsigned int i = 0; i < n_ux_dofs; i++)
@@ -1253,6 +1256,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMe
                         }
                         else if (BCMode::Full == mode)
                         {
+                            beta = bc->get_function()(time, xq, yq, zq, 3);
                             for (int idim = 0; idim < dim; ++idim)
                             {
                                 double uk = 0.0;

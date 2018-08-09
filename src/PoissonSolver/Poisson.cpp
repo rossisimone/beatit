@@ -64,6 +64,8 @@
 #include "libmesh/dof_map.h"
 
 #include "libmesh/exodusII_io.h"
+#include "libmesh/enum_preconditioner_type.h"
+#include "libmesh/enum_solver_type.h"
 
 #include "libmesh/perf_log.h"
 
@@ -226,14 +228,14 @@ Poisson::save_exo(const std::string& output_filename)
 void
 Poisson::write_equation_system(const std::string& es)
 {
-    M_equationSystems.write(es, libMesh::WRITE);
+    M_equationSystems.write(es);
 }
 
 void
 Poisson::read_equation_system(const std::string& es)
 {
     M_equationSystems.clear ();
-    M_equationSystems.read(es, libMesh::READ);
+    M_equationSystems.read(es);
 }
 
 

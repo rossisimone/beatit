@@ -40,6 +40,8 @@
 
 #include "libmesh/perf_log.h"
 #include "libmesh/string_to_enum.h"
+#include "libmesh/enum_preconditioner_type.h"
+#include "libmesh/enum_solver_type.h"
 
 #include <sys/stat.h>
 
@@ -70,7 +72,7 @@ namespace BeatIt
                     Anisotropy::Orthotropic), M_equationType(EquationType::ParabolicEllipticBidomain), M_timeIntegratorType(
                     DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(
                     1.0), M_model(model), M_ground_ve(false), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
-                    M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST)
+                    M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
     {
         // TODO Auto-generated constructor stub
 
@@ -142,13 +144,18 @@ namespace BeatIt
             }
         }
 
+        // read order of the basis functions
         std::string order = data(M_section + "/order", "FIRST");
         M_order = libMesh::Utility::string_to_enum<libMesh::Order>(order);
+        // read order of finite element family (for DG)
+        std::string fefamily = data(M_section + "/fefamily", "LAGRANGE");
+        M_FEFamily = libMesh::Utility::string_to_enum<libMesh::FEFamily>(fefamily);
+        std::cout << "* ElectroSolver: running with: " << fefamily << " (" << M_FEFamily << "), order: " <<  order << " (" << M_order << ")" << std::endl;
         // call setup system of the specific class
         setup_systems(M_datafile, M_section);
         // Add ionic current to this system
         IonicModelSystem& Iion_system = M_equationSystems.add_system < IonicModelSystem > ("iion");
-        Iion_system.add_variable("iion", M_order);
+        Iion_system.add_variable("iion", M_order, M_FEFamily);
         Iion_system.add_vector("diion");
         Iion_system.add_vector("diion_old");
         Iion_system.add_vector("total_current");
@@ -157,7 +164,7 @@ namespace BeatIt
 
         // Add the applied current to this system
         IonicModelSystem& istim_system = M_equationSystems.add_system < IonicModelSystem > ("istim");
-        istim_system.add_variable("istim", M_order);
+        istim_system.add_variable("istim", M_order, M_FEFamily);
         istim_system.init();
         istim_system.add_vector("stim_i");
         istim_system.add_vector("stim_e");
@@ -169,7 +176,7 @@ namespace BeatIt
 
         std::cout << "* ElectroSolver: Creating parameters spaces " << std::endl;
         ParameterSystem& activation_times_system = M_equationSystems.add_system < ParameterSystem > ("activation_times");
-        activation_times_system.add_variable("activation_times", M_order);
+        activation_times_system.add_variable("activation_times", M_order, M_FEFamily);
         activation_times_system.init();
         // CV = Conduction Velocity
         ParameterSystem& CV_system = M_equationSystems.add_system < ParameterSystem > ("CV");

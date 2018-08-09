@@ -91,6 +91,8 @@
 #include "libmesh/fourth_error_estimators.h"
 #include "libmesh/discontinuity_measure.h"
 #include <sys/stat.h>
+#include "libmesh/enum_preconditioner_type.h"
+#include "libmesh/enum_solver_type.h"
 
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
 #include "Electrophysiology/IonicModels/Grandi11.hpp"
@@ -169,7 +171,7 @@ Monodomain::setup(GetPot& data, std::string section)
     std::cout << "* MONODOMAIN: Creating new System for the monodomain diffusion reaction equation" << std::endl;
     MonodomainSystem& monodomain_system  =  M_equationSystems.add_system<MonodomainSystem>("monodomain");
     // TO DO: Generalize to higher order
-    monodomain_system.add_variable( "V", libMesh::FIRST);
+    monodomain_system.add_variable( "V");
     // Add 3 matrices
     monodomain_system.add_matrix("lumped_mass");
     // Add lumped mass matrix
@@ -197,12 +199,12 @@ Monodomain::setup(GetPot& data, std::string section)
     {
         std::string var_name = M_ionicModelPtr->variableName(nv);
         // For the time being we use P1 for the variables
-        ionic_model_system.add_variable( &var_name[0], libMesh::FIRST );
+        ionic_model_system.add_variable( &var_name[0]);
     }
     ionic_model_system.init();
     // Add the applied current to this system
     IonicModelSystem& istim_system = M_equationSystems.add_system<IonicModelSystem>("istim");
-    istim_system.add_variable( "istim", libMesh::FIRST);
+    istim_system.add_variable( "istim");
     istim_system.init();
     M_ionicModelExporterNames.insert("ionic_model");
     M_ionicModelExporterNames.insert("istim");
@@ -210,41 +212,14 @@ Monodomain::setup(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Distributed Parameters
-    std::cout << "* MONODOMAIN: Creating parameters spaces " << std::endl;
-    ParameterSystem& activation_times_system  = M_equationSystems.add_system<ParameterSystem>("activation_times");
-    activation_times_system.add_variable( "activation_times", libMesh::FIRST);
-    ParameterSystem& fiber_system        = M_equationSystems.add_system<ParameterSystem>("fibers");
-    fiber_system.add_variable( "fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.add_variable( "fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.add_variable( "fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& sheets_system       = M_equationSystems.add_system<ParameterSystem>("sheets");
-    sheets_system.add_variable( "sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheets_system.add_variable( "sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheets_system.add_variable( "sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& xfiber_system       = M_equationSystems.add_system<ParameterSystem>("xfibers");
-    xfiber_system.add_variable( "xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    xfiber_system.add_variable( "xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    xfiber_system.add_variable( "xfibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& conductivity_system = M_equationSystems.add_system<ParameterSystem>("conductivity");
+     ParameterSystem& conductivity_system = M_equationSystems.add_system<ParameterSystem>("conductivity");
     conductivity_system.add_variable( "Dff", libMesh::CONSTANT, libMesh::MONOMIAL);
     conductivity_system.add_variable( "Dss", libMesh::CONSTANT, libMesh::MONOMIAL);
     conductivity_system.add_variable( "Dnn", libMesh::CONSTANT, libMesh::MONOMIAL);
-    ParameterSystem& procID_system = M_equationSystems.add_system<ParameterSystem>("ProcID");
-    procID_system.add_variable( "ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
-     M_parametersExporterNames.insert("activation_times");
-    M_parametersExporterNames.insert("fibers");
-    M_parametersExporterNames.insert("sheets");
-    M_parametersExporterNames.insert("xfibers");
     M_parametersExporterNames.insert("conductivity");
-    M_parametersExporterNames.insert("ProcID");
     std::cout << "* MONODOMAIN: Initializing equation systems " << std::endl;
     // Initializing
-	activation_times_system.init();
-	fiber_system.init();
-	sheets_system.init();
-	xfiber_system.init();
 	conductivity_system.init();
-	procID_system.init();
 //    M_equationSystems.init();
     M_equationSystems.print_info();
 
@@ -284,11 +259,6 @@ Monodomain::setup(GetPot& data, std::string section)
             mkdir ( M_outputFolder.c_str(), 0777 );
         }
     }
-
-    std::cout << "* MONODOMAIN: creating pacing protocol" << std::endl;
-    M_pacing.reset( new PacingProtocolSpirit() );
-    M_pacing->setup(M_datafile, "monodomain/pacing");
-    std::cout << "* MONODOMAIN: creating pacing protocol done" << std::endl;
 
 }
 
@@ -908,7 +878,6 @@ Monodomain::assemble_matrices()
          Me.resize(dof_indices.size(), dof_indices.size());
          Mel.resize(dof_indices.size(), dof_indices.size());
          Fe.resize(dof_indices.size());
- //        std::cout << "Fibers" << std::endl;
          // fiber direction
          f0[0] = (*fiber_system.solution)(dof_indices_fibers[0]);
          f0[1] = (*fiber_system.solution)(dof_indices_fibers[1]);
@@ -968,15 +937,6 @@ Monodomain::assemble_matrices()
 			 }
 		 }
 
-//    	 std::cout << "f  = [" << f0[0] << "," << f0[1]  << ", " << f0[2]  << "]"<< std::endl;
-//    	 std::cout << "s = [" << s0[0] << "," << s0[1]  << ", " << s0[2]  << "]"<< std::endl;
-//    	 std::cout << "n = [" << n0[0] << "," << n0[1]  << ", " << n0[2]  << "]"<< std::endl;
-//	 	 std::cout << "D0 = " << std::endl;
-//		 for(int idim = 0; idim < dim; ++idim )
-//         {
-//        	 std::cout << D0(idim, 0) << "," << D0(idim, 1) << ", " << D0(idim, 2) << std::endl;
-//         }
-
          // Assemble Mass terms
          for (unsigned int qp = 0; qp < qrule_mass.n_points(); qp++)
          {
@@ -1001,11 +961,6 @@ Monodomain::assemble_matrices()
              {
                  DgradV = D0  * dphi_qp1[i][qp];
 
-//                 std::cout << "DgradV = " << std::endl;
-//        		 for(int idim = 0; idim < dim; ++idim )
-//                 {
-//                	 std::cout << DgradV(idim, 0) << "," << DgradV(idim, 1) << ", " << DgradV(idim, 2) << std::endl;
-//                 }
 
                  for (unsigned int j = 0; j < dphi_qp1.size(); j++)
                  {

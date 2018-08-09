@@ -48,7 +48,7 @@
 #include "Util/CTestUtil.hpp"
 #include "libmesh/dof_map.h"
 #include <iomanip>
-
+#include "Util/IO/io.hpp"
 
 enum Formulation { Primal,  Mixed, Incompressible };
 enum CL { Linear,  NH };
@@ -72,7 +72,11 @@ int main (int argc, char ** argv)
     // allow us to use higher-order approximation.
     // Create a mesh, with dimension to be overridden later, on the
     // default MPI communicator.
-    libMesh::Mesh mesh(init.comm());
+    libMesh::ParallelMesh mesh(init.comm());
+
+    std::string mesh_name = data("input_mesh_name", "NONE");
+    if(mesh_name == "NONE")
+    {
 
     int elX = data("elX", 10);
     int elY = data("elY", 2);
@@ -110,29 +114,43 @@ int main (int argc, char ** argv)
 //    int idx = 0;
 
 
-    bool cm = data("cm_mesh", true);
+		bool cm = data("cm_mesh", true);
 
 
-    if(cm)
+		if(cm)
+		{
+
+		  //Map unit square onto cook's membrane
+		  MeshBase::const_node_iterator nd = mesh.nodes_begin();
+		  const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
+		  for (; nd != end_nd; ++nd)
+		  {
+			libMesh::Point s = **nd;
+			(**nd)(0) =  4.8 * s(0) + 2.6;
+			(**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
+			if(elZ > 0 ) (**nd)(2) = s(2) + 4.5;
+
+		  }
+
+		  std::string units = data("units", "cm");
+		  if(units == "mm")
+		  {
+			  libMesh::MeshTools::Modification::scale (mesh, 10, 10, 10);
+		  }
+		}
+	    double xt = data("x_translation", 0.0);
+	    double yt = data("y_translation", 0.0);
+	    double zt = data("z_translation", 0.0);
+	    if(xt != 0.0 || yt != 0 || zt != 0.0)
+	    {
+			  libMesh::MeshTools::Modification::translate (mesh, xt, yt, zt);
+	    }
+
+    }
+    else
     {
+        BeatIt::serial_mesh_partition(init.comm(), mesh_name, &mesh);
 
-      //Map unit square onto cook's membrane
-      MeshBase::const_node_iterator nd = mesh.nodes_begin();
-      const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
-      for (; nd != end_nd; ++nd)
-      {
-        libMesh::Point s = **nd;
-        (**nd)(0) =  4.8 * s(0) + 2.6;
-        (**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
-        if(elZ > 0 ) (**nd)(2) = s(2) + 4.5;
-
-      }
-
-      std::string units = data("units", "cm");
-      if(units == "mm")
-      {
-          libMesh::MeshTools::Modification::scale (mesh, 10, 10, 10);
-      }
     }
 
     libMesh::EquationSystems es(mesh);

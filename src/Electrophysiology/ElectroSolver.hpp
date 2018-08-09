@@ -190,6 +190,7 @@ public:
     int M_constraint_dof_id;
     bool M_ground_ve;
     libMesh::Order M_order;
+    libMesh::FEFamily M_FEFamily;
 
     struct EndocardialVe
     {

@@ -192,7 +192,7 @@ int main(int argc, char ** argv)
     // Write the system.
     std::string output_system = data("output_systems", "");
     if ("" != output_system)
-        systems.write(&output_system[0], libMesh::WRITE);
+        systems.write(&output_system[0]);
     // Write the output mesh if the user specified an
     // output file name.
     std::string output_file = data("output_mesh", "");
