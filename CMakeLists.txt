@@ -99,3 +99,10 @@ message("\n\tPlease type `make` in order to compile BeatIt.\n")
 
 
 message(STATUS "CXX DEBUG flags: ${CMAKE_CXX_FLAGS} \n")
+
+install(TARGETS beatit 
+        LIBRARY  DESTINATION lib)
+install(FILES ${HEADERS} DESTINATION include)
+
+
+message(STATUS "INSTALL PREFIX: ${CMAKE_INSTALL_PREFIX} \n")
