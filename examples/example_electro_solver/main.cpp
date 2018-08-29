@@ -53,7 +53,7 @@
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
 #include "Util/IO/io.hpp"
-//#include "Util/SetNumericVectorValues.hpp"
+#include "Util/SetNumericVectorValues.hpp"
 
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
