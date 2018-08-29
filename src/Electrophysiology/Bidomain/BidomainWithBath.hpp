@@ -75,6 +75,13 @@ public:
 
 
     int M_tissueBlockID;
+
+    // For Dirichlet Boundary conditions
+    // We use the boundary info to get the list of node with the specified ID
+    std::vector< libMesh::dof_id_type >      M_node_id_list;
+    std::vector< libMesh::boundary_id_type > M_bc_id_list;
+    // For ground node
+    int M_ground_point_id;
 };
 
 

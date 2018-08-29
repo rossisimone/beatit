@@ -21,6 +21,7 @@
 #include "Util/Factory.hpp"
 #include "Util/Timer.hpp"
 #include "libmesh/id_types.h"
+#include "BoundaryConditions/BCHandler.hpp"
 
 // Forward Definition
 namespace libMesh
@@ -45,6 +46,7 @@ namespace BeatIt
 /*!
  *  forward declarations
  */
+class BCHandler;
 class IonicModel;
 class PacingProtocol;
 
@@ -61,6 +63,10 @@ enum class EquationType { ReactionDiffusion,
 enum class ModelType { Monodomain, Bidomain, BidomainWithBath };
 enum class TimeIntegrator { FirstOrderIMEX,     // FORWARD-BACKWARD EULER
                             SecondOrderIMEX  }; // SBDF2
+
+enum class Ground { Nullspace,
+                    GroundNode,
+                    Dirichlet };
 
 
 class ElectroSolver
@@ -188,9 +194,10 @@ public:
 
     std::set<unsigned int> M_transmembranePotentialActiveSubdomains;
     int M_constraint_dof_id;
-    bool M_ground_ve;
+    Ground M_ground_ve;
     libMesh::Order M_order;
     libMesh::FEFamily M_FEFamily;
+    BCHandler M_bch;
 
     struct EndocardialVe
     {

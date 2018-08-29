@@ -268,7 +268,8 @@ void Bidomain::setup_systems(GetPot& data, std::string section)
     if (tau_i == tau_e && 0 == tau_i)
         M_equationType = EquationType::ParabolicEllipticBidomain;
 
-    M_ground_ve = data(section + "/ground_ve", false);
+    bool ground_ve = data(section + "/ground_ve", false);
+    if(ground_ve) M_ground_ve = Ground::GroundNode;
 }
 
 void Bidomain::init_systems(double time)
@@ -527,7 +528,7 @@ void Bidomain::assemble_matrices(double dt)
     libMesh::TensorValue<double> D0e;
 
     //ground dof ID
-    if (M_ground_ve)
+    if (M_ground_ve == Ground::GroundNode)
     {
         if (0 == M_equationSystems.comm().rank())
         {
@@ -734,12 +735,12 @@ void Bidomain::assemble_matrices(double dt)
     bidomain_system.matrix->close();
 
     // set diagonal to 1
-    if (M_ground_ve)
+    if (M_ground_ve == Ground::GroundNode)
     {
         std::vector<unsigned int> rows(1, M_constraint_dof_id);
         bidomain_system.matrix->zero_rows(rows, 1.0);
     }
-    else
+    else if ( M_ground_ve == Ground::Nullspace )
     {
         typedef libMesh::PetscMatrix<libMesh::Number> Mat;
         typedef libMesh::PetscVector<libMesh::Number> Vec;
@@ -972,7 +973,7 @@ double cdt = dt;
 
     //bidomain_system.rhs->set(M_constraint_dof_id, 0.0);
     bidomain_system.rhs->close();
-    if (M_ground_ve)
+    if (M_ground_ve != Ground::Nullspace )
     {
         bidomain_system.rhs->set(static_cast<libMesh::dof_id_type>(M_constraint_dof_id), 0.0);
     }

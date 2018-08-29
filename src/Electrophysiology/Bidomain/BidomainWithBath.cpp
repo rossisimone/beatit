@@ -89,6 +89,8 @@
 #include "libmesh/mesh_refinement.h"
 #include "libmesh/fourth_error_estimators.h"
 #include "libmesh/discontinuity_measure.h"
+#include "libmesh/dirichlet_boundaries.h"
+#include "BoundaryConditions/BCData.hpp"
 #include <sys/stat.h>
 
 #include "Electrophysiology/IonicModels/NashPanfilov.hpp"
@@ -127,7 +129,7 @@ typedef libMesh::TransientExplicitSystem IonicModelSystem;
 typedef libMesh::ExplicitSystem ParameterSystem;
 
 BidomainWithBath::BidomainWithBath(libMesh::EquationSystems& es)
-        : ElectroSolver(es, "bidomainbath")
+        : ElectroSolver(es, "bidomainbath"), M_node_id_list(), M_bc_id_list()
 {
 
 }
@@ -171,7 +173,53 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
 
     bidomain_system.init();
 
+
+    std::cout << "* BIDOMAIN+BATH: Reading BC ... " << std::flush;
+    M_bch.readBC(M_datafile, section);
+    M_bch.showMe();
+    std::cout << " done " << std::endl;
+
     M_constraint_dof_id = -1;
+    bool ground_ve = data(section + "/ground_ve", false);
+    if(ground_ve)
+    {
+        M_ground_ve = Ground::GroundNode;
+        M_ground_point_id = data(section + "/ground_point", -1);
+    }
+    else
+    {
+        for (auto&& bc_ptr : M_bch.M_bcs)
+        {
+            auto bc_type = bc_ptr->get_type();
+            if (bc_type == BCType::Dirichlet)
+            {
+                M_ground_ve = Ground::Dirichlet;
+                std::cout << "* BIDOMAIN+BATH: Setup Homogenuous Dirichlet BC ... " << std::flush;
+                std::set<libMesh::boundary_id_type> dirichlet_boundary_ids;
+                auto bc_mode = bc_ptr->get_mode();
+                std::vector<unsigned int> variables;
+                // variable 0 = Q
+                // variable 1 = Ve
+                variables.push_back(1);
+
+                auto num_flags = bc_ptr->size();
+                for (int nflag = 0; nflag < num_flags; nflag++)
+                {
+                    dirichlet_boundary_ids.insert(bc_ptr->get_flag(nflag));
+                }
+                std::cout << "Applying Dirichlet to boundary:" << std::endl;
+                for(auto && x : dirichlet_boundary_ids) std::cout << x << ", ";
+                libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids, variables, &(bc_ptr->get_function()));
+                std::cout << std::endl;
+
+                bidomain_system.get_dof_map().add_dirichlet_boundary(dirichlet_bc);
+
+                bidomain_system.get_mesh().boundary_info->build_node_list_from_side_list();
+                bidomain_system.get_mesh().boundary_info->build_node_list ( M_node_id_list ,  M_bc_id_list);
+            }
+        }
+    }
+
 
 //  bidomain_system.reinit_constraints();
     std::cout << "* BIDOMAIN+BATH: reinitialized constraints" << std::endl;
@@ -291,7 +339,10 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     if (tau_i == tau_e && 0 == tau_i)
         M_equationType = EquationType::ParabolicEllipticBidomain;
 
-    M_ground_ve = data(section + "/ground_ve", false);
+
+
+
+
 
 }
 
@@ -634,22 +685,36 @@ void BidomainWithBath::assemble_matrices(double dt)
     libMesh::TensorValue<double> D0e;
 
     //ground dof ID
-    if (M_ground_ve)
+    if ( M_ground_ve == Ground::GroundNode )
     {
-        if (0 == M_equationSystems.comm().rank())
+        if(M_ground_point_id < 0)
         {
-            std::cout << "* BIDOMAIN+BATH: adding constraint" << std::endl;
-            const libMesh::Elem * elem = *el;
-            dof_map_bidomain.dof_indices(elem, dof_indices_Ve, Ve_var);
-
-            //libMesh::MeshBase::const_node_iterator first_node = mesh.local_nodes_begin();
-            //std::vector < libMesh::dof_id_type > dof_indices_Ve;
-            //libMesh::DofMap bidomain_dofmap =  bidomain_system.get_dof_map();
-            //bidomain_dofmap.dof_indices(*first_node, dof_indices_Ve, 1);
-            M_constraint_dof_id = static_cast<int>(dof_indices_Ve[0]);
-            std::cout << "* BIDOMAIN+BATH: adding constraint done" << std::endl;
+            if (0 == M_equationSystems.comm().rank())
+            {
+                std::cout << "* BIDOMAIN+BATH: adding constraint" << std::endl;
+                const libMesh::Elem * elem = *el;
+                dof_map_bidomain.dof_indices(elem, dof_indices_Ve, Ve_var);
+                M_constraint_dof_id = static_cast<int>(dof_indices_Ve[0]);
+                std::cout << "* BIDOMAIN+BATH: adding constraint done" << std::endl;
+            }
+            M_equationSystems.comm().max(M_constraint_dof_id);
         }
-        M_equationSystems.comm().max(M_constraint_dof_id);
+        else
+        {
+            libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+            const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
+            for( ; node != end_node; ++node )
+            {
+                const libMesh::Node * nn = *node;
+                if( M_ground_point_id == nn->id() )
+                {
+                    dof_map_bidomain.dof_indices(nn, dof_indices_Ve,Ve_var);
+                    M_constraint_dof_id = dof_indices_Ve[0];
+                    break;
+                }
+            }
+
+        }
         std::cout << "* BIDOMAIN+BATH: Ground node ID: " << M_constraint_dof_id << std::endl;
     }
 
@@ -848,6 +913,8 @@ void BidomainWithBath::assemble_matrices(double dt)
                 }
             }
         }
+
+      //dof_map_bidomain.constrain_element_matrix_and_vector(Ke, Fe, dof_indices);
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Ke, Fe, dof_indices);
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Me, Fe, dof_indices);
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Mel, Fe, dof_indices);
@@ -887,13 +954,39 @@ void BidomainWithBath::assemble_matrices(double dt)
 
     // set diagonal to 1
 
-    if (M_ground_ve)
+    if (M_ground_ve == Ground::GroundNode)
     {
         std::cout << "* BIDOMAIN WITH BATH: Setting ground to zero on DOF id: " << M_constraint_dof_id << std::endl;
         std::vector<unsigned int> rows(1, M_constraint_dof_id);
         bidomain_system.matrix->zero_rows(rows, 1.0);
     }
-    else
+    else if ( M_ground_ve == Ground::Dirichlet )
+    {
+        std::vector<unsigned int> rows;
+        for(int k = 0; k <= M_node_id_list.size(); ++k )
+        {
+            bool done = false;
+            for(auto && bc_ptr : M_bch.M_bcs)
+            {
+                auto num_flags = bc_ptr->size();
+                for (int nflag = 0; nflag < num_flags; nflag++)
+                {
+                    if(M_bc_id_list[k] == bc_ptr->get_flag(nflag))
+                    {
+                        const libMesh::Node * nn = mesh.node_ptr(M_node_id_list[k]);
+                        dof_map_bidomain.dof_indices(nn, dof_indices_Ve, 1);
+                        rows.push_back(dof_indices_Ve[0]);
+                        done  = true;
+                        break;
+                    }
+                }
+                if(done) break;
+            }
+            bidomain_system.matrix->zero_rows(rows, 1.0);
+        }
+
+    }
+    else if ( M_ground_ve == Ground::Nullspace )
     {
         std::cout << "* BIDOMAIN WITH BATH: Setting nullspace ... " << std::flush;
         typedef libMesh::PetscMatrix<libMesh::Number> Mat;
@@ -1208,11 +1301,13 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
             // Are we in the bath?
             auto n_var = nn->n_vars(bidomain_system.number());
             auto n_dofs = nn->n_dofs(bidomain_system.number());
+
+            dof_map.dof_indices(nn, dof_indices_Ve, 1);
+
             if (n_var == n_dofs)
             {
                 dof_map_V.dof_indices(nn, dof_indices_V, 0);
                 dof_map.dof_indices(nn, dof_indices_Q, 0);
-                dof_map.dof_indices(nn, dof_indices_Ve, 1);
                 KiVn = wave_system.get_vector("KiV")(dof_indices_V[0]);
                 if(!M_symmetricOperator)
                     bidomain_system.rhs->add(dof_indices_Q[0], -KiVn);
@@ -1220,17 +1315,85 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
                     bidomain_system.rhs->add(dof_indices_Q[0], -cdt * KiVn);
                 bidomain_system.rhs->add(dof_indices_Ve[0], -KiVn);
             }
+
         }
 
     }
 
     //bidomain_system.rhs->set(M_constraint_dof_id, 0.0);
     bidomain_system.rhs->close();
-    if (M_ground_ve)
+    if (M_ground_ve == Ground::GroundNode )
     {
         bidomain_system.rhs->set(static_cast<libMesh::dof_id_type>(M_constraint_dof_id), 0.0);
     }
+    else if (M_ground_ve == Ground::Dirichlet)
+    {
+        for(int k = 0; k <= M_node_id_list.size(); ++k )
+        {
+            bool done = false;
+            for(auto && bc_ptr : M_bch.M_bcs)
+            {
+                auto num_flags = bc_ptr->size();
+                for (int nflag = 0; nflag < num_flags; nflag++)
+                {
+                    if(M_bc_id_list[k] == bc_ptr->get_flag(nflag))
+                    {
+                        const libMesh::Node * nn = mesh.node_ptr(M_node_id_list[k]);
+                        dof_map.dof_indices(nn, dof_indices_Ve, 1);
 
+                        bidomain_system.rhs->set(dof_indices_Ve[0], 0.0);
+                        done  = true;
+                        break;
+                    }
+                }
+                if(done) break;
+            }
+        }
+    }
+//    bidomain_system.matrix->print(std::cout);
+//    bidomain_system.rhs->print(std::cout);
+
+//        node = mesh.local_nodes_begin();
+//        {
+//
+//            for (; node != end_node; ++node)
+//            {
+//                const libMesh::Node * nn = *node;
+//                std::cout << "Node: " << std::endl;
+//                        nn->print(std::cout);
+//                        std::cout << std::endl;
+//                  bool b = mesh.boundary_info->has_boundary_id(nn, 2);
+//                  std::cout << "Node " << nn->id() << " has bc id 2? " << b << std::endl;
+//
+////                dof_map.dof_indices(nn, dof_indices_Ve, 1);
+////                bool constrained = dof_map.is_constrained_dof(dof_indices_Ve[0]);
+////                std::cout << "constrained: " << dof_indices_Ve[0] << "? " << constrained << std::endl;
+////                dof_map.dof_indices(nn, dof_indices_Ve, 01);
+////                constrained = dof_map.is_constrained_dof(dof_indices_Ve[0]);
+////                std::cout << "constrained: " << dof_indices_Ve[0] << "? " << constrained << std::endl;
+////                if(constrained)
+////                {
+////                    std::cout << "constrained: " << dof_indices_Ve[0] << std::endl;
+////                    bidomain_system.rhs->set(dof_indices_Ve[0], 0.0);
+////                }
+//            }
+//        }
+//    }
+//    mesh.boundary_info->print_info(std::cout);
+//    auto side_ids = mesh.boundary_info->get_node_boundary_ids ();
+//    std::cout << "Pass 1: " << std::endl;
+//    for(auto && x : side_ids) std::cout << x << ", " << std::endl;
+//    mesh.boundary_info->build_node_list_from_side_list();
+//    side_ids = mesh.boundary_info->get_node_boundary_ids ();
+//    std::cout << "Pass 2: " << std::endl;
+//    for(auto && x : side_ids) std::cout << x << ", " << std::endl;
+//    std::vector< libMesh::dof_id_type >     node_id_list;
+//    std::vector< libMesh::boundary_id_type >    bc_id_list;
+//    mesh.boundary_info->build_node_list ( node_id_list ,  bc_id_list);
+//    for (int k = 0; k < node_id_list.size(); ++k)
+//    {
+//        std::cout << mesh.comm().rank() << ", " << node_id_list[k] << ", " << bc_id_list[k]  << std::endl;
+//    }
     //  std::cout << "Forming RHS Done" << std::endl;
 
 }

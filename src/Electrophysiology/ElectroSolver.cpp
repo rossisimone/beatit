@@ -73,6 +73,8 @@ namespace BeatIt
                     DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(
                     1.0), M_model(model), M_ground_ve(false), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
                     M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
+                    1.0), M_model(model), M_ground_ve(Ground::Nullspace), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
+                    M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
     {
         // TODO Auto-generated constructor stub
 
