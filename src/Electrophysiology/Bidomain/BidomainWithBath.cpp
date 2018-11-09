@@ -1059,7 +1059,7 @@ void BidomainWithBath::assemble_matrices(double dt)
         dof_map_bidomain.local_variable_indices(v_indices, mesh, var_num);
 
         ISCreateGeneral(PETSC_COMM_SELF, v_indices.size(), reinterpret_cast<int*>(&v_indices[0]),PETSC_COPY_VALUES,&is_v_local);
-        ISAllGather(is_v_local, &is_v_global);
+        //ISAllGather(is_v_local, &is_v_global);
         int nmin =  dof_map_bidomain.first_dof();
         int nmax = dof_map_bidomain.end_dof();
         ISComplement(is_v_local, nmin, nmax, &is_ve_local);
