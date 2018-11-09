@@ -187,6 +187,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
     M_density = M_parameters[0];
     double tau_coeff = data(section+"/ctau", 1.0); // stabilization coefficient
     M_tau *= tau_coeff; // rho
+    std::cout << "* ISOTROPIC MATERIAL: active? " << M_active << std::endl;
 
 }
 
@@ -220,11 +221,13 @@ IsotropicMaterial::evaluateDeviatoricStress()
     if(M_active)
     {
         M_deviatoric_stress  = 2.0 * ( M_W1 + M_W2 * M_I1 ) * ( M_CAinv - M_I1 / 3.0 * M_Cinvk);
+    	if(M_W2 != 0.0)
         M_deviatoric_stress -= 2.0 * M_W2 * ( M_Ck * M_CAinv * M_CAinv - M_J2 / 3.0 * M_Cinvk);
     }
     else
     {
         M_deviatoric_stress  = 2.0 * ( M_W1 + M_W2 * M_I1 ) * ( M_identity - M_I1 / 3.0 * M_Cinvk);
+    	if(M_W2 != 0.0)
         M_deviatoric_stress -= 2.0 * M_W2 * ( M_Ck - M_J2 / 3.0 * M_Cinvk);
     }
 }
@@ -277,6 +280,36 @@ IsotropicMaterial::updateVariables()
 void
 IsotropicMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <double>&  dU, double q )
 {
+    /*
+     *  Consider the energy W(I1bar, I2bar) + U(J)
+     *
+     *  Then
+     *
+     *  W1 = dW / dI1bar
+     *  W2 = dW / dI2bar
+     *
+     *  p
+     *
+     *  S = 2 * W1 * J^(-2/3) * ( I - I1 / 3 * C^-1) + J p C^-1
+     *
+     *  dP = d(FS) = dF * S + F * dS
+     *
+     *  dS = dS1 + dS2 + dS3 + dS4
+     *
+     *  W11 = dW1 / dI1bar
+     *  dS1 = 2 * ( 2 * W11 * J^(-2/3) ( dC - I1 / 3 C^-1:dC ) ) * J^(-2/3) * ( I - I1 / 3 * C^-1)
+     *
+     *  dJ/dC  = 0.5 * J * C^-1 : dC
+     *  dJ^(-2/3)/dC = -2 / 3 * J^(-5/3) dJ/dC = - 1 / 3 * J^(-2/3) * C^-1 : dC
+     *  dS2 = - 2 * W1 * dJ^(-2/3)/dC * ( I - I1 / 3 * C^-1)
+     *
+     *  dI1 = I : dC
+     *  dS3 = - 2 * W1 * J^(-2/3) * ( I:dC ) / 3 * C^-1
+     *        + 2 * W1 * J^(-2/3) * I1 / 3 * C^-1 * dC * C^-1
+     *
+     *  dS4 = ( J p )' * dJ/dC * dC - J p C^-1 dC C^-1
+     *      =  0.5 * J * ( C^-1 : dC ) ( p ) * C^-1    -      J p C^-1 dC C^-1
+     */
 	auto  dF = dU;
 	auto  dC = M_Fk.transpose() * dF + dF.transpose() * M_Fk;
     auto CinvdCCinv = M_Cinvk * dC * M_Cinvk;
@@ -325,7 +358,8 @@ IsotropicMaterial::evaluateDeviatoricJacobian(  const libMesh::TensorValue <doub
     *             -   J p C^-1 dC C^-1
     */
     double p = M_pressure;
-	Jac -= p * CinvdCCinv;
+	Jac += 0.5 *  p * M_Jk * M_Cinvk.contract(dC) * M_Cinvk;
+	Jac -= M_Jk * p * CinvdCCinv;
 	M_deviatoric_jacobian = dU * M_total_stress + M_Fk * Jac;
 }
 

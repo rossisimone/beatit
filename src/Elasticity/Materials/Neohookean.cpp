@@ -61,7 +61,7 @@ Neohookean::~Neohookean() {
 void
 Neohookean::setup(GetPot& data, std::string section)
 {
-	std::cout << "* ISOTROPIC MATERIAL: Setup. Reading parameters from: " << section << std::endl;
+	std::cout << "* NEOHOOKEAN: Setup. Reading parameters from: " << section << std::endl;
 	M_parameters[0] = data(section+"/rho", 0.0); // rho
 	double E = data(section+"/E", 0.0);
 	double nu = data(section+"/nu", 0.0);

@@ -114,6 +114,9 @@ TransverselyIsoytopicMaterial::setup(GetPot& data, std::string section)
             double bf = data(section+"/bf", 0.0);
             M_parameters[3] = af;
             M_parameters[4] = bf;
+            std::cout << "\t af = " << M_parameters[3] << std::endl;
+            std::cout << "\t bf = " << M_parameters[4] << std::endl;
+
             break;
         }
         case HexagonalCL::Valve:
@@ -156,7 +159,6 @@ TransverselyIsoytopicMaterial::evaluateDeviatoricStress()
     M_W5  = W5 (M_I4, M_I5, M_Jk);
     M_W54 = W54(M_I4, M_I5, M_Jk);
     M_W55 = W55(M_I4, M_I5, M_Jk);
-
     M_deviatoric_stress += 2.0 * M_W4 * ( M_fof - M_I4 / 3.0 * M_Cinvk);
     M_deviatoric_stress += 2.0 * M_W5 * ( M_Cfof + M_Cfof.transpose() - 2.0 * M_I5 / 3.0 * M_Cinvk);
 
@@ -311,7 +313,7 @@ TransverselyIsoytopicMaterial::W44(double I4, double I5, double J)
             double af = M_parameters[3];
             double bf = M_parameters[4];
             double aux = bf * ( I4 - 1 ) * ( I4 - 1 );
-            W44 = (1 + 2 *  aux ) * af * std::exp( aux );
+            W44 = (1.0 + 2.0 *  aux ) * af * std::exp( aux );
             break;
         }
         case HexagonalCL::Valve:
