@@ -64,7 +64,7 @@ int main (int argc, char ** argv)
 	GetPot commandLine(argc, argv);
     std::string datafile_name = commandLine.follow ( "data.beat", 2, "-i", "--input" );
     GetPot data(datafile_name);
-
+    int bdf = data("bdf", 2);
     // Create a the Nas-Panfilov model using the Ionic Model factory
 	std::unique_ptr<BeatIt::FentonKarma> pNP( new BeatIt::FentonKarma() );
 	pNP->setup(data, "model");
@@ -128,8 +128,7 @@ int main (int argc, char ** argv)
         // solve one timestep
         //pNP->solve(variables, Ist, dt);
 
-        if(iter == 0)
-		//if(true)
+        if(iter == 0 || bdf == 1)
 		{
 		    pNP->updateVariables(variables, rhs, Ist, dt, false);
 		    for(int k = 1; k < variables.size(); ++k )
@@ -142,6 +141,7 @@ int main (int argc, char ** argv)
 		}
 		else
 		{
+		    std::cout << "bdf2" <<std::endl;
             pNP->updateVariables(variables, rhs, Ist, dt, false);
             for(int k = 1; k < variables.size(); ++k )
             {

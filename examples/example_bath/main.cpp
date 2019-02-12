@@ -177,6 +177,7 @@ int main(int argc, char ** argv)
         double maxX = data("mesh/maxX", 2.0);
         double maxY = data("mesh/maxY", 0.7);
         double maxZ = data("mesh/maxZ", 0.3);
+
         // No reason to use high-order geometric elements if we are
         // solving with low-order finite elements.
         if (elZ > 0)
@@ -199,6 +200,10 @@ int main(int argc, char ** argv)
             double y_interface = data("mesh/y_interface", 10000.0);
             std::cout << "z_interface: " << z_interface << std::endl;
 
+            bool epicardial_bath = data("epicardial_bath", false);
+            double epi_z_interface = data("mesh/epi_z_interface", -10000.0);
+            double epi_y_interface = data("mesh/epi_y_interface", -10000.0);
+
             MeshBase::element_iterator el = mesh.elements_begin();
             const MeshBase::element_iterator end_el = mesh.elements_end();
 
@@ -207,7 +212,8 @@ int main(int argc, char ** argv)
                 Elem * elem = *el;
                 const Point cent = elem->centroid();
                 // BATH
-                if (cent(2) > z_interface || cent(1) > y_interface)
+                if ( ( cent(2) > z_interface || cent(2) < epi_z_interface )
+                  || ( cent(1) > y_interface || cent(1) < epi_y_interface ) )
                 {
                     elem->subdomain_id() = 2;
                     double h = elem->hmax();

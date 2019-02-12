@@ -45,6 +45,9 @@ enum class IsotropicCL
     Neohookean,
     MooneyRivlin,
     Exponential,
+    //
+    // 0.5 * C * ( e^Q - 1 )
+    // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
 	Fung,
     ExponentialI1I2,
 };
