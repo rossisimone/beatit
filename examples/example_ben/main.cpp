@@ -50,8 +50,147 @@
 #include <iomanip>
 #include "Util/IO/io.hpp"
 
+//added by Ben
+#include "libmesh/elem.h"
+#include "libmesh/string_to_enum.h"
+#include "libmesh/dirichlet_boundaries.h"
+#include "libmesh/libmesh.h"
+#include "libmesh/face_tri3.h"
+#include "libmesh/face_tri6.h"
+#include "libmesh/boundary_info.h"
+
+
 enum Formulation { Primal,  Mixed, Incompressible };
 enum CL { Linear,  NH };
+
+using namespace libMesh;
+
+//function used for building symmetric triangle mesh
+//returns a global index for the node currently on
+unsigned int idx(const unsigned int n,
+		 const unsigned int i,
+		 const unsigned int j)
+{
+  return i + j * (n + 1);
+}
+
+
+//to build a symmetric triangle mesh
+void build_mesh(libMesh::Mesh& mesh,
+		const unsigned int ps_x,
+		const unsigned int ps_y,
+		const unsigned int ps_z,
+ 		double xmin, double xmax,
+		double ymin, double ymax,
+		double zmin, double zmax)
+{
+    mesh.reserve_elem (2*ps_x*ps_y);
+    mesh.reserve_nodes( (ps_x+1)*(ps_y+1) );
+    std::cout << "Reserved " << 2*ps_x*ps_y << " elements and " << (ps_x+1)*(ps_y+1) << " nodes... \n";
+    BoundaryInfo* lag_bdry_info = &mesh.get_boundary_info();
+
+    //add points to the mesh
+    unsigned int node_id = 0;
+	for (unsigned int j=0; j<=ps_y; j++)
+	  for (unsigned int i=0; i<=ps_x; i++)
+	      mesh.add_point (libMesh::Point(static_cast<double>(i)/static_cast<double>(ps_x),
+			      static_cast<double>(j)/static_cast<double>(ps_y),0.), node_id++);
+
+    std::cout << "Assigned nodes, building the elements \n";
+    //build the elements
+    int index = 0;
+    unsigned int elem_id = 0;
+      for (unsigned int j=0; j<ps_y; j++)
+	for (unsigned int i=0; i<ps_x; i++)
+	{
+	  //regular part of the mesh
+	  if (i < ps_x / 2)
+	  {
+	    // Add first Tri3
+	    Elem * elem = new Tri3;
+	    elem->set_id(elem_id++);
+	    elem = mesh.add_elem (elem);
+
+	    std::cout << "First element: Currently on element " << index << "\n";
+	    std::cout << "Node 0 = " << idx(ps_x,i,j) << "\n";
+	    std::cout << "Node 1 = " << idx(ps_x,i+1,j) << "\n";
+	    std::cout << "Node 2 = " << idx(ps_x,i+1,j+1) << "\n";
+
+	    elem->set_node(0) = mesh.node_ptr(idx(ps_x,i,j));
+	    elem->set_node(1) = mesh.node_ptr(idx(ps_x,i+1,j));
+	    elem->set_node(2) = mesh.node_ptr(idx(ps_x,i+1,j+1));
+
+	    if (j == 0)
+	      lag_bdry_info->add_side(elem, 0, 0);
+
+	    // Add second Tri3
+	    elem = new libMesh::Tri3;
+	    elem->set_id(elem_id++);
+	    elem = mesh.add_elem (elem);
+
+	    index++;
+	    std::cout << "Second element: Currently on element " << index << "\n";
+	    std::cout << "Node 0 = " << idx(ps_x,i,j) << "\n";
+	    std::cout << "Node 1 = " << idx(ps_x,i+1,j+1) << "\n";
+	    std::cout << "Node 2 = " << idx(ps_x,i,j+1) << "\n";
+
+	    index++;
+
+	    elem->set_node(0) = mesh.node_ptr(idx(ps_x,i,j)    );
+	    elem->set_node(1) = mesh.node_ptr(idx(ps_x,i+1,j+1));
+	    elem->set_node(2) = mesh.node_ptr(idx(ps_x,i,j+1)  );
+
+	    if (j == (ps_y-1))
+	      lag_bdry_info->add_side(elem, 1, 2);
+
+	    if (i == 0)
+	      lag_bdry_info->add_side(elem, 2, 3);
+	  }
+	  //mirrored part
+	  else
+	  {
+	    Elem * elem = new libMesh::Tri3;
+	    elem->set_id(elem_id++);
+	    elem = mesh.add_elem (elem);
+
+	    std::cout << "First element: Currently on element " << index << "\n";
+	    std::cout << "Node 0 = " << idx(ps_x,i,j) << "\n";
+	    std::cout << "Node 1 = " << idx(ps_x,i+1,j) << "\n";
+	    std::cout << "Node 2 = " << idx(ps_x,i,j+1) << "\n";
+
+	    elem->set_node(0) = mesh.node_ptr(idx(ps_x,i,j)    );
+	    elem->set_node(1) = mesh.node_ptr(idx(ps_x,i+1,j)  );
+	    elem->set_node(2) = mesh.node_ptr(idx(ps_x,i,j+1));
+
+	    if (j == 0)
+	      lag_bdry_info->add_side(elem, 0, 0);
+
+	      // Add second Tri3
+	    elem = new libMesh::Tri3;
+	    elem->set_id(elem_id++);
+	    elem = mesh.add_elem (elem);
+
+	    index++;
+	    std::cout << "Second element: Currently on element " << index << "\n";
+	    std::cout << "Node 0 = " << idx(ps_x,i+1,j) << "\n";
+	    std::cout << "Node 1 = " << idx(ps_x,i+1,j+1) << "\n";
+	    std::cout << "Node 2 = " << idx(ps_x,i,j+1) << "\n";
+
+	    index++;
+
+	    elem->set_node(0) = mesh.node_ptr(idx(ps_x,i+1,j)    );
+	    elem->set_node(1) = mesh.node_ptr(idx(ps_x,i+1,j+1));
+	    elem->set_node(2) = mesh.node_ptr(idx(ps_x,i,j+1)  );
+
+	    if (j == ps_y - 1)
+	      lag_bdry_info->add_side(elem, 1, 2);
+
+	    if (i == ps_x - 1)
+	      lag_bdry_info->add_side(elem, 0, 1);
+	  } //end of mirrored part
+	}
+} //end of build_mesh function
+
 
 int main (int argc, char ** argv)
 {
@@ -61,6 +200,7 @@ int main (int argc, char ** argv)
     // Initialize libraries, like in example 2.
     LibMeshInit init (argc, argv, MPI_COMM_WORLD);
 
+    int NDIM = 2;
 
     // Use the MeshTools::Generation mesh generator to create a uniform
     // 3D grid
@@ -100,20 +240,12 @@ int main (int argc, char ** argv)
     std::cout << "Max x:  " << maxX << std::endl;
     std::cout << "Max y:  " << maxY << std::endl;
 
-    // Build grid mesh
-    MeshTools::Generation::build_cube(mesh,
-            elX,
-            elY,
-            elZ,
-              0.0,maxX,
-              0.0,maxY,
-              0.0,maxZ,
-              elType );
-
+    bool symmetric = data("symmetric",false);
     //Map unit square onto cook's membrane
 //    int idx = 0;
 
 
+<<<<<<< Updated upstream
 		bool cm = data("cm_mesh", true);
 
 
@@ -151,7 +283,67 @@ int main (int argc, char ** argv)
     {
         BeatIt::serial_mesh_partition(init.comm(), mesh_name, &mesh);
 
+=======
+
+    bool cm = data("cm_mesh", true);
+
+    if (!symmetric)
+    {
+      // Build grid mesh
+      MeshTools::Generation::build_cube(mesh,
+					elX,
+					elY,
+					elZ,
+					0.0,maxX,
+					0.0,maxY,
+					0.0,maxZ,
+					elType);
+
+      if(cm)
+      {
+
+	//Map unit square onto cook's membrane
+	MeshBase::const_node_iterator nd = mesh.nodes_begin();
+	const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
+	for (; nd != end_nd; ++nd)
+	{
+	  libMesh::Point s = **nd;
+	  (**nd)(0) =  4.8 * s(0) + 2.6;
+	  (**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
+	  if(elZ > 0 ) (**nd)(2) = s(2) + 4.5;
+
+	}
+
+	std::string units = data("units", "cm");
+	if(units == "mm")
+	{
+	    libMesh::MeshTools::Modification::scale (mesh, 10, 10, 10);
+	}
+      }
+>>>>>>> Stashed changes
     }
+    else
+    {
+       build_mesh(mesh,
+		  elX,
+		  elY,
+		  (NDIM > 2) ? elZ : 0,
+		  0.0, 1.0,
+		  0.0, 1.0,
+		  0.0, 1.0);
+       mesh.prepare_for_use();
+
+// 	MeshBase::const_node_iterator nd = mesh.nodes_begin();
+// 	const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
+// 	for (; nd != end_nd; ++nd)
+// 	{
+// 	libMesh::Point s = **nd;
+// 	(**nd)(0) = maxX*s(0);
+// 	(**nd)(1) = maxY*s(1);
+// 	(**nd)(2) = maxZ*s(2);
+// 	}
+    }
+
 
     libMesh::EquationSystems es(mesh);
 

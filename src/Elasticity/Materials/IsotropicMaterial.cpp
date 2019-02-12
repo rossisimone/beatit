@@ -151,7 +151,7 @@ IsotropicMaterial::setup(GetPot& data, std::string section)
             std::cout << "\t density = " << M_parameters[0] << std::endl;
             std::cout << "\t C = " << M_parameters[1] << std::endl;
             std::cout << "\t b = " << M_parameters[2] << std::endl;
-            M_tau = 0.5 /  C;
+            M_tau = 0.5 /  (b * C / 8) ;
 
             break;
         }
@@ -437,7 +437,13 @@ IsotropicMaterial::W1 (double I1, double I2, double J)
         {
             // C = M_parameters[1]
             // b = M_parameters[2]
-        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+            //
+            // W = 0.5 * C * ( e^Q - 1 )
+            // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
+            //
+            // W1 = dW / dI1 = 0.5 * C * dQdI1 * e^Q
+            // dQ/dI1 = b / 4 * (2 * I1 - 2 )
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3.0 );
         	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
         	W1 = 0.5 * M_parameters[1] * dQdI1 * std::exp(Q);
             break;
@@ -467,7 +473,15 @@ IsotropicMaterial::W11(double I1, double I2, double J)
         {
             // C = M_parameters[1]
             // b = M_parameters[2]
-        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
+            //
+            // W = 0.5 * C * ( e^Q - 1 )
+            // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
+            //
+            // W1 = dW / dI1 = 0.5 * C * dQdI1 * e^Q
+            // dQ/dI1 = b / 4 * (2 * I1 - 2 )
+            // W11 = 0.5 * C * dQdI1^2 * e^Q + 0.5 * C + d2QdI1 * e^Q
+            //     = 0.5 * C * ( dQdI1^2 + d2QdI12 ) * e^Q
+        	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3.0 );
         	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
         	double d2QdI1 = 0.25 * M_parameters[2] * ( 2.0 );
         	W11 = 0.5 * M_parameters[1] * ( dQdI1 * dQdI1 + d2QdI1 ) * std::exp(Q);
@@ -494,6 +508,13 @@ IsotropicMaterial::W12(double I1, double I2, double J)
         {
             // C = M_parameters[1]
             // b = M_parameters[2]
+            //
+            // W = 0.5 * C * ( e^Q - 1 )
+            // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
+            //
+            // W1 = dW / dI1 = 0.5 * C * dQdI1 * e^Q
+            // dQ/dI1 = b / 4 * (2 * I1 - 2 )
+            // W12 = 0.5 * C * ( dQdI1*dQdI2 + d2QdI1dI2 ) * e^Q
         	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
         	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
         	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
@@ -530,6 +551,12 @@ IsotropicMaterial::W2 (double I1, double I2, double J)
         {
             // C = M_parameters[1]
             // b = M_parameters[2]
+            //
+            // W = 0.5 * C * ( e^Q - 1 )
+            // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
+            //
+            // W2 = dW / dI1 = 0.5 * C * dQdI2 * e^Q
+            // dQ/dI2 = b / 4 * ( - 2 )
         	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
         	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
         	W2 = 0.5 * M_parameters[1] * dQdI2 * std::exp(Q);
@@ -562,6 +589,14 @@ IsotropicMaterial::W21(double I1, double I2, double J)
         {
             // C = M_parameters[1]
             // b = M_parameters[2]
+            //
+            // W = 0.5 * C * ( e^Q - 1 )
+            // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
+            //
+            // W2 = dW / dI1 = 0.5 * C * dQdI2 * e^Q
+            // dQ/dI1 = b / 4 * (2 * I1 - 2 )
+            // W11 = 0.5 * C * dQdI2*dQdI2 * e^Q + 0.5 * C + d2QdI1dI2 * e^Q
+            //     = 0.5 * C * ( dQdI1*dQdI2 + d2QdI1dI2 ) * e^Q
         	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
         	double dQdI1 = 0.25 * M_parameters[2] * ( 2.0 * I1 - 2.0 );
         	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
@@ -592,6 +627,14 @@ IsotropicMaterial::W22(double I1, double I2, double J)
         {
             // C = M_parameters[1]
             // b = M_parameters[2]
+            //
+            // W = 0.5 * C * ( e^Q - 1 )
+            // Q = b / 4 * (I1^2 -2*I2 - 2*I1 + 3)
+            //
+            // W2 = dW / dI1 = 0.5 * C * dQdI2 * e^Q
+            // dQ/dI1 = b / 4 * (2 * I1 - 2 )
+            // W22 = 0.5 * C * dQdI2*dQdI2 * e^Q + 0.5 * C + d2QdI1dI2 * e^Q
+            //     = 0.5 * C * ( dQdI2*dQdI2 + d2QdI2dI2 ) * e^Q
         	double Q = 0.25 * M_parameters[2] * ( I1 * I1 - 2.0 * I2 - 2.0 * I1 + 3 );
         	double dQdI2 = 0.25 * M_parameters[2] * ( - 2.0 );
         	//double d2QdI2 = 0.0;
