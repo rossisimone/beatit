@@ -72,7 +72,7 @@ Cubic::Cubic()
 void
 Cubic::setup(GetPot& data, std::string sect)
 {
-	std::string section = sect + "/Cubic";
+	std::string section = sect + "/cubic";
 	M_dimensional       = data(section+"/dimensional", false);
 	M_v0       = data(section+"/v0",       -85.0);
     M_v1       = data(section+"/v1",       -57.6);

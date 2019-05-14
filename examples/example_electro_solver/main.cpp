@@ -629,8 +629,11 @@ int main(int argc, char ** argv)
     ParallelMesh mesh(init.comm());
 
     std::string meshname = data("mesh/input_mesh_name", "NONE");
+    bool generate_fibers = true;
+
     if (meshname == "NONE")
     {
+        generate_fibers = false;
         // allow us to use higher-order approximation.
         int elX = data("mesh/elX", 15);
         int elY = data("mesh/elY", 5);
@@ -695,8 +698,8 @@ int main(int argc, char ** argv)
             libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
     }
 
-    MeshRefinement refinement(mesh);
-    refinement.refine_elements();
+//    MeshRefinement refinement(mesh);
+//    refinement.refine_elements();
     std::cout << "Mesh done!" << std::endl;
     mesh.print_info();
 
@@ -707,12 +710,60 @@ int main(int argc, char ** argv)
     std::cout << "Create equation system ..." << std::endl;
     EquationSystems es(mesh);
 
+    ///////////////////
+     ///////////////////
+     ///////////////////
+     ///////////////////
+     ///////////////////
+     // Constructor
+     std::cout << "Create bidomain with bath..." << std::endl;
+     std::string model = data("model", "monowave");
+     BeatIt::ElectroSolver* solver = nullptr;
+
+     bool solve_on_endo = data("endo_solve", false);
+     BoundaryMesh *  endo_mesh = nullptr;
+     EquationSystems * endo_es = nullptr;
+     if(solve_on_endo)
+     {
+         std::cout << "CREATING ENDO MESH" << std::endl;
+         endo_mesh = new BoundaryMesh(init.comm());
+         std::set<boundary_id_type> endoIDs;
+         endoIDs.insert(1);
+         std::set<unsigned short> subdomains;
+         subdomains.insert(1);
+         //mesh.boundary_info->print_info(std::cout);
+         //mesh.boundary_info->print_summary(std::cout);
+         std::cout << "Sync endo" << std::endl;
+         mesh.boundary_info->sync(endoIDs, *endo_mesh, subdomains);
+         //endo.prepare_for_use();
+
+         endo_mesh->print_info(std::cout);
+         std::cout << "CREATING NEW EQUATION SYSTEM" << std::endl;
+         endo_es = new EquationSystems(*endo_mesh);
+
+         std::cout << "CREATING ENDOCARDIAL SOLVER" << std::endl;
+         solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, *endo_es);
+     }
+     else
+     {
+         std::cout << "CREATING VOLUMETRIC SOLVER" << std::endl;
+         solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
+     }
+     std::string section = data("section", "monowave");
+     std::cout << "Calling setup..." << std::endl;
+     solver->setup(data, model);
+     std::cout << "Calling init ..." << std::endl;
+     solver->init(0.0);
 
 
 
     //////////////////
     // CREATING FIBERS
     //////////////////
+    ///
+    /// Create fibers?
+    if(generate_fibers)
+    {
     std::string pois1 = "poisson1";
     BeatIt::Poisson poisson1(es, pois1);
 
@@ -808,50 +859,6 @@ int main(int argc, char ** argv)
 
     //poisson1.save_exo("poisson1.exo");
 
-    ///////////////////
-    ///////////////////
-    ///////////////////
-    ///////////////////
-    ///////////////////
-    // Constructor
-    std::cout << "Create bidomain with bath..." << std::endl;
-    std::string model = data("model", "monowave");
-    BeatIt::ElectroSolver* solver = nullptr;
-
-    bool solve_on_endo = data("endo_solve", false);
-    BoundaryMesh *  endo_mesh = nullptr;
-    EquationSystems * endo_es = nullptr;
-    if(solve_on_endo)
-    {
-        std::cout << "CREATING ENDO MESH" << std::endl;
-        endo_mesh = new BoundaryMesh(init.comm());
-        std::set<boundary_id_type> endoIDs;
-        endoIDs.insert(1);
-        std::set<unsigned short> subdomains;
-        subdomains.insert(1);
-        //mesh.boundary_info->print_info(std::cout);
-        //mesh.boundary_info->print_summary(std::cout);
-        std::cout << "Sync endo" << std::endl;
-        mesh.boundary_info->sync(endoIDs, *endo_mesh, subdomains);
-        //endo.prepare_for_use();
-
-        endo_mesh->print_info(std::cout);
-        std::cout << "CREATING NEW EQUATION SYSTEM" << std::endl;
-        endo_es = new EquationSystems(*endo_mesh);
-
-        std::cout << "CREATING ENDOCARDIAL SOLVER" << std::endl;
-        solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, *endo_es);
-    }
-    else
-    {
-        std::cout << "CREATING VOLUMETRIC SOLVER" << std::endl;
-        solver = BeatIt::ElectroSolver::ElectroFactory::Create(model, es);
-    }
-    std::string section = data("section", "monowave");
-    std::cout << "Calling setup..." << std::endl;
-    solver->setup(data, model);
-    std::cout << "Calling init ..." << std::endl;
-    solver->init(0.0);
 
     // set fibers
     std::cout << "Copying fibers ... " << std::flush;
@@ -924,6 +931,10 @@ int main(int argc, char ** argv)
         *xfibers = *grad3;
         std::cout << " done " << std::endl;
     }
+    poisson1.deleteSystems();
+    poisson2.deleteSystems();
+    poisson3.deleteSystems();
+    }
 
     int boundary_ic = data(model + "/boundary_ic", -1);
     if(boundary_ic > 0)
@@ -982,9 +993,7 @@ int main(int argc, char ** argv)
     }
 
 
-    poisson1.deleteSystems();
-    poisson2.deleteSystems();
-    poisson3.deleteSystems();
+
 
     Data::path = solver->M_outputFolder;
     int patient = data("patient", -1);

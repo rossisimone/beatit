@@ -6,6 +6,8 @@
  */
 
 #include "Electrophysiology/IonicModels/IonicModel.hpp"
+#include "libmesh/getpot.h"
+
 
 namespace BeatIt
 {
@@ -20,7 +22,14 @@ IonicModel::IonicModel( int numVar,
   , M_cellType(cell_type)
   , M_variablesNames(numVar-1)
   , M_ionicModelName(name)
+  , M_membrane_capacitance(1.0)
 {
+}
+
+
+void IonicModel::setup(GetPot& data, std::string section)
+{
+    M_membrane_capacitance = data(section+"/membrane_capacitance", 1.0 );
 }
 
 double

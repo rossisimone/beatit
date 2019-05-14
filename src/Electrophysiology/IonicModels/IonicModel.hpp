@@ -110,7 +110,7 @@ public:
 	 */
     virtual void initializeSaveData(std::ostream& output) = 0;
 
-    virtual void setup(GetPot& /*data*/, std::string /*section*/) {}
+    virtual void setup(GetPot& /*data*/, std::string /*section*/);
 
     // Number of variables inlcluding transmembrane potential
     int numVariables()
@@ -141,7 +141,7 @@ public:
 
     virtual double membraneCapacitance()
     {
-        return 1.0;
+        return M_membrane_capacitance;
     }
 protected:
 
@@ -175,6 +175,8 @@ protected:
     // This is useful for Forward-Backwart Euler
     // and other time integrators
     bool M_overwrite;
+
+    double M_membrane_capacitance;
 
 };
 

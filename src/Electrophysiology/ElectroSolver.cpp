@@ -71,8 +71,6 @@ namespace BeatIt
             M_equationSystems(es), M_exporter(), M_exporterNames(), M_ionicModelExporter(), M_ionicModelExporterNames(), M_parametersExporter(), M_parametersExporterNames(), M_outputFolder(), M_datafile(), M_pacing_i(), M_pacing_e(), M_linearSolver(), M_anisotropy(
                     Anisotropy::Orthotropic), M_equationType(EquationType::ParabolicEllipticBidomain), M_timeIntegratorType(
                     DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(
-                    1.0), M_model(model), M_ground_ve(false), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
-                    M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
                     1.0), M_model(model), M_ground_ve(Ground::Nullspace), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
                     M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
     {

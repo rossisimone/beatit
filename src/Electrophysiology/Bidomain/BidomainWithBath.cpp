@@ -174,10 +174,10 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     bidomain_system.init();
 
 
-    std::cout << "* BIDOMAIN+BATH: Reading BC ... " << std::flush;
-    M_bch.readBC(M_datafile, section);
-    M_bch.showMe();
-    std::cout << " done " << std::endl;
+    //std::cout << "* BIDOMAIN+BATH: Reading BC ... " << std::flush;
+    //M_bch.readBC(M_datafile, section);
+    //M_bch.showMe();
+    //std::cout << " done " << std::endl;
 
     M_constraint_dof_id = -1;
     bool ground_ve = data(section + "/ground_ve", false);
@@ -954,129 +954,104 @@ void BidomainWithBath::assemble_matrices(double dt)
 
     // set diagonal to 1
 
-    if (M_ground_ve == Ground::GroundNode)
-    {
-        std::cout << "* BIDOMAIN WITH BATH: Setting ground to zero on DOF id: " << M_constraint_dof_id << std::endl;
-        std::vector<unsigned int> rows(1, M_constraint_dof_id);
-        bidomain_system.matrix->zero_rows(rows, 1.0);
-    }
-    else if ( M_ground_ve == Ground::Dirichlet )
-    {
-        std::vector<unsigned int> rows;
-        for(int k = 0; k <= M_node_id_list.size(); ++k )
-        {
-            bool done = false;
-            for(auto && bc_ptr : M_bch.M_bcs)
-            {
-                auto num_flags = bc_ptr->size();
-                for (int nflag = 0; nflag < num_flags; nflag++)
-                {
-                    if(M_bc_id_list[k] == bc_ptr->get_flag(nflag))
-                    {
-                        const libMesh::Node * nn = mesh.node_ptr(M_node_id_list[k]);
-                        dof_map_bidomain.dof_indices(nn, dof_indices_Ve, 1);
-                        rows.push_back(dof_indices_Ve[0]);
-                        done  = true;
-                        break;
-                    }
-                }
-                if(done) break;
-            }
-            bidomain_system.matrix->zero_rows(rows, 1.0);
-        }
-
-    }
-    else if ( M_ground_ve == Ground::Nullspace )
-    {
-        std::cout << "* BIDOMAIN WITH BATH: Setting nullspace ... " << std::flush;
-        typedef libMesh::PetscMatrix<libMesh::Number> Mat;
-        typedef libMesh::PetscVector<libMesh::Number> Vec;
-        //bidomain_system.get_vector("nullspace").close();
-        libMesh::DenseVector<libMesh::Number> NSe;
-        MatNullSpace nullspace;
-
-        if(M_timestep_counter < 1)
-        {
-
-        libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-        const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
-        for (; node != end_node; ++node)
-        {
-            const libMesh::Node * nn = *node;
-            dof_map_bidomain.dof_indices(nn, dof_indices_Q, Q_var);
-            dof_map_bidomain.dof_indices(nn, dof_indices_Ve, Ve_var);
-            if(dof_indices_Q.size() > 0) bidomain_system.get_vector("nullspace").set(dof_indices_Q[0], 0.0);
-            bidomain_system.get_vector("nullspace").set(dof_indices_Ve[0], 1.0);
-        }
-        bidomain_system.get_vector("nullspace").close();
-        int size = bidomain_system.get_vector("nullspace").size();
-        bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
-        }
-
-        // setting solver type
-//        std::string solver_type = M_datafile(M_section + "/linear_solver/type", "gmres");
-//        std::cout << "* BIDOMAIN+BATH: using " << solver_type << std::endl;
-//        std::string prec_type = M_datafile(M_section + "/linear_solver/preconditioner", "amg");
-//        std::cout << "* BIDOMAIN+BATH: using " << prec_type << std::endl;
-//        //M_linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( M_equationSystems.comm() );
-//        //typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
-//        //M_linearSolver.reset(new PetscSolver(M_equationSystems.comm()));
+//    if (M_ground_ve == Ground::GroundNode)
+//    {
+//        std::cout << "* BIDOMAIN WITH BATH: Setting ground to zero on DOF id: " << M_constraint_dof_id << std::endl;
+//        std::vector<unsigned int> rows(1, M_constraint_dof_id);
+//        bidomain_system.matrix->zero_rows(rows, 1.0);
+//    }
+//    else if ( M_ground_ve == Ground::Dirichlet )
+//    {
+//        std::vector<unsigned int> rows;
+//        for(int k = 0; k <= M_node_id_list.size(); ++k )
+//        {
+//            bool done = false;
+//            for(auto && bc_ptr : M_bch.M_bcs)
+//            {
+//                auto num_flags = bc_ptr->size();
+//                for (int nflag = 0; nflag < num_flags; nflag++)
+//                {
+//                    if(M_bc_id_list[k] == bc_ptr->get_flag(nflag))
+//                    {
+//                        const libMesh::Node * nn = mesh.node_ptr(M_node_id_list[k]);
+//                        dof_map_bidomain.dof_indices(nn, dof_indices_Ve, 1);
+//                        rows.push_back(dof_indices_Ve[0]);
+//                        done  = true;
+//                        break;
+//                    }
+//                }
+//                if(done) break;
+//            }
+//            bidomain_system.matrix->zero_rows(rows, 1.0);
+//        }
 //
-//        std::cout << "* BIDOMAIN+BATH: setting solver  " << prec_type << std::endl;
-////        M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
-////        M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
+//    }
+//    else if ( M_ground_ve == Ground::Nullspace )
+//    {
+//        std::cout << "* BIDOMAIN WITH BATH: Setting nullspace ... " << std::flush;
+//        typedef libMesh::PetscMatrix<libMesh::Number> Mat;
+//        typedef libMesh::PetscVector<libMesh::Number> Vec;
+//        //bidomain_system.get_vector("nullspace").close();
+//        libMesh::DenseVector<libMesh::Number> NSe;
+//        MatNullSpace nullspace;
+//
+//        if(M_timestep_counter < 1)
+//        {
+//
+//        libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+//        const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
+//        for (; node != end_node; ++node)
+//        {
+//            const libMesh::Node * nn = *node;
+//            dof_map_bidomain.dof_indices(nn, dof_indices_Q, Q_var);
+//            dof_map_bidomain.dof_indices(nn, dof_indices_Ve, Ve_var);
+//            if(dof_indices_Q.size() > 0) bidomain_system.get_vector("nullspace").set(dof_indices_Q[0], 0.0);
+//            bidomain_system.get_vector("nullspace").set(dof_indices_Ve[0], 1.0);
+//        }
+//        bidomain_system.get_vector("nullspace").close();
+//        int size = bidomain_system.get_vector("nullspace").size();
+//        bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
+//        }
+////        std::cout << "* BIDOMAIN+BATH: closing matrix  " << prec_type << std::endl;
+//        Vec& N = (static_cast<Vec&>(bidomain_system.get_vector("nullspace")));
+////        std::cout << "* BIDOMAIN+BATH: nullspace vector  " << prec_type << std::endl;
+//        auto vec = N.vec();
+//        //std::cout << N.size() <<  ",  " <<
+////        std::cout << "* BIDOMAIN+BATH: nullspace vector 1 " << prec_type << std::endl;
+//        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &vec, &nullspace);
+////        std::cout << "* BIDOMAIN+BATH: nullspace vector  2" << prec_type << std::endl;
+//        Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
+//
+//        MatSetNullSpace(mat->mat(), nullspace);
+//        MatNullSpaceDestroy(&nullspace);
+//        std::cout << "  done" << std::endl;
+//
+//     }
 
-//        std::cout << "* BIDOMAIN+BATH: closing matrix  " << prec_type << std::endl;
-        Vec& N = (static_cast<Vec&>(bidomain_system.get_vector("nullspace")));
-//        std::cout << "* BIDOMAIN+BATH: nullspace vector  " << prec_type << std::endl;
-        auto vec = N.vec();
-        //std::cout << N.size() <<  ",  " <<
-//        std::cout << "* BIDOMAIN+BATH: nullspace vector 1 " << prec_type << std::endl;
-        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &vec, &nullspace);
-//        std::cout << "* BIDOMAIN+BATH: nullspace vector  2" << prec_type << std::endl;
-        Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
-//        std::cout << "* BIDOMAIN+BATH: nullspace created  " << prec_type << std::endl;
-
-        MatSetNullSpace(mat->mat(), nullspace);
-        MatNullSpaceDestroy(&nullspace);
-        std::cout << "  done" << std::endl;
-
-        //MatSetOption(mat->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
-     }
-//      PetscBool  isSymmetric;
-//      double tol = 1e-12;
-//      auto code =  MatIsSymmetric(mat->mat(), tol, &isSymmetric);
-//      std::cout << "The bidomain matrix is symmetric? " << isSymmetric << std::endl;
     if(M_timestep_counter < 1)
     {
         std::cout << "* BIDOMAIN WITH BATH: Assigning field split information ... " << std::flush;
 
         IS is_v_local;
-        IS is_v_global;
         IS is_ve_local;
         std::vector<libMesh::dof_id_type> v_indices;
+        std::vector<libMesh::dof_id_type> ve_indices;
         int var_num = 0;
         dof_map_bidomain.local_variable_indices(v_indices, mesh, var_num);
+        dof_map_bidomain.local_variable_indices(ve_indices, mesh, var_num+1);
 
         ISCreateGeneral(PETSC_COMM_SELF, v_indices.size(), reinterpret_cast<int*>(&v_indices[0]),PETSC_COPY_VALUES,&is_v_local);
-        //ISAllGather(is_v_local, &is_v_global);
-        int nmin =  dof_map_bidomain.first_dof();
-        int nmax = dof_map_bidomain.end_dof();
-        ISComplement(is_v_local, nmin, nmax, &is_ve_local);
+        ISCreateGeneral(PETSC_COMM_SELF, ve_indices.size(), reinterpret_cast<int*>(&ve_indices[0]),PETSC_COPY_VALUES,&is_ve_local);
         typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
-        M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix), "bidomain_");
+         M_linearSolver->init(dynamic_cast<PetscMatrix *>(bidomain_system.matrix), "bidomain_");
         KSPAppendOptionsPrefix(M_linearSolver->ksp(),"bidomain_");
         KSPSetFromOptions(M_linearSolver->ksp());
         PCFieldSplitSetIS(M_linearSolver->ksp()->pc,"v",is_v_local);
         PCFieldSplitSetIS(M_linearSolver->ksp()->pc,"ve",is_ve_local);
+        KSPSetFromOptions(M_linearSolver->ksp());
        std::cout << "  done" << std::endl;
 
-//       PetscBool isMatSymm;
-//       MatIsSymmetric(dynamic_cast<PetscMatrix *>(bidomain_system.matrix)->mat(), 1e-8,&isMatSymm);
-//       std::cout << "PETSC, is the system matrix symmetric? " << isMatSymm << std::endl;
        int size;
-       ISGetSize(is_v_global, &size);
-       std::cout << "is_v_global size: " << size << std::endl;
        ISGetSize(is_v_local, &size);
        std::cout << "is_v_local size: " << size << std::endl;
        ISGetSize(is_ve_local, &size);
@@ -1084,9 +1059,6 @@ void BidomainWithBath::assemble_matrices(double dt)
 
     }
 
-//      std::cout << "* BIDOMAIN+BATH: initialized linear solver  " << prec_type
-//              << std::endl;
-//    }
 }
 
 

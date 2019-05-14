@@ -56,6 +56,7 @@ BCHandler::readBC(const GetPot& data,  const std::string& section)
 	std::string BCList = data(section+"/BC/list", "");
 	std::vector<std::string> BCListVector;
 	bool read = BeatIt::readList(BCList, BCListVector);
+	if(BCListVector.size() == 0) read = false;
 	if(read)
 	{
 		for(auto&& b : BCListVector)

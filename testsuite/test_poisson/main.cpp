@@ -97,13 +97,15 @@ int main (int argc, char ** argv)
       double maxX= data("mesh/maxX", 2.0);
       double maxY = data("mesh/maxY", 0.7);
       double maxZ = data("mesh/maxZ", 0.3);
+      auto elType = TET4;
+      if(numElementsZ == 0) elType = TRI3;
 
       MeshTools::Generation::build_cube (mesh,
     		  	  	  	  	  	  	  	  numElementsX, numElementsY, numElementsZ,
                                          0., maxX,
                                          0., maxY,
                                          0., maxZ,
-                                         TET4);
+                                         elType);
       }
       else
       {
