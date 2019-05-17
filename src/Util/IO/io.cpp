@@ -37,6 +37,7 @@ bool readList(std::string& list, std::vector<std::string>& container)
     namespace qi = boost::spirit::qi;
     namespace ascii = boost::spirit::ascii;
     bool ok = qi::phrase_parse(beg, end, (*~qi::char_(",")) % ',', ascii::blank, container);
+    if(container[0]=="") return false;
     return ok;
 }
 

@@ -172,17 +172,19 @@ int main(int argc, char ** argv)
     // function.
     system.attach_assemble_function(assemble_stokes);
 
+    ExplicitSystem & system_mu = equation_systems.add_system<ExplicitSystem>("MU");
+    system_mu.add_variable("mu", CONSTANT, MONOMIAL);
     // Initialize the data structures for the equation system.
     equation_systems.init();
-
+    system_mu.solution->close();
     equation_systems.parameters.set<unsigned int>("linear solver maximum iterations") = 250;
     equation_systems.parameters.set<Real>("linear solver tolerance") = TOLERANCE;
     const Real dt = 0.015;
     system.time     = 0.0;
     const unsigned int n_timesteps = 60;
-    equation_systems.parameters.set<Real> ("dt")   = 0.1;
+    equation_systems.parameters.set<Real> ("dt")   = dt;
     equation_systems.parameters.set<Real> ("rho")   = 1.06;
-    equation_systems.parameters.set<Real> ("mu") = 0.0037;
+    equation_systems.parameters.set<Real> ("mu") = 0.0037*1e3;
 
     // Prints information about the system to the screen.
     equation_systems.print_info();
@@ -221,7 +223,7 @@ int main(int argc, char ** argv)
 
         if ((t_step+1)%write_interval == 0)
           {
-            exporter.write_timestep("dynamic.e",
+            exporter.write_timestep("carreau.e",
                                   equation_systems,
                                   t_step+1, // we're off by one since we wrote the IC and the Exodus numbering is 1-based.
                                   system.time);
@@ -230,10 +232,10 @@ int main(int argc, char ** argv)
 
     }
 
-#ifdef LIBMESH_HAVE_EXODUS_API
-    ExodusII_IO(mesh).write_equation_systems ("out.e",
-            equation_systems);
-#endif // #ifdef LIBMESH_HAVE_EXODUS_API
+//#ifdef LIBMESH_HAVE_EXODUS_API
+//    ExodusII_IO(mesh).write_equation_systems ("out.e",
+//            equation_systems);
+//#endif // #ifdef LIBMESH_HAVE_EXODUS_API
 
     // All done.
     return 0;
@@ -259,6 +261,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     // Get a reference to the Convection-Diffusion system object.
     TransientLinearImplicitSystem & system = es.get_system<TransientLinearImplicitSystem>("Stokes");
     LinearImplicitSystem & system_phi = es.get_system<LinearImplicitSystem>("Poisson");
+    ExplicitSystem & system_mu = es.get_system<ExplicitSystem>("MU");
 
     // Numeric ids corresponding to each variable in the system
     const unsigned int u_var = system.variable_number("ux");
@@ -310,6 +313,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     // in future examples.
     const DofMap & dof_map = system.get_dof_map();
     const DofMap & dof_map_phi = system_phi.get_dof_map();
+    const DofMap & dof_map_mu = system_mu.get_dof_map();
 
     // Define data structures to contain the element matrix
     // and right-hand-side vector contribution.  Following
@@ -332,9 +336,10 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     std::vector<dof_id_type> dof_indices_w;
     std::vector<dof_id_type> dof_indices_p;
     std::vector<dof_id_type> dof_indices_phi;
+    std::vector<dof_id_type> dof_indices_mu;
 
 
-    double mu = es.parameters.get<Real> ("mu");
+    double mu_inf = es.parameters.get<Real> ("mu");
     double rho = es.parameters.get<Real> ("rho");
     double dt = es.parameters.get<Real> ("dt");
     double time = system.time;
@@ -344,6 +349,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     std::vector<double> vn;
     std::vector<double> wn;
     RealGradient veln;
+    libMesh::TensorValue<libMesh::Number> grad_vel;
     // Now we will loop over all the elements in the mesh that
     // live on the local processor. We will compute the element
     // matrix and right-hand-side contribution.  In case users later
@@ -361,6 +367,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
         dof_map.dof_indices(elem, dof_indices_v, v_var);
         dof_map.dof_indices(elem, dof_indices_w, w_var);
         dof_map.dof_indices(elem, dof_indices_p, p_var);
+        dof_map_mu.dof_indices(elem, dof_indices_mu);
 
         const unsigned int n_dofs = dof_indices.size();
         const unsigned int n_u_dofs = dof_indices_u.size();
@@ -428,11 +435,23 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
         Fv.reposition(v_var * n_u_dofs, n_v_dofs);
         Fw.reposition(w_var * n_u_dofs, n_w_dofs);
         Fp.reposition(p_var * n_u_dofs, n_p_dofs);
-
+        double mu_average = 0.0;
+         unsigned int nqp = qrule.n_points();
         // Now we will build the element matrix.
-        for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
+        for (unsigned int qp = 0; qp < nqp; qp++)
         {
             veln *= 0.0;
+            grad_vel *= 0.0;
+            for (unsigned int l = 0; l < n_u_dofs; ++l)
+            {
+                for (int jdim = 0; jdim < dim; jdim++)
+                {
+                    grad_vel(0, jdim) += dphi[l][qp](jdim) * un[l];
+                    grad_vel(1, jdim) += dphi[l][qp](jdim) * vn[l];
+                    grad_vel(2, jdim) += dphi[l][qp](jdim) * wn[l];
+                }
+            }
+
             for (unsigned int i = 0; i < n_u_dofs; i++)
             {
                 veln(0) += un[i] * phi[i][qp];
@@ -440,6 +459,12 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
                 veln(2) += wn[i] * phi[i][qp];
             }
 
+            double mu0 = 0.0074*1e3;
+            double lambda = 0.033;
+            auto D = grad_vel + grad_vel.transpose();
+            auto g2 = 0.5*D.contract(D);
+            double mu = mu_inf + (mu0-mu_inf)/std::sqrt(1+lambda*lambda*g2);
+            mu_average += mu;
             // Assemble the u-velocity row
             // uu coupling
             for (unsigned int i = 0; i < n_u_dofs; i++)
@@ -506,7 +531,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
                     Kpp(i, j) += -0.1 * h * h * JxW[qp] * dphi[i][qp] * dphi[j][qp];
 
         } // end of the quadrature point qp-loop
-
+        mu_average /= nqp;
         // At this point the interior element integration has
         // been completed.  However, we have not yet addressed
         // boundary conditions.  For this example we will only
@@ -594,6 +619,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
             // and NumericVector::add_vector() members do this for us.
             system.matrix->add_matrix(Ke, dof_indices);
             system.rhs->add_vector(Fe, dof_indices);
+            system_mu.solution->set(dof_indices_mu[0],mu_average);
         } // end of element loop
 }
 
