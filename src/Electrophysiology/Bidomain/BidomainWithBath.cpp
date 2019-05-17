@@ -174,10 +174,10 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     bidomain_system.init();
 
 
-    //std::cout << "* BIDOMAIN+BATH: Reading BC ... " << std::flush;
-    //M_bch.readBC(M_datafile, section);
-    //M_bch.showMe();
-    //std::cout << " done " << std::endl;
+    std::cout << "* BIDOMAIN+BATH: Reading BC ... " << std::flush;
+    M_bch.readBC(M_datafile, section);
+    M_bch.showMe();
+    std::cout << " done " << std::endl;
 
     M_constraint_dof_id = -1;
     bool ground_ve = data(section + "/ground_ve", false);
@@ -954,79 +954,79 @@ void BidomainWithBath::assemble_matrices(double dt)
 
     // set diagonal to 1
 
-//    if (M_ground_ve == Ground::GroundNode)
-//    {
-//        std::cout << "* BIDOMAIN WITH BATH: Setting ground to zero on DOF id: " << M_constraint_dof_id << std::endl;
-//        std::vector<unsigned int> rows(1, M_constraint_dof_id);
-//        bidomain_system.matrix->zero_rows(rows, 1.0);
-//    }
-//    else if ( M_ground_ve == Ground::Dirichlet )
-//    {
-//        std::vector<unsigned int> rows;
-//        for(int k = 0; k <= M_node_id_list.size(); ++k )
-//        {
-//            bool done = false;
-//            for(auto && bc_ptr : M_bch.M_bcs)
-//            {
-//                auto num_flags = bc_ptr->size();
-//                for (int nflag = 0; nflag < num_flags; nflag++)
-//                {
-//                    if(M_bc_id_list[k] == bc_ptr->get_flag(nflag))
-//                    {
-//                        const libMesh::Node * nn = mesh.node_ptr(M_node_id_list[k]);
-//                        dof_map_bidomain.dof_indices(nn, dof_indices_Ve, 1);
-//                        rows.push_back(dof_indices_Ve[0]);
-//                        done  = true;
-//                        break;
-//                    }
-//                }
-//                if(done) break;
-//            }
-//            bidomain_system.matrix->zero_rows(rows, 1.0);
-//        }
-//
-//    }
-//    else if ( M_ground_ve == Ground::Nullspace )
-//    {
-//        std::cout << "* BIDOMAIN WITH BATH: Setting nullspace ... " << std::flush;
-//        typedef libMesh::PetscMatrix<libMesh::Number> Mat;
-//        typedef libMesh::PetscVector<libMesh::Number> Vec;
-//        //bidomain_system.get_vector("nullspace").close();
-//        libMesh::DenseVector<libMesh::Number> NSe;
-//        MatNullSpace nullspace;
-//
-//        if(M_timestep_counter < 1)
-//        {
-//
-//        libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
-//        const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
-//        for (; node != end_node; ++node)
-//        {
-//            const libMesh::Node * nn = *node;
-//            dof_map_bidomain.dof_indices(nn, dof_indices_Q, Q_var);
-//            dof_map_bidomain.dof_indices(nn, dof_indices_Ve, Ve_var);
-//            if(dof_indices_Q.size() > 0) bidomain_system.get_vector("nullspace").set(dof_indices_Q[0], 0.0);
-//            bidomain_system.get_vector("nullspace").set(dof_indices_Ve[0], 1.0);
-//        }
-//        bidomain_system.get_vector("nullspace").close();
-//        int size = bidomain_system.get_vector("nullspace").size();
-//        bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
-//        }
-////        std::cout << "* BIDOMAIN+BATH: closing matrix  " << prec_type << std::endl;
-//        Vec& N = (static_cast<Vec&>(bidomain_system.get_vector("nullspace")));
-////        std::cout << "* BIDOMAIN+BATH: nullspace vector  " << prec_type << std::endl;
-//        auto vec = N.vec();
-//        //std::cout << N.size() <<  ",  " <<
-////        std::cout << "* BIDOMAIN+BATH: nullspace vector 1 " << prec_type << std::endl;
-//        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &vec, &nullspace);
-////        std::cout << "* BIDOMAIN+BATH: nullspace vector  2" << prec_type << std::endl;
-//        Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
-//
-//        MatSetNullSpace(mat->mat(), nullspace);
-//        MatNullSpaceDestroy(&nullspace);
-//        std::cout << "  done" << std::endl;
-//
-//     }
+    if (M_ground_ve == Ground::GroundNode)
+    {
+        std::cout << "* BIDOMAIN WITH BATH: Setting ground to zero on DOF id: " << M_constraint_dof_id << std::endl;
+        std::vector<unsigned int> rows(1, M_constraint_dof_id);
+        bidomain_system.matrix->zero_rows(rows, 1.0);
+    }
+    else if ( M_ground_ve == Ground::Dirichlet )
+    {
+        std::vector<unsigned int> rows;
+        for(int k = 0; k <= M_node_id_list.size(); ++k )
+        {
+            bool done = false;
+            for(auto && bc_ptr : M_bch.M_bcs)
+            {
+                auto num_flags = bc_ptr->size();
+                for (int nflag = 0; nflag < num_flags; nflag++)
+                {
+                    if(M_bc_id_list[k] == bc_ptr->get_flag(nflag))
+                    {
+                        const libMesh::Node * nn = mesh.node_ptr(M_node_id_list[k]);
+                        dof_map_bidomain.dof_indices(nn, dof_indices_Ve, 1);
+                        rows.push_back(dof_indices_Ve[0]);
+                        done  = true;
+                        break;
+                    }
+                }
+                if(done) break;
+            }
+            bidomain_system.matrix->zero_rows(rows, 1.0);
+        }
+
+    }
+    else if ( M_ground_ve == Ground::Nullspace )
+    {
+        std::cout << "* BIDOMAIN WITH BATH: Setting nullspace ... " << std::flush;
+        typedef libMesh::PetscMatrix<libMesh::Number> Mat;
+        typedef libMesh::PetscVector<libMesh::Number> Vec;
+        //bidomain_system.get_vector("nullspace").close();
+        libMesh::DenseVector<libMesh::Number> NSe;
+        MatNullSpace nullspace;
+
+        if(M_timestep_counter < 1)
+        {
+
+        libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+        const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
+        for (; node != end_node; ++node)
+        {
+            const libMesh::Node * nn = *node;
+            dof_map_bidomain.dof_indices(nn, dof_indices_Q, Q_var);
+            dof_map_bidomain.dof_indices(nn, dof_indices_Ve, Ve_var);
+            if(dof_indices_Q.size() > 0) bidomain_system.get_vector("nullspace").set(dof_indices_Q[0], 0.0);
+            bidomain_system.get_vector("nullspace").set(dof_indices_Ve[0], 1.0);
+        }
+        bidomain_system.get_vector("nullspace").close();
+        int size = bidomain_system.get_vector("nullspace").size();
+        bidomain_system.get_vector("nullspace") /= bidomain_system.get_vector("nullspace").l2_norm();
+        }
+//        std::cout << "* BIDOMAIN+BATH: closing matrix  " << prec_type << std::endl;
+        Vec& N = (static_cast<Vec&>(bidomain_system.get_vector("nullspace")));
+//        std::cout << "* BIDOMAIN+BATH: nullspace vector  " << prec_type << std::endl;
+        auto vec = N.vec();
+        //std::cout << N.size() <<  ",  " <<
+//        std::cout << "* BIDOMAIN+BATH: nullspace vector 1 " << prec_type << std::endl;
+        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &vec, &nullspace);
+//        std::cout << "* BIDOMAIN+BATH: nullspace vector  2" << prec_type << std::endl;
+        Mat * mat = dynamic_cast<Mat *>(bidomain_system.matrix);
+
+        MatSetNullSpace(mat->mat(), nullspace);
+        MatNullSpaceDestroy(&nullspace);
+        std::cout << "  done" << std::endl;
+
+     }
 
     if(M_timestep_counter < 1)
     {

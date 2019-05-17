@@ -52,8 +52,94 @@
 #include "libmesh/exodusII_io.h"
 #include "Util/Timer.hpp"
 #include "Util/IO/io.hpp"
+#include <libmesh/point_locator_tree.h>
+#include <libmesh/mesh_function.h>
+//#include <libmesh/node.h>
+
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
+
+void find_nodeID( libMesh::MeshBase& mesh,
+                  std::vector<libMesh::Point>& points,
+                  std::vector<libMesh::Node *>& nodes,
+                  std::vector<unsigned int>& ranks,
+                  double tol = 1e-10)
+{
+    libMesh::MeshBase::const_node_iterator node = mesh.nodes_begin();
+    const libMesh::MeshBase::const_node_iterator end_node = mesh.nodes_end();
+    unsigned int my_rank = mesh.comm().rank();
+    for (; node != end_node; ++node)
+    {
+        libMesh::Node * nn = *node;
+        auto dataID = nn->id();
+        libMesh::Point p_mesh((*nn)(0), (*nn)(1), (*nn)(2));
+        for(auto && p : points)
+        {
+            libMesh::Point distance = p_mesh - p;
+            double dist = distance.norm_sq();
+            if(dist < tol)
+            {
+                nodes.push_back(nn);
+                ranks.push_back(my_rank);
+            }
+        }
+    }
+}
+
+void record_data(std::ofstream& file,
+                 std::vector<libMesh::Node *>& nodes,
+                 std::vector<unsigned int>& ranks,
+                 libMesh::TransientLinearImplicitSystem& bid_sys,
+                 double time = 0.0)
+{
+    int my_rank = bid_sys.comm().rank();
+    file << time ;
+
+
+    libMesh::DofMap& dof_map = bid_sys.get_dof_map();
+
+    int n_nodes = nodes.size();
+    std::vector<libMesh::dof_id_type> dof_indices;
+    int ve_var = 1;
+    for (int i = 0; i < n_nodes; ++i)
+    {
+        if(my_rank == ranks[i])
+        {
+            dof_map.dof_indices(nodes[i], dof_indices, ve_var);
+            double ve =  (*bid_sys.current_local_solution)(dof_indices[0]);
+            file << ", " << ve;
+        }
+
+    }
+//    std::cout << "locator address: " << &locator << std::endl;
+//    file << time << " ";
+//    for(auto && p : points )
+//    {
+//        p.print();
+////        double ve = locator(p);
+//        double ve = 1.0;
+//        file << ve << " ";
+//    }
+    file << std::endl;
+}
+
+void record_data_old(std::ofstream& file,
+                 std::vector<libMesh::Point>& points,
+                 libMesh::MeshFunction& locator,
+                 double time)
+{
+    std::cout << "locator address: " << &locator << std::endl;
+    file << time << " ";
+    for(auto && p : points )
+    {
+        double ve = locator(p);
+//        double ve = 1.0;
+        file << ve << " ";
+    }
+    file << std::endl;
+}
+
+
 
 // Begin the main program.
 int main(int argc, char ** argv)
@@ -219,11 +305,7 @@ int main(int argc, char ** argv)
     std::cout << "Init Output" << std::endl;
     //solver->init_exo_output();
     //solver->save_exo_timestep(save_iter++, datatime.M_time);
-    if (export_data)
-    {
-        solver->save_parameters();
-        solver->save_potential(save_iter, 0.0);
-    }
+
     //return 0;
     std::string system_mass = data(model + "/diffusion_mass", "mass");
     std::string iion_mass = data(model + "/reaction_mass", "lumped_mass");
@@ -231,10 +313,68 @@ int main(int argc, char ** argv)
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
 
+    // Record signals at point
+    std::cout << "Setting up locator" << std::endl;
+    std::string x = data("x", "0.5, 0.5");
+    std::string y = data("y", "0.5, 0.5");
+    std::string z = data("z", "0.2, 0.22");
+    std::vector<double> xs;
+    std::vector<double> ys;
+    std::vector<double> zs;
+    std::cout << "Read lists" << std::endl;
+    BeatIt::readList(x,xs);
+    for(auto && xi : xs) std::cout << xi << " ";
+    std::cout << std::endl;
+    BeatIt::readList(y,ys);
+    for(auto && xi : ys) std::cout << xi << " ";
+    std::cout << std::endl;
+    BeatIt::readList(z,zs);
+    for(auto && xi : zs) std::cout << xi << " ";
+    std::cout << std::endl;
+    std::vector<libMesh::Point> points;
+
+    std::set<unsigned short> subdomains;
+    subdomains.insert(2);
+
+    std::cout << "Get bidomain" << std::endl;
+    typedef libMesh::TransientLinearImplicitSystem BidomainSystem;
+    auto& bidomain_system = es.get_system<BidomainSystem>(solver->model());
+
+    std::cout << "Vec" << std::endl;
+    auto& vec = *bidomain_system.current_local_solution;
+    auto& map = bidomain_system.get_dof_map();
+    std::cout << "Locator" << std::endl;
+    libMesh::MeshFunction locator(   es, vec, map, 0);
+    double tolerance = data("tol", 1e-8);
+
+
+    //locator.set_point_locator_tolerance(tolerance);
+
+    std::cout << "Loop" << std::endl;
+    for ( int i = 0; i < xs.size(); ++i)
+    {
+        points.push_back( libMesh::Point(xs[i], ys[i], zs[i] ) );
+    }
+
+    std::vector<libMesh::Node *> nodes;
+    std::vector<unsigned int> ranks;
+    find_nodeID(mesh, points, nodes, ranks);
+    std::cout<< "Number of points: " << points.size() << std::endl;
+    std::cout << "Complete" << std::endl;
+
+
     bool useMidpointMethod = false;
     int step0 = 0;
     int step1 = 1;
 
+    std::ofstream file("ve.csv");
+    if (export_data)
+    {
+        //solver->save_parameters();
+        solver->save_potential(save_iter, 0.0);
+//        record_data_old(file, points, locator, 0.0);
+        record_data(file, nodes, ranks, bidomain_system);
+    }
     std::cout << "Time loop starts:" << std::endl;
     //return 0;
     //export initial condition
@@ -259,7 +399,10 @@ int main(int argc, char ** argv)
         {
             save_iter++;
             solver->save_potential(save_iter, datatime.M_time);
+//            record_data_old(file, points, locator, datatime.M_time);
+
         }
+        record_data(file, nodes, ranks, bidomain_system,  datatime.M_time);
 
     }
     if (export_data)
