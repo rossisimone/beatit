@@ -175,6 +175,7 @@ Poisson::setup(const GetPot& data, std::string section )
     M_linearSolver->init();
     KSPSetOptionsPrefix(M_linearSolver->ksp(),"poisson_");
     PCSetOptionsPrefix(M_linearSolver->pc(),"poisson_");
+    KSPSetFromOptions(M_linearSolver->ksp());
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
