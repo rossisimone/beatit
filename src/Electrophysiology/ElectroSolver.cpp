@@ -37,6 +37,7 @@
 //#include "libmesh/exodusII_io_helper.h"
 #include "libmesh/gmv_io.h"
 #include "libmesh/vtk_io.h"
+#include "libmesh/nemesis_io.h"
 
 #include "libmesh/perf_log.h"
 #include "libmesh/string_to_enum.h"
@@ -250,6 +251,7 @@ namespace BeatIt
         M_parametersExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
         M_EXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
         M_potentialEXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
+        M_nemesis_exporter.reset(new NemesisIO(M_equationSystems.get_mesh()));
 
         M_symmetricOperator = M_datafile(M_section+"/symmetric_operator",false);
         std::cout << "* ElectroSolver: Using Symmetric Operator: " << M_symmetricOperator << std::endl;
@@ -574,6 +576,23 @@ namespace BeatIt
         M_exporter->write_equation_systems(M_outputFolder + "potential_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
         std::cout << "done " << std::endl;
     }
+
+    void ElectroSolver::save_potential_nemesis(int step, double time)
+    {
+
+        //M_potentialEXOExporter->write_timestep(M_outputFolder + "potential.exo", M_equationSystems, step, time);
+        std::ostringstream ss;
+        ss << std::setw(4) << std::setfill('0') << step;
+        std::string step_str = ss.str();
+        std::string filename = M_outputFolder + "potential_" + step_str + ".e";
+        std::cout << "* " << M_model << ": NEMESIS_IO::Exporting potential*.e at step " << step << " for time: " << time << " in: " << M_outputFolder << " ... " << std::flush;
+        std::cout << "\n" << filename << std::endl;
+        M_nemesis_exporter.reset(new NemesisIO(M_equationSystems.get_mesh()));
+        M_nemesis_exporter->write_equation_systems(filename, M_equationSystems, &M_exporterNames);
+        std::cout << "done " << std::endl;
+    }
+
+
 
     void ElectroSolver::save_activation_times(int step)
     {

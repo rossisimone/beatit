@@ -28,6 +28,7 @@ namespace libMesh
 {
 class Mesh;
 class ExodusII_IO;
+class Nemesis_IO;
 class VTKIO;
 class GMVIO;
 class MeshRefinement;
@@ -74,6 +75,7 @@ class ElectroSolver
 public:
     typedef FactoryArg<ElectroSolver, std::string, libMesh::EquationSystems >     ElectroFactory;
     typedef libMesh::VTKIO Exporter;
+    typedef libMesh::Nemesis_IO NemesisIO;
     // Another alternative when not using AMR
     typedef libMesh::ExodusII_IO EXOExporter;
 
@@ -93,6 +95,7 @@ public:
     void save_ve_timestep(int step, double time);
     void init_exo_output();
     void save_potential(int step, double time = 0.0);
+    void save_potential_nemesis(int step, double time = 0.0);
     void save_parameters();
     void save_activation_times(int step = 1);
     void save_conduction_velocity(int step = 1);
@@ -149,6 +152,7 @@ public:
     libMesh::EquationSystems&  M_equationSystems;
 
     std::unique_ptr<Exporter> M_exporter;
+    std::unique_ptr<NemesisIO> M_nemesis_exporter;
     std::set<std::string> M_exporterNames;
     std::unique_ptr<Exporter> M_ionicModelExporter;
     std::set<std::string> M_ionicModelExporterNames;

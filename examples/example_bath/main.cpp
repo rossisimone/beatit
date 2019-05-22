@@ -371,7 +371,8 @@ int main(int argc, char ** argv)
     if (export_data)
     {
         //solver->save_parameters();
-        solver->save_potential(save_iter, 0.0);
+        solver->save_potential_nemesis(save_iter, 0.0);
+//        solver->save_potential(save_iter, 0.0);
 //        record_data_old(file, points, locator, 0.0);
         record_data(file, nodes, ranks, bidomain_system);
     }
@@ -398,7 +399,8 @@ int main(int argc, char ** argv)
         if (0 == datatime.M_iter % datatime.M_saveIter && export_data)
         {
             save_iter++;
-            solver->save_potential(save_iter, datatime.M_time);
+//            solver->save_potential(save_iter, datatime.M_time);
+            solver->save_potential_nemesis(save_iter, datatime.M_time);
 //            record_data_old(file, points, locator, datatime.M_time);
 
         }
