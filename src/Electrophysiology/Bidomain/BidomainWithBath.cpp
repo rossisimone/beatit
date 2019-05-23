@@ -1,6 +1,5 @@
 /*
  ============================================================================
-
  .______    _______     ___   .___________.    __  .___________.
  |   _  \  |   ____|   /   \  |           |   |  | |           |
  |  |_)  | |  |__     /  ^  \ `---|  |----`   |  | `---|  |----`
@@ -621,19 +620,19 @@ void BidomainWithBath::assemble_matrices(double dt)
     libMesh::DenseVector<libMesh::Number> Fe;
 
     // for interior penalty
-//     UniquePtr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
+     UniquePtr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
 //     UniquePtr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
     // Tell the finite element object to use our quadrature rule.
     libMesh::QGauss qface(dim - 1, fe_type_qp1.default_quadrature_order());
 
-//     fe_elem_face->attach_quadrature_rule(&qface);
+     fe_elem_face->attach_quadrature_rule(&qface);
 //     fe_neighbor_face->attach_quadrature_rule(&qface);
     // Data for surface integrals on the element boundary
-//     const std::vector<std::vector<libMesh::Real> > &  phi_face = fe_elem_face->get_phi();
-//     const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_elem_face->get_dphi();
-//     const std::vector<libMesh::Real> & JxW_face = fe_elem_face->get_JxW();
-//     const std::vector<libMesh::Point> & qface_normals = fe_elem_face->get_normals();
-//     const std::vector<libMesh::Point> & qface_points = fe_elem_face->get_xyz();
+     const std::vector<std::vector<libMesh::Real> > &  phi_face = fe_elem_face->get_phi();
+     const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_elem_face->get_dphi();
+     const std::vector<libMesh::Real> & JxW_face = fe_elem_face->get_JxW();
+     const std::vector<libMesh::Point> & qface_normals = fe_elem_face->get_normals();
+     const std::vector<libMesh::Point> & qface_point = fe_elem_face->get_xyz();
 //     // Data for surface integrals on the neighbor boundary
 //     const std::vector<std::vector<libMesh::Real> > &  phi_neighbor_face = fe_neighbor_face->get_phi();
 //     const std::vector<std::vector<libMesh::RealGradient> > & dphi_neighbor_face = fe_neighbor_face->get_dphi();
@@ -914,6 +913,51 @@ void BidomainWithBath::assemble_matrices(double dt)
             }
         }
 
+
+        // Assemble Boundary Conditions if Necesary
+        for (unsigned int side = 0; side < elem->n_sides(); side++)
+        {
+            const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
+            auto bc = M_bch.get_bc(boundary_id);
+
+            if (bc)
+            {
+                fe_elem_face->reinit(elem, side);
+                auto bc_type = bc->get_type();
+                switch (bc_type)
+                {
+                    case BCType::Robin:
+                    {
+
+                        for (unsigned int qp = 0; qp < qface.n_points(); qp++)
+                        {
+                            // The location on the boundary of the current
+                            // face quadrature point.
+                            const double xf = qface_point[qp](0);
+                            const double yf = qface_point[qp](1);
+                            const double zf = qface_point[qp](2);
+                            const double value = bc->get_function()(0.0, xf, yf, zf, 0);
+                            const double beta = bc->get_function()(0.0, xf, yf, zf, 1);
+                            for (unsigned int i = 0; i < phi_face.size(); i++)
+                            {
+                                for (unsigned int j = 0; j < phi_face.size(); j++)
+                                {
+                                    Ke(i, j) += JxW_face[qp] * beta * phi_face[i][qp] * phi_face[j][qp];
+                                }
+                                Fe(i) += JxW_face[qp] * value * phi_face[i][qp];
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+
       //dof_map_bidomain.constrain_element_matrix_and_vector(Ke, Fe, dof_indices);
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Ke, Fe, dof_indices);
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Me, Fe, dof_indices);
@@ -945,6 +989,9 @@ void BidomainWithBath::assemble_matrices(double dt)
     bidomain_system.get_matrix("high_order_mass").add(0.5, bidomain_system.get_matrix("mass"));
     bidomain_system.get_matrix("high_order_mass").add(0.5, bidomain_system.get_matrix("lumped_mass"));
     bidomain_system.matrix->close();
+
+
+
 
 //    std::cout << "bidomain aux lumped mass matrix: " << std::endl;
 //    bidomain_system.get_matrix("lumped_mass").print();
@@ -1152,7 +1199,7 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
         stim_e = istim_system.get_vector("stim_e")(dof_indices_istim[0]); //Istim^n+1
         surf_stim_e = istim_system.get_vector("surf_stim_e")(dof_indices_istim[0]); //Istim^n+1
 		rhsve = 0.0;
-		
+
         if (n_var == n_dofs)
         {
             dof_map.dof_indices(nn, dof_indices_Q, 0);

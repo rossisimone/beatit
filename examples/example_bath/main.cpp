@@ -55,7 +55,8 @@
 #include <libmesh/point_locator_tree.h>
 #include <libmesh/mesh_function.h>
 //#include <libmesh/node.h>
-
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
@@ -121,6 +122,92 @@ void record_data(std::ofstream& file,
 //        file << ve << " ";
 //    }
     file << std::endl;
+}
+
+
+
+void setup_fibrosis( libMesh::EquationSystems& es, double fibrosis, bool extra = true)
+{
+    /* initialize random seed: */
+    srand (time(NULL));
+    typedef libMesh::ExplicitSystem ParameterSystem;
+    ParameterSystem& intra_conductivity_system = es.get_system<ParameterSystem>("intra_conductivity");
+    ParameterSystem& extra_conductivity_system = es.get_system<ParameterSystem>("extra_conductivity");
+
+
+    libMesh::MeshBase & mesh = es.get_mesh();
+
+    libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+    const libMesh::DofMap & dof_map = intra_conductivity_system.get_dof_map();
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+    const libMesh::DofMap & dof_map_extra = extra_conductivity_system.get_dof_map();
+    std::vector<libMesh::dof_id_type> dof_indices_extra;
+
+    double Dffi = 0.;
+    double Dssi = 0.;
+    double Dnni = 0.;
+    double Dffe = 0.01;
+    double Dsse = 0.01;
+    double Dnne = 0.01;
+
+    for (; el != end_el; ++el)
+    {
+        /* generate secret number between 1 and 10: */
+        int random_el = std::rand() % 100 + 1;
+
+        if(random_el <= fibrosis)
+        {
+
+            const libMesh::Elem * elem = *el;
+            auto subdomainID = elem->subdomain_id();
+            if(subdomainID == 1)
+            {
+                dof_map.dof_indices(elem, dof_indices);
+                dof_map_extra.dof_indices(elem, dof_indices_extra);
+
+                intra_conductivity_system.solution->set(dof_indices[0], Dffi);
+                intra_conductivity_system.solution->set(dof_indices[1], Dssi);
+                intra_conductivity_system.solution->set(dof_indices[2], Dnni);
+
+                if(extra)
+                {
+                    extra_conductivity_system.solution->set(dof_indices_extra[0], Dffe);
+                    extra_conductivity_system.solution->set(dof_indices_extra[1], Dsse);
+                    extra_conductivity_system.solution->set(dof_indices_extra[2], Dnne);
+                }
+            }
+        }
+
+    }
+}
+
+void remove_elements( libMesh::MeshBase& mesh, double fibrosis)
+{
+    /* initialize random seed: */
+    srand (time(NULL));
+
+    libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+    for (; el != end_el; ++el)
+    {
+        /* generate secret number between 1 and 10: */
+        int random_el = std::rand() % 100 + 1;
+        if(random_el <= fibrosis)
+        {
+            libMesh::Elem * elem = *el;
+            auto subdomainID = elem->subdomain_id();
+            if(subdomainID == 1)
+            {
+                mesh.delete_elem(elem);
+            }
+        }
+    }
 }
 
 void record_data_old(std::ofstream& file,
@@ -282,6 +369,15 @@ int main(int argc, char ** argv)
             libMesh::MeshTools::Modification::scale(mesh, xscale, yscale, zscale);
     }
 
+    unsigned int fibrosis_type = data("type", 0);
+    double fibrosis = data("fibrosis", -1.0);
+
+    if(1 == fibrosis_type)
+    {
+        remove_elements( mesh, fibrosis);
+        mesh.prepare_for_use();
+    }
+
     libMesh::ExodusII_IO(mesh).write("mesh.e");
     MeshRefinement refinement(mesh);
     refinement.refine_elements();
@@ -316,9 +412,14 @@ int main(int argc, char ** argv)
     std::string system_mass = data(model + "/diffusion_mass", "mass");
     std::string iion_mass = data(model + "/reaction_mass", "lumped_mass");
     //bidomain.restart(importer, 1);
+
+    if(0 == fibrosis_type)
+    {
+        bool madify_sigma_e = data("extra", true);
+        setup_fibrosis( es, fibrosis, madify_sigma_e);
+    }
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
-
     // Record signals at point
     std::cout << "Setting up locator" << std::endl;
     std::string x = data("x", "0.5, 0.5");
@@ -373,7 +474,8 @@ int main(int argc, char ** argv)
     int step0 = 0;
     int step1 = 1;
 
-    std::ofstream file("ve.csv");
+    std::string output = data("output", "ve.csv");
+    std::ofstream file(output);
     if (export_data)
     {
         //solver->save_parameters();
