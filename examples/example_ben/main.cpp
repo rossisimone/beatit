@@ -215,6 +215,7 @@ int main (int argc, char ** argv)
     libMesh::ParallelMesh mesh(init.comm());
 
     std::string mesh_name = data("input_mesh_name", "NONE");
+/*
     if(mesh_name == "NONE")
     {
 
@@ -244,46 +245,6 @@ int main (int argc, char ** argv)
     //Map unit square onto cook's membrane
 //    int idx = 0;
 
-
-<<<<<<< Updated upstream
-		bool cm = data("cm_mesh", true);
-
-
-		if(cm)
-		{
-
-		  //Map unit square onto cook's membrane
-		  MeshBase::const_node_iterator nd = mesh.nodes_begin();
-		  const MeshBase::const_node_iterator end_nd = mesh.nodes_end();
-		  for (; nd != end_nd; ++nd)
-		  {
-			libMesh::Point s = **nd;
-			(**nd)(0) =  4.8 * s(0) + 2.6;
-			(**nd)(1) = -2.8 * s(0) * s(1) + 4.4 * s(0) + 4.4 * s(1) + 2.0;
-			if(elZ > 0 ) (**nd)(2) = s(2) + 4.5;
-
-		  }
-
-		  std::string units = data("units", "cm");
-		  if(units == "mm")
-		  {
-			  libMesh::MeshTools::Modification::scale (mesh, 10, 10, 10);
-		  }
-		}
-	    double xt = data("x_translation", 0.0);
-	    double yt = data("y_translation", 0.0);
-	    double zt = data("z_translation", 0.0);
-	    if(xt != 0.0 || yt != 0 || zt != 0.0)
-	    {
-			  libMesh::MeshTools::Modification::translate (mesh, xt, yt, zt);
-	    }
-
-    }
-    else
-    {
-        BeatIt::serial_mesh_partition(init.comm(), mesh_name, &mesh);
-
-=======
 
     bool cm = data("cm_mesh", true);
 
@@ -320,7 +281,6 @@ int main (int argc, char ** argv)
 	    libMesh::MeshTools::Modification::scale (mesh, 10, 10, 10);
 	}
       }
->>>>>>> Stashed changes
     }
     else
     {
@@ -343,7 +303,7 @@ int main (int argc, char ** argv)
 // 	(**nd)(2) = maxZ*s(2);
 // 	}
     }
-
+*/
 
     libMesh::EquationSystems es(mesh);
 
@@ -383,6 +343,7 @@ int main (int argc, char ** argv)
         else f = Incompressible;
 
     }
+
     std::cout << "Setting up ... " << std::endl;
     elas->setup(data,"elasticity");
     std::cout << "Initializing output ... " << std::endl;
@@ -403,6 +364,7 @@ int main (int argc, char ** argv)
     }
 
     delete elas;
+
     return 0;
 }
 

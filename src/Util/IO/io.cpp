@@ -24,7 +24,7 @@ void saveData(double time, std::vector<double>& var, std::ostream& output)
     output << time;
     for (const auto& v : var)
     {
-        output << " " << v;
+        output << ", " << v;
     }
     output << std::setprecision(ss);
     output << "\n";

@@ -1264,7 +1264,7 @@ std::cout << "* MONODOMAIN: WARNING:  set_potential_on_boundary works only for T
     	Fe.resize(dof_indices.size());
         for (unsigned int side=0; side<elem->n_sides(); side++)
         {
-			if (elem->neighbor(side) == libmesh_nullptr)
+			if (elem->neighbor_ptr(side) == libmesh_nullptr)
             {
                 const unsigned int boundary_id =
                 mesh.boundary_info->boundary_id (elem, side);

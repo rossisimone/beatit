@@ -63,7 +63,7 @@ struct Stimulus
         double amp;
         double cl;
 
-        Stimulus() : t0(10.0), tf(10.5), on(false), amp(1), cl(1000) {}
+        Stimulus() : t0(10.0), tf(10.5), on(false), amp(0), cl(1000) {}
         double get(double time)
         {
                 if (time < t0)
@@ -96,9 +96,11 @@ int main()
 
         // model is in seconds
 	double dt = 0.001; // = 1ms
-        dt =1e-5;
-	int save_iter = static_cast<int>(1e-3 / dt);
-        double TF = 1.0; //500;//2*1000;
+        dt =1e-7;
+	int save_iter = static_cast<int>(1e-2 / dt);
+//	save_iter = 1;
+        double TF = 1; //500;//2*1000;
+//        TF = 100;
 	double Ist = 0;
 	double time = 0.0;
 	BeatIt::saveData(0.0, variables, output);
@@ -110,11 +112,6 @@ int main()
 	while( time <= TF )
 	{
 		Ist = stimulus.get(time);
-//		if(time >= 0. && time <= 0.5)
-//		{
-//			Ist = 80.0;
-//		}
-//		else Ist = 0.0;
 
 		pORd->solve(variables, Ist, dt);
 		time += dt;

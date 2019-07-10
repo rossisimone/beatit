@@ -78,7 +78,7 @@ int main(int argc, char ** argv)
     LibMeshInit init(argc, argv);
 
     // This example requires a linear solver package.
-    libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE, "--enable-petsc, --enable-trilinos, or --enable-eigen");
+//    libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE, "--enable-petsc, --enable-trilinos, or --enable-eigen");
 
     // Skip this 2D example if libMesh was compiled as 1D-only.
     libmesh_example_requires(2 <= LIBMESH_DIM, "2D support");
@@ -86,8 +86,8 @@ int main(int argc, char ** argv)
     // This example NaNs with the Eigen sparse linear solvers and
     // Trilinos solvers, but should work OK with either PETSc or
     // Laspack.
-    libmesh_example_requires(libMesh::default_solver_package() != EIGEN_SOLVERS, "--enable-petsc or --enable-laspack");
-    libmesh_example_requires(libMesh::default_solver_package() != TRILINOS_SOLVERS, "--enable-petsc or --enable-laspack");
+//    libmesh_example_requires(libMesh::default_solver_package() != EIGEN_SOLVERS, "--enable-petsc or --enable-laspack");
+//    libmesh_example_requires(libMesh::default_solver_package() != TRILINOS_SOLVERS, "--enable-petsc or --enable-laspack");
 
     // Create a mesh, with dimension to be overridden later, distributed
     // across the default MPI communicator.
@@ -112,7 +112,7 @@ int main(int argc, char ** argv)
         int n_sides = elem->n_sides();
         for (int side = 0; side < n_sides; ++side)
         {
-            if (elem->neighbor(side) == nullptr)
+            if (elem->neighbor_ptr(side) == nullptr)
             {
                 auto s = elem->side_ptr(side);
                 Point c = s->centroid();

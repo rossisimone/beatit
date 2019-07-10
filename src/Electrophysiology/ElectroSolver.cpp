@@ -840,7 +840,7 @@ namespace BeatIt
                 dof_map.dof_indices(elem, dof_indices);
                 for (unsigned int side = 0; side < elem->n_sides(); side++)
                 {
-                    if (elem->neighbor(side) == libmesh_nullptr)
+                    if (elem->neighbor_ptr(side) == libmesh_nullptr)
                     {
                         const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
                         if (boundary_id == boundID)

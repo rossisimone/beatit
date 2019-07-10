@@ -777,7 +777,7 @@ void MixedDynamicElasticity::assemble_residual(
             double kappa = 208.0;
             double gamma_kappa = M_datafile("gk",5.0);
             // On the boundary we use strong boundary conditions for the time being
-            if (elem->neighbor(side) == libmesh_nullptr)
+            if (elem->neighbor_ptr(side) == libmesh_nullptr)
             {
 
                 const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
@@ -799,7 +799,7 @@ void MixedDynamicElasticity::assemble_residual(
 
                     if (BCType::NitscheSymmetric == bc_type)
                     {
-                        double length = elem->side(side)->volume();
+                        double length = elem->side_ptr(side)->volume();
                         double area = elem->volume();
                         double hE = area / length;
                         //Fee.resize(n_dofs);

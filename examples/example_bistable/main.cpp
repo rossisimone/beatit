@@ -36,7 +36,7 @@
 // Define the DofMap, which handles degree of freedom
 // indexing.
 #include "libmesh/dof_map.h"
-#include "libmesh/perf_log.h""
+#include "libmesh/perf_log.h"
 // Function prototype.  This is the function that will assemble
 // the linear system for our Poisson problem.  Note that the
 // function will take the  EquationSystems object and the

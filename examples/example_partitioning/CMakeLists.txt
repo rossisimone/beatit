@@ -6,8 +6,9 @@ add_executable(${TESTNAMEV} main.cpp)
 set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_partitioning")
 
 
-#target_link_libraries(${TESTNAMEV} beatit)
+target_link_libraries(${TESTNAMEV} beatit)
 target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
+target_link_libraries(${TESTNAMEV} ${VTK_LIBRARY_DIRS})
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 #CMAKE_SOURCE_DIR
@@ -23,8 +24,9 @@ add_executable(${TESTNAMEV} main_restart.cpp)
 set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_restart_partitioned_mesh")
 
 
-#target_link_libraries(${TESTNAMEV} beatit)
+target_link_libraries(${TESTNAMEV} beatit)
 target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
+target_link_libraries(${TESTNAMEV} ${VTK_LIBRARY_DIRS})
 
 include_directories ("${PROJECT_SOURCE_DIR}/src")
 #CMAKE_SOURCE_DIR

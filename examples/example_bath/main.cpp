@@ -57,6 +57,9 @@
 //#include <libmesh/node.h>
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
+#include <libmesh/dof_map.h>
+#include "libmesh/sparse_matrix.h"
+
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
@@ -210,6 +213,174 @@ void remove_elements( libMesh::MeshBase& mesh, double fibrosis)
     }
 }
 
+void remove_elements_line( libMesh::EquationSystems& es, double fibrosis,
+		                   int elX, int elY, int elZ,
+						   double Lx = 0.1, double Ly = 0.1, double Lz = 0.025)
+{
+    /* initialize random seed: */
+    srand (time(NULL));
+    libMesh::MeshBase & mesh = es.get_mesh();
+
+    std::vector<double> x0;
+    std::vector<double> x1;
+    std::vector<double> y0;
+    std::vector<double> y1;
+    std::vector<double> z0;
+    std::vector<double> z1;
+    double dx = 1.0/elX;
+    double dy = 1.0/elY;
+    double dz = 0.2 / ( elZ / 3 );
+
+//    double Lx = 0.1;
+//    double Ly = 0.1;
+//    double Lz = 0.025;
+    int n_el = 0;
+    for(int i = 0; i < elX; ++i)
+    {
+    	double x = i * 1.0 / elX  + 0.5*dx;
+
+//    	int random = std::rand() % 100 + 1;
+//    	if(random < fibrosis)
+        {
+			n_el ++;
+//			int randomy = std::rand() % elY;
+//			double y = randomy * dy + 0.5*dy;
+//			int random2 = std::rand() % ( elZ / 3 );
+//			double z = random2 * dz  + 0.5 * dz;
+
+//			x0.push_back(x-0.0125);
+//			x1.push_back(x+0.0125);
+//			y0.push_back(y-0.15);
+//			y1.push_back(y+0.15);
+//
+//			z0.push_back(z-0.35);
+//			z1.push_back(z+0.35);
+
+		    for(int j = 0; j < elY; ++j)
+		    {
+		    	int random = std::rand() % 100 + 1;
+
+				if(random < fibrosis)
+		    	{
+					n_el ++;
+			    	double y = j * 1.0 / elY  + 0.5*dy;
+
+					int randomz = std::rand() % ( elZ / 3 );
+					double z = randomz * dz  + 0.5 * dz;
+
+					x0.push_back(x-Lx/2);
+					x1.push_back(x+Lx/2);
+					y0.push_back(y-Ly/2);
+					y1.push_back(y+Ly/2);
+
+					z0.push_back(z-Lz/2);
+					z1.push_back(z+Lz/2);
+
+		    	}
+
+		    }
+        }
+    }
+
+    int size = x0.size();
+    std::cout << "N el: " << n_el << ", size: " << size << std::endl;
+    for(int n = 0; n < size; n++)
+    {
+		std::cout  << "Box: " << x0[n] << ", " << x1[n] << ";\t"
+							  << y0[n] << ", " << y1[n] << ";\t"
+							  << z0[n] << ", " << z1[n] << std::endl;
+
+    }
+    libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+    typedef libMesh::ExplicitSystem ParameterSystem;
+    ParameterSystem& intra_conductivity_system = es.get_system<ParameterSystem>("intra_conductivity");
+    ParameterSystem& extra_conductivity_system = es.get_system<ParameterSystem>("extra_conductivity");
+
+    const libMesh::DofMap & dof_map = intra_conductivity_system.get_dof_map();
+    std::vector<libMesh::dof_id_type> dof_indices;
+
+    const libMesh::DofMap & dof_map_extra = extra_conductivity_system.get_dof_map();
+    std::vector<libMesh::dof_id_type> dof_indices_extra;
+
+    double Dffi = 0.;
+    double Dssi = 0.;
+    double Dnni = 0.;
+    double Dffe = 0.01;
+    double Dsse = 0.01;
+    double Dnne = 0.01;
+
+    for (; el != end_el; ++el)
+    {
+		const libMesh::Elem * elem = *el;
+		auto subdomainID = elem->subdomain_id();
+		if(subdomainID == 1)
+		{
+			auto p = elem->centroid();
+			for(int n = 0; n < size; ++n)
+			{
+				if( p(0) > x0[n] &&
+					p(0) < x1[n] &&
+					p(1) > y0[n] &&
+					p(1) < y1[n] &&
+					p(2) > z0[n] &&
+					p(2) < z1[n] )
+				{
+					dof_map.dof_indices(elem, dof_indices);
+					dof_map_extra.dof_indices(elem, dof_indices_extra);
+
+					intra_conductivity_system.solution->set(dof_indices[0], Dffi);
+					intra_conductivity_system.solution->set(dof_indices[1], Dssi);
+					intra_conductivity_system.solution->set(dof_indices[2], Dnni);
+
+					//if(extra)
+					{
+						extra_conductivity_system.solution->set(dof_indices_extra[0], Dffe);
+						extra_conductivity_system.solution->set(dof_indices_extra[1], Dsse);
+						extra_conductivity_system.solution->set(dof_indices_extra[2], Dnne);
+					}
+
+				}
+			}
+		}
+    }
+
+//    int nel = mesh.n_elem();
+//
+//    for (int c = 0; c < nel; ++c)
+//    {
+//        /* generate secret number between 1 and 10: */
+//    	// int random_el = std::rand() % 100 + 1;
+//    	// if(random_el <= fibrosis)
+//        {
+//        	libMesh::Elem * elem = mesh.elem_ptr(c);
+//        	if(elem)
+//        	{
+//				auto subdomainID = elem->subdomain_id();
+//				if(subdomainID == 1)
+//				{
+//					auto p = elem->centroid();
+//					for(int n = 0; n < size; ++n)
+//					{
+//						if( p(0) > x0[n] &&
+//							p(0) < x1[n] &&
+//							p(1) < y0[n] &&
+//							p(1) < y1[n] &&
+//							p(2) < z0[n] &&
+//							p(2) < z1[n] )
+//						{
+//							//mesh.delete_elem(elem);
+//						}
+//					}
+//				}
+//        	}
+//        }
+//    }
+}
+
+
 void record_data_old(std::ofstream& file,
                  std::vector<libMesh::Point>& points,
                  libMesh::MeshFunction& locator,
@@ -226,6 +397,77 @@ void record_data_old(std::ofstream& file,
     file << std::endl;
 }
 
+
+void set_nodal_fibrosis_IDs( libMesh::EquationSystems& es,
+									 std::set<libMesh::dof_id_type>& fibrosisID,
+									 double fibrosis, bool extra = true)
+{
+	std::cout << "Set Nodal Fibrosis IDs" << std::endl;
+    /* initialize random seed: */
+    srand (time(NULL));
+    libMesh::MeshBase & mesh = es.get_mesh();
+
+	libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+	const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
+
+    libMesh::TransientLinearImplicitSystem& system = es.get_system<libMesh::TransientLinearImplicitSystem>("bidomainbath");
+    const libMesh::DofMap & dof_map = system.get_dof_map();
+	std::vector < libMesh::dof_id_type> dofs;
+
+    int c = 0;
+    std::set<libMesh::dof_id_type> set;
+
+    int size = set.size();
+
+    libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+    libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+    const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+    for (; el != end_el; ++el)
+    {
+		libMesh::Elem * elem = *el;
+        auto subdomainID = elem->subdomain_id();
+        if(subdomainID == 1)
+        {
+			int n_nodes = elem->n_nodes();
+			for(int n = 0; n < n_nodes; ++n)
+			{
+				auto* node = elem->node_ptr(n);
+                dof_map.dof_indices(node, dofs, 0);
+
+				libMesh::dof_id_type nID = node->id();
+				set.insert(nID);
+				if(set.size() > size)
+				{
+					size = set.size();
+			        int random = std::rand() % 100 + 1;
+			        if(random <= fibrosis)
+			        {
+			        	fibrosisID.insert(nID);
+			        }
+				}
+			}
+        }
+    }
+}
+
+void set_nodal_fibrosis_by_penalty( libMesh::EquationSystems& es,
+									 std::set<libMesh::dof_id_type> fibrosisID,
+									 bool set_matrix = false)
+{
+	std::cout << "Penalize fibrosis" << std::endl;
+    libMesh::TransientLinearImplicitSystem& system = es.get_system<libMesh::TransientLinearImplicitSystem>("bidomainbath");
+    system.rhs->close();
+	for(auto && id : fibrosisID)
+    {
+        system.rhs->add(id, -57.0e2 );
+        if(set_matrix)
+        {
+        	system.matrix->add(id,id, 1e2);
+        }
+    }
+    system.rhs->close();
+}
 
 
 // Begin the main program.
@@ -370,13 +612,20 @@ int main(int argc, char ** argv)
     }
 
     unsigned int fibrosis_type = data("type", 0);
+    bool modify_conductivities = data("mod_sigma", false);
+    bool rm_elements = data("rm_elems", false);
     double fibrosis = data("fibrosis", -1.0);
-
-    if(1 == fibrosis_type)
+    double fibrosis2 = data("fibrosis2", -1.0);
+    std::cout << "fibrosis percentage: " << fibrosis << std::endl;
+    if(1 == fibrosis_type  || rm_elements)
     {
-        remove_elements( mesh, fibrosis);
+        remove_elements( mesh, fibrosis2);
         mesh.prepare_for_use();
     }
+    int elX = data("mesh/elX", 15);
+    int elY = data("mesh/elY", 5);
+    int elZ = data("mesh/elZ", 4);
+
 
     libMesh::ExodusII_IO(mesh).write("mesh.e");
     MeshRefinement refinement(mesh);
@@ -413,11 +662,28 @@ int main(int argc, char ** argv)
     std::string iion_mass = data(model + "/reaction_mass", "lumped_mass");
     //bidomain.restart(importer, 1);
 
-    if(0 == fibrosis_type)
+    if(0 == fibrosis_type || modify_conductivities)
     {
         bool madify_sigma_e = data("extra", true);
         setup_fibrosis( es, fibrosis, madify_sigma_e);
     }
+    if(3 == fibrosis_type)
+    {
+    	double Lx = data("Lx", 0.1);
+    	double Ly = data("Ly", 0.1);
+    	double Lz = data("Lz", 0.025);
+
+    	remove_elements_line( es, fibrosis, elX, elY, elZ, Lx, Ly, Lz);
+        mesh.prepare_for_use();
+
+    }
+
+
+    if (export_data)
+    {
+        solver->save_parameters();
+    }
+
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
     // Record signals at point
@@ -476,17 +742,30 @@ int main(int argc, char ** argv)
 
     std::string output = data("output", "ve.csv");
     std::ofstream file(output);
+
+
+    std::set<libMesh::dof_id_type> fibrosisID;
+    if(2 == fibrosis_type)
+    {
+    	std::cout << "Setting up nodal fibrosis" << std::endl;
+    	set_nodal_fibrosis_IDs( es, fibrosisID, fibrosis);
+    	set_nodal_fibrosis_by_penalty( es, fibrosisID, true);
+    }
+    std::cout << "Fibrosis ID size: " << fibrosisID.size() << std::endl;
+
+
     if (export_data)
     {
-        //solver->save_parameters();
-        solver->save_potential_nemesis(save_iter, 0.0);
-//        solver->save_potential(save_iter, 0.0);
-//        record_data_old(file, points, locator, 0.0);
+        //solver->save_potential_nemesis(save_iter, 0.0);
+        solver->save_potential(save_iter, 0.0);
+        //record_data_old(file, points, locator, 0.0);
         record_data(file, nodes, ranks, bidomain_system);
     }
+
     std::cout << "Time loop starts:" << std::endl;
     //return 0;
     //export initial condition
+
     for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
     {
         datatime.advance();
@@ -495,6 +774,8 @@ int main(int argc, char ** argv)
         //std::cout << "Reaction:" << datatime.M_time << std::endl;
         solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, iion_mass);
         //solver->solve_reaction_step(datatime.M_dt, datatime.M_time, step0, useMidpointMethod, "lumpedmass");
+        if(2 == fibrosis_type)
+        	set_nodal_fibrosis_by_penalty( es, fibrosisID, false);
 
         //std::cout << "Diffusion:" << datatime.M_time << std::endl;
         solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
@@ -507,8 +788,8 @@ int main(int argc, char ** argv)
         if (0 == datatime.M_iter % datatime.M_saveIter && export_data)
         {
             save_iter++;
-//            solver->save_potential(save_iter, datatime.M_time);
-            solver->save_potential_nemesis(save_iter, datatime.M_time);
+            solver->save_potential(save_iter, datatime.M_time);
+//            solver->save_potential_nemesis(save_iter, datatime.M_time);
 //            record_data_old(file, points, locator, datatime.M_time);
 
         }

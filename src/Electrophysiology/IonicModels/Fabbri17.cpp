@@ -187,10 +187,10 @@ Fabbri17::Fabbri17() :
 void Fabbri17::initializeSaveData(std::ostream& output)
 {
 	// time -  0
-	output << "time v ";
+	output << "time, v";
 	for (auto && var_name : M_variablesNames)
 	{
-		output << var_name << " ";
+		output << ", " << var_name;
 	}
 	output << "\n";
 }
@@ -485,6 +485,15 @@ Fabbri17::update()
     double g_f_K = G_f_K*Ko/(Ko+Km_f);
     double i_fNa = y*g_f_Na*(V-E_Na)*(1-blockade);
     double i_fK = y*g_f_K*(V-E_K)*(1-blockade);
+//    std::cout << std::endl;
+//    std::cout << "y: " << y;
+//    std::cout << "G_f: " << G_f;
+//    std::cout << ",G_f_K: " << G_f_K;
+//    std::cout << ",G_f_Na: " << G_f_Na;
+//    std::cout << ",g_f_Na: " << g_f_Na;
+//    std::cout << ",g_f_K: " << g_f_K;
+//    std::cout << ",i_fNa: " << i_fNa;
+//    std::cout << ",i_fK: " << i_fK;
     i_f = i_fNa+i_fK;
 
     // i_NaK
@@ -652,6 +661,11 @@ Fabbri17::update()
     double dCa_sub = j_SRCarel*V_jsr/V_sub-((i_siCa+i_CaT-2*i_NaCa)/(2*F*V_sub)+j_Ca_dif+CM_tot*delta_fCMs);
     double dCa_nsr = j_up-j_tr*V_jsr/V_nsr;
     double dCa_jsr = j_tr-(j_SRCarel+CQ_tot*delta_fCQ);
+
+    Cai += dt * dCai;
+    Ca_sub += dt * dCa_sub;
+    Ca_nsr += dt * dCa_nsr;
+    Ca_jsr += dt * dCa_jsr;
 
     // i_Kur
     i_Kur = g_Kur*r_Kur*s_Kur*(V-E_K);

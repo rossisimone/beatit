@@ -459,7 +459,7 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
                         }
                     case BCType::NitscheSymmetric:
                     {
-                        double hE = elem->side(side)->hmax();
+                        double hE = elem->side_ptr(side)->hmax();
                         double beta = 1e4 / hE;
 
                         for (unsigned int qp = 0; qp < qface.n_points(); qp++)

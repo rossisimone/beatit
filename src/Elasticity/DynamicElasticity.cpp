@@ -690,7 +690,7 @@ void DynamicElasticity::assemble_residual(
             double kappa = 208.0;
             double gamma_kappa = M_datafile("gk",5.0);
             // On the boundary we use strong boundary conditions for the time being
-            if (elem->neighbor(side) == libmesh_nullptr)
+            if (elem->neighbor_ptr(side) == libmesh_nullptr)
             {
 
                 const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
@@ -712,7 +712,7 @@ void DynamicElasticity::assemble_residual(
 
                     if (BCType::NitscheSymmetric == bc_type)
                     {
-                        double length = elem->side(side)->volume();
+                        double length = elem->side_ptr(side)->volume();
                         double area = elem->volume();
                         double hE = area / length;
                         //Fee.resize(n_dofs);
@@ -851,7 +851,7 @@ void DynamicElasticity::assemble_residual(
 
                     // Store a pointer to the neighbor we are currently
                     // working on.
-                    const libMesh::Elem * neighbor = elem->neighbor(side);
+                    const libMesh::Elem * neighbor = elem->neighbor_ptr(side);
 
                     // Get the global id of the element and the neighbor
                     const unsigned int elem_id = elem->id();
@@ -867,9 +867,10 @@ void DynamicElasticity::assemble_residual(
                                     ->level() < elem->level()))
                     {
                         // Pointer to the element side
-                        libMesh::UniquePtr<libMesh::Elem> elem_side(elem->build_side(side));
+                        std::unique_ptr<const libMesh::Elem> elem_side;
+                        elem->build_side_ptr(elem_side, side);
 
-                        double length = elem->side(side)->volume();
+                        double length = elem->side_ptr(side)->volume();
                         double area = elem->volume();
                         double hE = area / length;
 
