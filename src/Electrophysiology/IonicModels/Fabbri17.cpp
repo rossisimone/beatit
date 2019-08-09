@@ -61,12 +61,13 @@ IonicModel* createFabbri17()
 Fabbri17::Fabbri17() :
 		super(33, 0, "Fabbri17", CellType::MCell)
 {
-    C = 57e-5; /* cell capacitance (pF) */
+    C = 5.7e-5; /* cell capacitance (uF) */
     L_cell = 67.0; /* Length of the cell (um) */
     R_cell = 3.9; /* Radius of the cell (um) */
 
-    V_cell = pi * R_cell * R_cell * L_cell; /*cell volume */
-    V_sub = 2 * pi * L_sub * L_cell * ( R_cell - 0.5 * L_sub ); /* submembrane space volume */
+    double scaling = 1e-9; // um to mm
+    V_cell = scaling*pi * R_cell * R_cell * L_cell; /*cell volume */
+    V_sub = scaling*2 * pi * L_sub * L_cell * ( R_cell - 0.5 * L_sub ); /* submembrane space volume */
     V_i = V_ipart * V_cell - V_sub; /*myoplasmic  volume */
     V_jsr = V_jsrpart * V_cell; /*JSR  volume */
     V_nsr = V_nsrpart * V_cell; /*NSR  volume */
@@ -313,9 +314,28 @@ double Fabbri17::evaluateIonicCurrent(std::vector<double>& variables,
 //    std::cout << ", i_KACh: " << i_KACh;
 //    std::cout << ", i_Kur: " << i_Kur;
 //    std::cout << ", i_tot: " << i_tot << std::endl;
+//    i_tot = i_f;
     double dV = i_tot / C;
+ //   std::cout << "i_f: " << i_f << ", dV: " << dV << ", C: " << C << std::endl;
     //std::cout << "dV: " << dV << ", itot: " << i_tot << ", C: " << C << std::endl;
     return dV;
+}
+
+void Fabbri17::get_currents(std::vector<double>& currents)
+{
+	if(currents.size() <  12) currents.resize(12);
+	currents[0] = i_tot;
+	currents[1] = i_f;
+	currents[2] = i_Kr;
+	currents[3] = i_Ks;
+	currents[4] = i_to;
+	currents[5] = i_NaK;
+	currents[6] = i_NaCa;
+	currents[7] = i_Na;
+	currents[8] = i_CaL;
+	currents[9] = i_CaT;
+	currents[10]= i_KACh;
+	currents[11]= i_Kur;
 }
 
 void Fabbri17::updateVariables(std::vector<double>& variables,
@@ -441,15 +461,15 @@ Fabbri17::update()
      E_Ks = RTONF * std::log( ( Ko+0.12*Nao) / (Ki+0.12*Nai) );//reversal potential for slow rectifier K+ channel
 
     // in paper
-    //double E_Ca = RTONF * std::log(Cao/Ca_sub);//reversal potential for Ca2+
+//    double E_Ca = RTONF * std::log(Cao/Ca_sub);//reversal potential for Ca2+
     // in code
     double E_Ca = 0.5 * RTONF * std::log(Cao/Ca_sub);//reversal potential for Ca2+
 
     // Nai_concentration
     //double dNai = (1-Nai_clamp)*-1.0*(i_Na+i_fNa+i_siNa+3.0*i_NaK+3*i_NaCa)/((V_i+V_sub)*F);
+    double Nai_clamp = 1;
     double dNai = -(i_Na+i_fNa+i_siNa+3.0*i_NaK+3*i_NaCa)/((V_i+V_sub)*F);
-    Nai += dt * dNai;
-
+    Nai += dt * (1-Nai_clamp) * dNai;
 
     // Funny Current
 
@@ -462,11 +482,16 @@ Fabbri17::update()
     double Iso_shift = 0.0;
     if (Iso_1_uM > 0 ) Iso_shift = 7.5; //mV
 
-    double tau_y = 1/(0.36*(V+148.8-ACh_shift-Iso_shift)/(exp(0.066*(V+148.8-ACh_shift-Iso_shift))-1)+0.1*(V+87.3-ACh_shift-Iso_shift)/(1-exp(-0.2*(V+87.3-ACh_shift-Iso_shift))))-0.054;
+    double tau_y = 1.0 / (0.36 * (v+148.8-ACh_shift-Iso_shift) / (exp(0.066*(V+148.8-ACh_shift-Iso_shift))-1)
+    		           +  0.1  * (v+ 87.3-ACh_shift-Iso_shift) / (1.0-exp(-0.2*(V+87.3-ACh_shift-Iso_shift)))) -0.054;
 
-    if ( V < -(80-ACh_shift-Iso_shift-y_shift))
+    tau_y = 1 /(0.36*(V+148.8-ACh_shift-Iso_shift)/(exp(0.066*(V+148.8-ACh_shift-Iso_shift))-1)
+               +0.1*(V+87.3-ACh_shift-Iso_shift)/(1-exp(-0.2*(V+87.3-ACh_shift-Iso_shift))))-0.054;
+
+
+    if ( V < -(80.0-ACh_shift-Iso_shift-y_shift))
     {
-        y_infinity = 0.01329+0.99921/(1+exp((V+97.134-ACh_shift-Iso_shift-y_shift)/8.1752));
+        y_infinity = 0.01329+0.99921/(1.0+exp((V+97.134-ACh_shift-Iso_shift-y_shift)/8.1752));
 
     }
     else
@@ -475,7 +500,10 @@ Fabbri17::update()
     }
 
     double dy = (y_infinity-y)/tau_y;
-    y = y_infinity - (y_infinity - y) * exp(-dt / tau_y);
+//    std::cout << "V: " << v << ", y_infinity: " << y_infinity << ", tau_y: " << tau_y <<", dy: " << dy << ", yn-1: " << y <<  std::flush;
+ //   y += dt*dy;
+ //   std::cout  << ", yn: " << y << std::endl;
+   y = y_infinity - (y_infinity - y) * exp(-dt / tau_y);
 
     // funny current
     double G_f = g_f/(Ko/(Ko+Km_f));
@@ -500,9 +528,13 @@ Fabbri17::update()
     double Iso_increase = 1;
     if(Iso_1_uM > 0) Iso_increase = 1.2;
 
-    i_NaK = Iso_increase*i_NaK_max / (1+pow(Km_Kp/Ko, 1.2) )
-          / (1+pow(Km_Nap/Nai, 1.3) )
-          / (1+exp(-(V-E_Na+110)/20 ) );
+//    i_NaK = Iso_increase*i_NaK_max / (1+pow(Km_Kp/Ko, 1.2) )
+//          / (1+pow(Km_Nap/Nai, 1.3) )
+//          / (1+exp(-(V-E_Na+110.0)/20.0 ) );
+    i_NaK = Iso_increase*i_NaK_max *
+    		pow(1+pow(Km_Kp/Ko, 1.2), -1) *
+			pow(1+pow(Km_Nap/Nai, 1.3), -1) *
+			pow(1+exp(-(V-E_Na+110.)/20.0), -1);
 
     // i_NaCa
     di = 1+Ca_sub/Kci*(1+exp(-Qci*V/RTONF)+Nai/Kcni)+Nai/K1ni*(1+Nai/K2ni*(1+Nai/K3ni));
@@ -524,7 +556,7 @@ Fabbri17::update()
     blockade_NaCa = 0.0;
 
     i_NaCa = (1-blockade_NaCa)*K_NaCa*(x2*k21-x1*k12)/(x1+x2+x3+x4);
-
+    // di = 1+Ca_sub/Kci*(1+exp(-Qci*V/RTONF)+Nai/Kcni)+Nai/K1ni*(1+Nai/K2ni*(1+Nai/K3ni));
     // i_Na
     i_Na = g_Na*pow(m, 3)*h*(V-E_mh);
     double i_Na_L = g_Na_L*pow(m, 3)*(V-E_mh);
@@ -613,6 +645,7 @@ Fabbri17::update()
 
       // Ca_SR_release
       j_SRCarel = ks*O*(Ca_jsr-Ca_sub);
+//      std::cout << "ks: " << ks << ", O: " << O << ", Ca_jsr: " << Ca_jsr << ", Ca_sub: " << Ca_sub << std::endl;
       double diff = Ca_jsr-Ca_sub;
       double kCaSR = MaxSR-(MaxSR-MinSR)/(1+pow(EC50_SR/Ca_jsr, HSR));
       double koSRCa = koCa/kCaSR;
@@ -658,7 +691,7 @@ Fabbri17::update()
 
     // Ca_dynamics
     double dCai = 1*(j_Ca_dif*V_sub-j_up*V_nsr)/V_i-(CM_tot*delta_fCMi+TC_tot*delta_fTC+TMC_tot*delta_fTMC);
-    double dCa_sub = j_SRCarel*V_jsr/V_sub-((i_siCa+i_CaT-2*i_NaCa)/(2*F*V_sub)+j_Ca_dif+CM_tot*delta_fCMs);
+    double dCa_sub = j_SRCarel*V_jsr/V_sub-((i_siCa+i_CaT-2*i_NaCa)/(2.0*F*V_sub)+j_Ca_dif+CM_tot*delta_fCMs);
     double dCa_nsr = j_up-j_tr*V_jsr/V_nsr;
     double dCa_jsr = j_tr-(j_SRCarel+CQ_tot*delta_fCQ);
 
@@ -666,6 +699,15 @@ Fabbri17::update()
     Ca_sub += dt * dCa_sub;
     Ca_nsr += dt * dCa_nsr;
     Ca_jsr += dt * dCa_jsr;
+
+//	std::cout << "i_NaCa: " << i_NaCa  << std::flush;
+//	std::cout << ", j_SRCarel : " << j_SRCarel  << std::flush;
+//	std::cout << ", V_jsr: " << V_jsr << std::flush;
+//	std::cout << ", V_sub: " << V_sub << std::flush;
+//	std::cout << ", i_siCa: " << i_siCa << std::flush;
+//	std::cout << ", i_CaT: " << i_CaT << std::flush;
+//	std::cout << ", j_Ca_dif: " << j_Ca_dif << std::flush;
+//	std::cout << std::endl;
 
     // i_Kur
     i_Kur = g_Kur*r_Kur*s_Kur*(V-E_K);
@@ -742,6 +784,7 @@ Fabbri17::update()
 
     // Currents:
     // i_tot = i_f+i_Kr+i_Ks+i_to+i_NaK+i_NaCa+i_Na+i_CaL+i_CaT+i_KACh+i_Kur;
+
 
 }
 

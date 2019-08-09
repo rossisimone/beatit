@@ -171,8 +171,8 @@ private:
     // Sarcolemmal ion currents and their conductances
     // If
     const double g_f = 0.00427; //uS
-    const double g_fNa = 0.00268; //uS
-    const double g_fK = 0.00159; //uS
+//    const double g_fNa = 0.00268; //uS
+//    const double g_fK = 0.00159; //uS
     //ICaL
     const double P_CaL = 0.4578; // nA/mM
     //ICaT
@@ -219,9 +219,9 @@ private:
     const double tautr = 0.04; //s
 
     // SERCA pump
-    const double Kup = 286.; // mM // Kup 0.0006 XXXXXXXXXXXXXXXXX
-    const double Pup = 5.; // mM/s
-    const double slopeup = 50.0; //mM
+//    const double Kup = 0.000286113;  286.; // mM // Kup 0.0006 XXXXXXXXXXXXXXXXX
+  //  const double Pup = 5.; // mM/s
+    //const double slopeup = 50.0; //mM
 
     // RyR function
     const double kiCa = 500.0; // 1/mM/s
@@ -412,6 +412,8 @@ private:
     // I_KACh a gate
     // 32
     double a; //0.00277
+
+    void get_currents(std::vector<double>& currents);
 
 };
 

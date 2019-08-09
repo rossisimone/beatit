@@ -143,6 +143,10 @@ public:
     {
         return M_membrane_capacitance;
     }
+    virtual void get_currents(std::vector<double>& currents)
+    {
+
+    }
 protected:
 
 //    /// Transmembrane potential

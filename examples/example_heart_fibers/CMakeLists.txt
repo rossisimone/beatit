@@ -23,7 +23,40 @@ IF ( ${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 ENDIF (${CMAKE_CURRENT_SOURCE_DIR}/data.beat  IS_NEWER_THAN ${GetPotFile} )
 
 
+SET(TESTNAMEV example_set_regions)
+message("=== Adding Example : ${TESTNAMEV}")
+
+add_executable(${TESTNAMEV} main_remap_regions.cpp)
+
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_set_regions")
+
+include_directories ("${PROJECT_SOURCE_DIR}/src")
+include_directories ("${LIBMESH_DIR}/include")
 
 
+target_link_libraries(${TESTNAMEV} beatit)
+target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
+#link_directories(${LIBMESH_DIR}/lib)
+
+
+SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
+
+
+SET(TESTNAMEV example_new_heart_fibers)
+message("=== Adding Example : ${TESTNAMEV}")
+
+add_executable(${TESTNAMEV} main_new_heart.cpp)
+
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_new_heart_fibers")
+
+include_directories ("${PROJECT_SOURCE_DIR}/src")
+include_directories ("${LIBMESH_DIR}/include")
+
+
+target_link_libraries(${TESTNAMEV} beatit)
+target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
+
+
+SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
 
 

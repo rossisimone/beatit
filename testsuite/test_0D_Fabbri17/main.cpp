@@ -89,17 +89,20 @@ int main()
 	std::unique_ptr<BeatIt::IonicModel> pORd( BeatIt::IonicModel::IonicModelFactory::Create("Fabbri17") );
 	int numVar = pORd->numVariables();
 	std::vector<double> variables(numVar, 0.0);
+	std::vector<double> currents(12, 0.0);
 
 	std::ofstream output("results.txt");
+	std::ofstream output_iion("currents.txt");
 	pORd->initializeSaveData(output);
 	pORd->initialize(variables);
 
+        std::cout << std::setprecision(15);
         // model is in seconds
 	double dt = 0.001; // = 1ms
-        dt =1e-7;
-	int save_iter = static_cast<int>(1e-2 / dt);
+        dt =1e-5;
+	int save_iter = static_cast<int>(1e-3 / dt);
 //	save_iter = 1;
-        double TF = 1; //500;//2*1000;
+        double TF = 10; //500;//2*1000;
 //        TF = 100;
 	double Ist = 0;
 	double time = 0.0;
@@ -116,7 +119,12 @@ int main()
 		pORd->solve(variables, Ist, dt);
 		time += dt;
 		++iter;
-		if( 0 == iter%save_iter ) BeatIt::saveData(time, variables, output);
+		if( 0 == iter%save_iter )
+		{
+			BeatIt::saveData(time, variables, output);
+			pORd->get_currents(currents);;
+			BeatIt::saveData(time, currents, output_iion);
+		}
 
 		// for ctest purposes
 		solution_norm += variables[0];
