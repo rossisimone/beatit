@@ -41,6 +41,7 @@ bool readList(std::string& list, Container& container, const ElementParser& elem
 bool readList(std::string& list, std::vector<std::string>& container);
 
 void createOutputFolder(const libMesh::Parallel::Communicator & comm, std::string& output_folder);
+void createOutputFolder(std::string& output_folder);
 
 GetPot readInputFile(int argc, char ** argv);
 

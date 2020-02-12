@@ -85,11 +85,13 @@ public:
 
     void setup(GetPot& data, std::string section);
     virtual void setup_systems(GetPot& data, std::string section) = 0;
+    void setup_ODE_systems(GetPot& data, std::string section);
+
     void restart( EXOExporter& importer, int step = 0, bool restart = true );
     void read_fibers( EXOExporter& importer, int step = 0);
 
     void init(double time);
-    virtual void init_systems(double time) = 0;
+    void init_systems(double time);
     void save(int step);
     void save_exo_timestep(int step, double time);
     void save_ve_timestep(int step, double time);
@@ -143,7 +145,7 @@ public:
    void set_potential_on_boundary(unsigned int boundID, double value = 1.0, int subdomain = -1);
    void setup_ic(libMesh::FunctionBase<libMesh::Number>& ic, double time=0.0); // setup initial conditions
 
-   std::string  get_ionic_model_name() const;
+   std::string  get_ionic_model_name(unsigned int key) const;
 
 
    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
@@ -158,7 +160,9 @@ public:
     /// input file
     GetPot                     M_datafile;
     /// Store pointer to the ionic model
-    std::unique_ptr<IonicModel> M_ionicModelPtr;
+//    std::unique_ptr<IonicModel> M_ionicModelPtr;
+    std::map<unsigned int, std::shared_ptr<IonicModel> > M_ionicModelPtrMap;
+    std::map<unsigned int, std::string > M_ionicModelNameMap;
     /// Equation Systems: One for the potential and one for the other variables
     /*!
      *  Use separate systems to avoid saving in all the variables
@@ -190,6 +194,13 @@ public:
     std::unique_ptr<libMesh::PetscLinearSolver<libMesh::Number> > M_linearSolver;
     std::vector<double>  M_intraConductivity;
     std::vector<double>  M_extraConductivity;
+
+    //int M_tissueBlockID;
+    std::set<short unsigned int> M_tissueBlockIDs;
+    int secret_blockID_key;
+    std::vector < std::string > M_ionic_models_systems_name_vec;
+    std::vector < std::string > M_ionic_models_vec;
+    std::vector < unsigned int > M_ionic_models_IDs_vec;
 
     Anisotropy M_anisotropy;
     std::vector<double>  M_conductivity;
@@ -231,6 +242,8 @@ public:
 
     Timer::duration_Type M_elapsed_time;
     unsigned int M_num_linear_iters;
+
+
 };
 
 } /* namespace BeatIt */

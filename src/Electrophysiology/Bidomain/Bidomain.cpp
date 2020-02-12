@@ -175,25 +175,8 @@ void Bidomain::setup_systems(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // 2) ODEs
-    std::cout << "* BIDOMAIN: Creating new System for the ionic model " << std::endl;
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
-    // Create Ionic Model
-    std::string ionic_model = M_datafile(section + "/ionic_model", "NashPanfilov");
-    M_ionicModelPtr.reset(BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
-    M_ionicModelPtr->setup(M_datafile, section);
-    int num_vars = M_ionicModelPtr->numVariables();
-    // TO DO: Generalize to other conditions
-    // We need to exclude the potential
-    // therefore we loop up to num_vars-1
-    for (int nv = 0; nv < num_vars - 1; ++nv)
-    {
-        std::string var_name = M_ionicModelPtr->variableName(nv);
-        // For the time being we use P1 for the variables
-        ionic_model_system.add_variable(&var_name[0], libMesh::FIRST);
-    }
-    ionic_model_system.add_vector("rhs_old");
-    ionic_model_system.init();
-    M_ionicModelExporterNames.insert("ionic_model");
+    setup_ODE_systems(data, section);
+
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -372,10 +355,10 @@ void Bidomain::assemble_matrices(double dt)
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
     const unsigned int max_dim = 3;
+    double Cm = 1.0;
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
-    double Cm = M_ionicModelPtr->membraneCapacitance();
 
     // Get a reference to the LinearImplicitSystem we are solving
     BidomainSystem& bidomain_system = M_equationSystems.get_system<BidomainSystem>("bidomain");
@@ -821,7 +804,7 @@ double cdt = dt;
     bidomain_system.get_vector("old_solution").close();
     iion_system.get_vector("diion").close();
 
-    double Cm = M_ionicModelPtr->membraneCapacitance();
+    double Cm = 1.0; //M_ionicModelPtr->membraneCapacitance();
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
 

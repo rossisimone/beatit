@@ -69,6 +69,7 @@ BistablePiecewiseLinear::BistablePiecewiseLinear()
 void
 BistablePiecewiseLinear::setup(GetPot& data, std::string sect)
 {
+    super::setup(data, sect);
 	std::string section = sect + "/BistablePiecewiseLinear";
 	M_alpha       = data(section+"/a",         0.5);
 	M_v0       = data(section+"/v0",         0.0);

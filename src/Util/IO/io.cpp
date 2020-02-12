@@ -52,6 +52,14 @@ void createOutputFolder(const libMesh::Parallel::Communicator & comm, std::strin
         }
     }
 }
+void createOutputFolder(std::string& output_folder)
+{
+    struct stat out_dir;
+    if (stat(&output_folder[0], &out_dir) != 0)
+    {
+        mkdir(output_folder.c_str(), 0777);
+    }
+}
 
 GetPot readInputFile(int argc, char ** argv)
 {

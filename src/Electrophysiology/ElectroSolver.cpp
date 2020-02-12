@@ -57,6 +57,7 @@
 #include "libmesh/petsc_vector.h"
 #include "libmesh/petsc_matrix.h"
 #include "Electrophysiology/Pacing/PacingProtocolSpirit.hpp"
+#include "Util/IO/io.hpp"
 
 namespace BeatIt
 {
@@ -67,13 +68,11 @@ namespace BeatIt
     typedef libMesh::TransientExplicitSystem IonicModelSystem;
     typedef libMesh::ExplicitSystem ParameterSystem;
 
-
-    ElectroSolver::ElectroSolver(libMesh::EquationSystems& es, std::string model) :
-            M_equationSystems(es), M_exporter(), M_exporterNames(), M_ionicModelExporter(), M_ionicModelExporterNames(), M_parametersExporter(), M_parametersExporterNames(), M_outputFolder(), M_datafile(), M_pacing_i(), M_pacing_e(), M_linearSolver(), M_anisotropy(
-                    Anisotropy::Orthotropic), M_equationType(EquationType::ParabolicEllipticBidomain), M_timeIntegratorType(
-                    DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(
-                    1.0), M_model(model), M_ground_ve(Ground::Nullspace), M_timeIntegrator(TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false),
-                    M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
+    ElectroSolver::ElectroSolver(libMesh::EquationSystems& es, std::string model)
+            : M_equationSystems(es), M_exporter(), M_exporterNames(), M_ionicModelExporter(), M_ionicModelExporterNames(), M_parametersExporter(), M_parametersExporterNames(), M_outputFolder(), M_datafile(), M_pacing_i(), M_pacing_e(), M_linearSolver(), M_anisotropy(
+                    Anisotropy::Orthotropic), M_equationType(EquationType::ParabolicEllipticBidomain), M_timeIntegratorType(DynamicTimeIntegratorType::Implicit), M_useAMR(false), M_assembleMatrix(
+                    true), M_systemMass("lumped"), M_intraConductivity(), M_extraConductivity(), M_conductivity(), M_meshSize(1.0), M_model(model), M_ground_ve(Ground::Nullspace), M_timeIntegrator(
+                    TimeIntegrator::FirstOrderIMEX), M_timestep_counter(0), M_symmetricOperator(false), M_elapsed_time(), M_num_linear_iters(0), M_order(libMesh::FIRST), M_FEFamily(libMesh::LAGRANGE)
     {
         // TODO Auto-generated constructor stub
 
@@ -91,6 +90,9 @@ namespace BeatIt
         M_datafile = data;
         M_section = section;
 
+        std::string tissueBlockID = M_datafile(section + "/tissue_blockIDs", "");
+        BeatIt::readList(tissueBlockID, M_tissueBlockIDs);
+        secret_blockID_key = 0;
         //Read output folder from datafile
         std::string output_folder = M_datafile(M_section + "/output_folder", "Output");
         M_outputFolder = "./" + output_folder + "/";
@@ -141,22 +143,23 @@ namespace BeatIt
                 //std::system("echo $PWD");
                 auto m = mkdir(M_outputFolder.c_str(), 0777);
                 //std::cout << m << std::endl;
-                if(m != 0) perror("mkdir");
+                if (m != 0) perror("mkdir");
             }
         }
 
         // read order of the basis functions
         std::string order = data(M_section + "/order", "FIRST");
-        M_order = libMesh::Utility::string_to_enum<libMesh::Order>(order);
+        M_order = libMesh::Utility::string_to_enum < libMesh::Order > (order);
         // read order of finite element family (for DG)
         std::string fefamily = data(M_section + "/fefamily", "LAGRANGE");
-        M_FEFamily = libMesh::Utility::string_to_enum<libMesh::FEFamily>(fefamily);
-        std::cout << "* ElectroSolver: running with: " << fefamily << " (" << M_FEFamily << "), order: " <<  order << " (" << M_order << ")" << std::endl;
+        M_FEFamily = libMesh::Utility::string_to_enum < libMesh::FEFamily > (fefamily);
+        std::cout << "* ElectroSolver: running with: " << fefamily << " (" << M_FEFamily << "), order: " << order << " (" << M_order << ")" << std::endl;
         // call setup system of the specific class
         setup_systems(M_datafile, M_section);
         // Add ionic current to this system
         IonicModelSystem& Iion_system = M_equationSystems.add_system < IonicModelSystem > ("iion");
         Iion_system.add_variable("iion", M_order, M_FEFamily);
+        Iion_system.add_vector("ionic_model_map");
         Iion_system.add_vector("diion");
         Iion_system.add_vector("diion_old");
         Iion_system.add_vector("total_current");
@@ -223,11 +226,23 @@ namespace BeatIt
         M_parametersExporterNames.insert("sheets");
         M_parametersExporterNames.insert("xfibers");
         M_parametersExporterNames.insert("ProcID");
-
+        IonicModelSystem& model_map_system = M_equationSystems.add_system < IonicModelSystem > ("model_map");
+        model_map_system.add_variable("ionic_model_map", M_order, M_FEFamily);
+        model_map_system.init();
+        M_parametersExporterNames.insert("model_map");
         ///////////
         // Time integrator
         int time_integrator_order = data(M_section + "/time_integrator_order", 1);
-        if (2 == time_integrator_order && M_ionicModelPtr->isSecondOrderImplemented())
+        bool isSecondORderImplemented = true;
+        for (auto && map : M_ionicModelPtrMap)
+        {
+            if (map.second->isSecondOrderImplemented())
+            {
+                isSecondORderImplemented = false;
+                break;
+            }
+        }
+        if (2 == time_integrator_order && isSecondORderImplemented)
         {
             std::cout << "ELECTROSOLVER: using SBDF order 2 " << std::endl;
             M_timeIntegrator = TimeIntegrator::SecondOrderIMEX;
@@ -253,7 +268,7 @@ namespace BeatIt
         M_potentialEXOExporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
         M_nemesis_exporter.reset(new NemesisIO(M_equationSystems.get_mesh()));
 
-        M_symmetricOperator = M_datafile(M_section+"/symmetric_operator",false);
+        M_symmetricOperator = M_datafile(M_section + "/symmetric_operator", false);
         std::cout << "* ElectroSolver: Using Symmetric Operator: " << M_symmetricOperator << std::endl;
     }
 
@@ -261,38 +276,169 @@ namespace BeatIt
     {
         std::cout << "* ElectroSolver: Init: " << std::endl;
 
+        std::cout << "* Setup ionic model map key vector: " << std::endl;
+        const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+        libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+        libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+        const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+        IonicModelSystem& iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
+        std::vector < libMesh::dof_id_type > dofs;
+
+        IonicModelSystem& model_map_system = M_equationSystems.get_system < IonicModelSystem > ("model_map");
+        M_parametersExporterNames.insert("model_map");
+
+        for (; el != end_el; ++el)
+        {
+            const libMesh::Elem * elem = *el;
+            const unsigned int bid = elem->subdomain_id();
+            if (M_tissueBlockIDs.size() > 0)
+            {
+                auto it_bid = M_tissueBlockIDs.find(bid);
+                if (it_bid != M_tissueBlockIDs.end())
+                {
+                    iion_system.get_dof_map().dof_indices(elem, dofs);
+                    for (auto && d : dofs)
+                    {
+                        iion_system.get_vector("ionic_model_map").set(d, bid);
+                        model_map_system.solution->set(d, bid);
+                    }
+                }
+            }
+            else
+            {
+                for (auto && d : dofs)
+                {
+                    iion_system.get_vector("ionic_model_map").set(d, secret_blockID_key);
+                    model_map_system.solution->set(d, secret_blockID_key);
+                }
+            }
+        }
+        if (M_tissueBlockIDs.size() > 0)
+        {
+            auto first_local_index = iion_system.get_vector("ionic_model_map").first_local_index();
+            auto last_local_index = iion_system.get_vector("ionic_model_map").last_local_index();
+            for (auto i = first_local_index; i < last_local_index; ++i)
+            {
+                double value = iion_system.get_vector("ionic_model_map")(i);
+                if (value == 0) iion_system.get_vector("ionic_model_map").set(i, -1);
+            }
+
+        }
+
+        iion_system.get_vector("ionic_model_map").close();
+        std::cout << "* Setup ionic model vector: " << std::endl;
+
         // WAVE
         ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
         // Setting initial conditions
-        ElectroSystem& electro_system = M_equationSystems.get_system < ElectroSystem > (M_model);
-        IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
-        int num_vars = ionic_model_system.n_vars();
-        std::vector<double> init_values(num_vars + 1, 0.0);
-        M_ionicModelPtr->initialize(init_values);
+        ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
 
-        auto first_local_index = wave_system.solution->first_local_index();
-        auto last_local_index = wave_system.solution->last_local_index();
-        for (auto i = first_local_index; i < last_local_index; ++i)
+        libMesh::MeshBase::const_node_iterator node = mesh.local_nodes_begin();
+        const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
+        const libMesh::DofMap & dof_map = system.get_dof_map();
+        const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
+
+        std::vector < libMesh::dof_id_type > dof_indices_V;
+        std::vector < libMesh::dof_id_type > dof_indices_Q;
+        std::vector < libMesh::dof_id_type > dof_indices_gating;
+
+        int c = 0;
+        std::cout << "* Loop over nodes: " << std::endl;
+
+        for (; node != end_node; ++node)
         {
-            wave_system.solution->set(i, init_values[0]);
-        }
-        first_local_index = ionic_model_system.solution->first_local_index();
-        last_local_index = ionic_model_system.solution->last_local_index();
-        std::cout << "* " << M_model << ": Setting initial values ... " << std::flush;
-        for (auto i = first_local_index; i < last_local_index;)
-        {
-            for (int nv = 0; nv < num_vars; ++nv)
+            const libMesh::Node * nn = *node;
+            // Are we in the bath?
+            auto n_var = nn->n_vars(system.number());
+            auto n_dofs = nn->n_dofs(system.number());
+            if (n_var == n_dofs)
             {
-                ionic_model_system.solution->set(i, init_values[nv + 1]);
-                ++i;
+                dof_map.dof_indices(nn, dof_indices_Q, 0);
+                dof_map_V.dof_indices(nn, dof_indices_V, 0);
+                int key = iion_system.get_vector("ionic_model_map")(dof_indices_V[0]);
+                auto it_ionic_model = M_ionicModelPtrMap.find(key);
+                auto it_ionic_model_name = M_ionicModelNameMap.find(key);
+                IonicModel * ionicModelPtr = nullptr;
+                std::string ionic_model_system_name;
+                if (it_ionic_model != M_ionicModelPtrMap.end()) ionicModelPtr = it_ionic_model->second.get();
+                if (it_ionic_model_name != M_ionicModelNameMap.end()) ionic_model_system_name = it_ionic_model_name->second;
+                if (ionicModelPtr)
+                {
+                    IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (ionic_model_system_name);
+                    auto& iion_rhs_old = ionic_model_system.get_vector("rhs_old");
+                    int num_vars = ionic_model_system.n_vars();
+                    std::vector<double> init_values(num_vars + 1, 0.0);
+                    const libMesh::DofMap & dof_map_gating = ionic_model_system.get_dof_map();
+                    dof_map_gating.dof_indices(nn, dof_indices_gating);
+                    ionicModelPtr->initialize(init_values);
+
+                    std::cout << "\nSetting V: key: " << key << std::endl;
+                    wave_system.solution->set(dof_indices_V[0], init_values[0]);
+                    for (int nv = 0; nv < num_vars; ++nv)
+                    {
+                        std::cout << "Setting gatings: " << nv << std::endl;
+                        std::cout << "value: " << std::flush;
+                        std::cout << init_values[nv + 1] << std::flush;
+                        ionic_model_system.solution->set(dof_indices_gating[nv], init_values[nv + 1]);
+                        std::cout << " set!" << std::endl;
+                    }
+                }
+                else
+                {
+                	std::cout << "NO IONIC MODEL PTR" << std::endl;
+                	throw std::runtime_error("No ionic Model Ptr");
+                }
             }
         }
-        electro_system.solution->close();
-        electro_system.old_local_solution->close();
-        electro_system.older_local_solution->close();
-        ionic_model_system.solution->close();
-        ionic_model_system.old_local_solution->close();
-        ionic_model_system.older_local_solution->close();
+        std::cout << "* Close systems: " << std::endl;
+
+        wave_system.solution->close();
+        for (auto && name : M_ionic_models_systems_name_vec)
+        {
+            IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (name);
+            ionic_model_system.solution->close();
+        }        //Initialize ionic model
+//        for(int c = 0; c < M_ionicModelNameMap.size(); ++c)
+//        for (auto && name : M_ionic_models_vec)
+//            for(auto && map : M_ionicModelNameMap)
+//            {
+//            std::vector<std::string>::iterator it = std::find( M_ionic_models_vec.begin(),
+//                                                               M_ionic_models_vec.end(),
+//                                                               map.second );
+//
+//            IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (map.second);
+//            int num_vars = ionic_model_system.n_vars();
+//            std::vector<double> init_values(num_vars + 1, 0.0);
+//            M_ionicModelPtrMap[map.first]->initialize(init_values);
+//
+//            auto first_local_index = wave_system.solution->first_local_index();
+//            auto last_local_index = wave_system.solution->last_local_index();
+//            for (auto i = first_local_index; i < last_local_index; ++i)
+//            {
+//                wave_system.solution->set(i, init_values[0]);
+//            }
+//            first_local_index = ionic_model_system.solution->first_local_index();
+//            last_local_index = ionic_model_system.solution->last_local_index();
+//            std::cout << "* " << M_model << ": Setting initial values ... " << std::flush;
+//            for (auto i = first_local_index; i < last_local_index;)
+//            {
+//                for (int nv = 0; nv < num_vars; ++nv)
+//                {
+//                    ionic_model_system.solution->set(i, init_values[nv + 1]);
+//                    ++i;
+//                }
+//            }
+//            ionic_model_system.solution->close();
+//            ionic_model_system.old_local_solution->close();
+//            ionic_model_system.older_local_solution->close();
+//
+//        }
+
+        std::cout << "* Old stuff: " << std::endl;
+
+        system.solution->close();
+        system.old_local_solution->close();
+        system.older_local_solution->close();
 
         std::map < std::string, libMesh::SolverType > solver_map;
         solver_map["cg"] = libMesh::CG;
@@ -309,8 +455,8 @@ namespace BeatIt
 
         ParameterSystem& procID_system = M_equationSystems.get_system < ParameterSystem > ("ProcID");
 
-        first_local_index = procID_system.solution->first_local_index();
-        last_local_index = procID_system.solution->last_local_index();
+        auto first_local_index = procID_system.solution->first_local_index();
+        auto last_local_index = procID_system.solution->last_local_index();
 
         double myrank = static_cast<double>(M_equationSystems.comm().rank());
         for (int el = first_local_index; el < last_local_index; ++el)
@@ -330,7 +476,241 @@ namespace BeatIt
         //M_linearSolver->set_solver_type(solver_map.find(solver_type)->second);
         //M_linearSolver->set_preconditioner_type(prec_map.find(prec_type)->second);
         M_linearSolver->init();
+
         std::cout << "* ElectroSolver: Init complete " << std::endl;
+
+    }
+
+    void ElectroSolver::init_systems(double time)
+    {
+        // WAVE
+        ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
+
+        std::string v_ic = M_datafile(M_section + "/ic", "");
+        if (v_ic != "")
+        {
+            std::cout << "* BIDOMAIN+BATH: Found bidomain initial condition: " << v_ic << std::endl;
+            SpiritFunction bidomain_ic;
+            bidomain_ic.read(v_ic);
+            setup_ic(bidomain_ic);
+        }
+
+        IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
+        std::cout << "* BIDOMAIN+BATH: Initializing activation times to -1  ... " << std::flush;
+        ParameterSystem& activation_times_system = M_equationSystems.get_system<ParameterSystem>("activation_times");
+        auto first_local_index = activation_times_system.solution->first_local_index();
+        auto last_local_index = activation_times_system.solution->last_local_index();
+
+        for (auto i = first_local_index; i < last_local_index; ++i)
+        {
+            activation_times_system.solution->set(i, -1.0);
+        }
+        std::cout << " done" << std::endl;
+
+        bool analytic_fibers = M_datafile(M_section + "/analytic_fibers", true);
+        if (analytic_fibers)
+        {
+            std::string fibers_data = M_datafile(M_section + "/fibers", "1.0, 0.0, 0.0");
+            std::string sheets_data = M_datafile(M_section + "/sheets", "0.0, 1.0, 0.0");
+            std::string xfibers_data = M_datafile(M_section + "/xfibers", "0.0, 0.0, 1.0");
+
+            SpiritFunction fibers_func;
+            SpiritFunction sheets_func;
+            SpiritFunction xfibers_func;
+
+            fibers_func.read(fibers_data);
+            sheets_func.read(sheets_data);
+            xfibers_func.read(xfibers_data);
+
+            ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
+            ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
+            ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
+
+            std::cout << "* BIDOMAIN+BATH: Creating fibers from function: " << fibers_data << std::flush;
+            fiber_system.project_solution(&fibers_func);
+            std::cout << " done" << std::endl;
+            std::cout << "* BIDOMAIN+BATH: Creating sheets from function: " << sheets_data << std::flush;
+            sheets_system.project_solution(&sheets_func);
+            std::cout << " done" << std::endl;
+            std::cout << "* BIDOMAIN+BATH: Creating xfibers from function: " << xfibers_data << std::flush;
+            xfiber_system.project_solution(&xfibers_func);
+            std::cout << " done" << std::endl;
+        }
+        std::string conductivity_type = M_datafile(M_section + "/conductivity", "function");
+
+        std::cout << "Conductivity Type: " << conductivity_type << std::endl;
+
+        std::string Dffi_data = M_datafile(M_section + "/Dffi", "2.0");
+        std::string Dssi_data = M_datafile(M_section + "/Dssi", "0.2");
+        std::string Dnni_data = M_datafile(M_section + "/Dnni", "0.2");
+        std::string Dffe_data = M_datafile(M_section + "/Dffe", "1.5");
+        std::string Dsse_data = M_datafile(M_section + "/Dsse", "1.0");
+        std::string Dnne_data = M_datafile(M_section + "/Dnne", "1.0");
+        if(M_model == "monowave")
+        {
+            ParameterSystem& intra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("conductivity");
+
+            if ("function" == conductivity_type)
+            {
+                SpiritFunction intra_conductivity_func;
+                std::cout << "Dffi_data: " << Dffi_data << std::endl;
+                intra_conductivity_func.add_function(Dffi_data);
+                intra_conductivity_func.add_function(Dssi_data);
+                intra_conductivity_func.add_function(Dnni_data);
+                intra_conductivity_system.project_solution(&intra_conductivity_func);
+            }
+            //list
+            else
+            {
+                std::vector<double> Dffi;
+                BeatIt::readList(Dffi_data, Dffi);
+                std::vector<double> Dssi;
+                BeatIt::readList(Dssi_data, Dssi);
+                std::vector<double> Dnni;
+                BeatIt::readList(Dnni_data, Dnni);
+
+                std::string i_IDs = M_datafile(M_section + "/i_IDs", "-1");
+                std::cout << "i_IDs: " << i_IDs << std::flush;
+                std::vector<unsigned int> intracellular_IDs;
+                BeatIt::readList(i_IDs, intracellular_IDs);
+
+                const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+
+                libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+                libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+                const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+                const libMesh::DofMap & dof_map = intra_conductivity_system.get_dof_map();
+                std::vector<libMesh::dof_id_type> dof_indices;
+
+                for (; el != end_el; ++el)
+                {
+                    const libMesh::Elem * elem = *el;
+                    const unsigned int elem_id = elem->id();
+                    int subdomain_ID = elem->subdomain_id();
+                    dof_map.dof_indices(elem, dof_indices);
+
+                    double cDffi = 0.;
+                    double cDssi = 0.;
+                    double cDnni = 0.;
+                    for (int k = 0; k < intracellular_IDs.size(); ++k)
+                    {
+                        if (intracellular_IDs[k] == subdomain_ID)
+                        {
+                            cDffi = Dffi[k];
+                            cDssi = Dssi[k];
+                            cDnni = Dnni[k];
+                            break;
+                        }
+                    }
+                    intra_conductivity_system.solution->set(dof_indices[0], cDffi);
+                    intra_conductivity_system.solution->set(dof_indices[1], cDssi);
+                    intra_conductivity_system.solution->set(dof_indices[2], cDnni);
+                }
+
+            }
+        }
+        else
+        {
+            ParameterSystem& intra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("intra_conductivity");
+            ParameterSystem& extra_conductivity_system = M_equationSystems.get_system<ParameterSystem>("extra_conductivity");
+
+            if ("function" == conductivity_type)
+            {
+                SpiritFunction intra_conductivity_func;
+                std::cout << "Dffi_data: " << Dffi_data << std::endl;
+                intra_conductivity_func.add_function(Dffi_data);
+                intra_conductivity_func.add_function(Dssi_data);
+                intra_conductivity_func.add_function(Dnni_data);
+                intra_conductivity_system.project_solution(&intra_conductivity_func);
+                SpiritFunction extra_conductivity_func;
+                extra_conductivity_func.add_function(Dffe_data);
+                extra_conductivity_func.add_function(Dsse_data);
+                extra_conductivity_func.add_function(Dnne_data);
+                extra_conductivity_system.project_solution(&extra_conductivity_func);
+            }
+            //list
+            else
+            {
+                std::vector<double> Dffi;
+                BeatIt::readList(Dffi_data, Dffi);
+                std::vector<double> Dssi;
+                BeatIt::readList(Dssi_data, Dssi);
+                std::vector<double> Dnni;
+                BeatIt::readList(Dnni_data, Dnni);
+
+                std::string i_IDs = M_datafile(M_section + "/i_IDs", "-1");
+                std::cout << "i_IDs: " << i_IDs << std::flush;
+                std::vector<unsigned int> intracellular_IDs;
+                BeatIt::readList(i_IDs, intracellular_IDs);
+                //for ( auto && v : i_IDs) std::cout << v << std::flush;
+                std::vector<double> Dffe;
+                BeatIt::readList(Dffe_data, Dffe);
+                std::vector<double> Dsse;
+                BeatIt::readList(Dsse_data, Dsse);
+                std::vector<double> Dnne;
+                BeatIt::readList(Dnne_data, Dnne);
+
+                std::string e_IDs = M_datafile(M_section + "/e_IDs", "-1");
+                std::cout << "\ne_IDs: " << e_IDs << std::endl;
+
+                std::vector<unsigned int> extracellular_IDs;
+                BeatIt::readList(e_IDs, extracellular_IDs);
+                //for ( auto && v : e_IDs) std::cout << v << std::endl;
+
+                const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+
+                libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
+                libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
+                const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+
+                const libMesh::DofMap & dof_map = extra_conductivity_system.get_dof_map();
+                std::vector<libMesh::dof_id_type> dof_indices;
+
+                for (; el != end_el; ++el)
+                {
+                    const libMesh::Elem * elem = *el;
+                    const unsigned int elem_id = elem->id();
+                    int subdomain_ID = elem->subdomain_id();
+                    dof_map.dof_indices(elem, dof_indices);
+
+                    double cDffi = 0.;
+                    double cDssi = 0.;
+                    double cDnni = 0.;
+                    for (int k = 0; k < intracellular_IDs.size(); ++k)
+                    {
+                        if (intracellular_IDs[k] == subdomain_ID)
+                        {
+                            cDffi = Dffi[k];
+                            cDssi = Dssi[k];
+                            cDnni = Dnni[k];
+                            break;
+                        }
+                    }
+                    double cDffe = 0.;
+                    double cDsse = 0.;
+                    double cDnne = 0.;
+                    for (int k = 0; k < extracellular_IDs.size(); ++k)
+                    {
+                        if (extracellular_IDs[k] == subdomain_ID)
+                        {
+                            cDffe = Dffe[k];
+                            cDsse = Dsse[k];
+                            cDnne = Dnne[k];
+                            break;
+                        }
+                    }
+                    extra_conductivity_system.solution->set(dof_indices[0], cDffe);
+                    extra_conductivity_system.solution->set(dof_indices[1], cDsse);
+                    extra_conductivity_system.solution->set(dof_indices[2], cDnne);
+                    intra_conductivity_system.solution->set(dof_indices[0], cDffi);
+                    intra_conductivity_system.solution->set(dof_indices[1], cDssi);
+                    intra_conductivity_system.solution->set(dof_indices[2], cDnni);
+                }
+
+            }
+        }
+
     }
 
     void ElectroSolver::init_endocardial_ve(std::set<libMesh::boundary_id_type>& IDs, std::set<unsigned short>& subdomainIDs)
@@ -365,8 +745,8 @@ namespace BeatIt
     void ElectroSolver::setup_ic(libMesh::FunctionBase<libMesh::Number>& ic, double time) // setup initial conditions
     {
         // WAVE
-        ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
-        M_equationSystems.parameters.set<libMesh::Real>("time") = time;
+        ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
+        M_equationSystems.parameters.set < libMesh::Real > ("time") = time;
         wave_system.time = time;
         std::cout << "* BIDOMAIN+BATH: Projecting initial condition to bidomain system ... " << std::flush;
         wave_system.project_solution(&ic);
@@ -375,7 +755,6 @@ namespace BeatIt
         advance();
         std::cout << " done" << std::endl;
     }
-
 
     void ElectroSolver::restart(EXOExporter& importer, int step, bool restart)
     {
@@ -452,8 +831,7 @@ namespace BeatIt
 
     void ElectroSolver::init_exo_output()
     {
-        std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << ".exo at time 0.0" << " in: " << M_outputFolder << " ... "
-                << std::flush;
+        std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << ".exo at time 0.0" << " in: " << M_outputFolder << " ... " << std::flush;
 
         M_EXOExporter->write_equation_systems(M_outputFolder + M_model + ".exo", M_equationSystems);
         M_EXOExporter->append(true);
@@ -529,8 +907,7 @@ namespace BeatIt
 
         boundary_sys.solution->close();
 
-        std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << "_endo.exo at time " << time << " in: " << M_outputFolder << " ... "
-                << std::flush;
+        std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << "_endo.exo at time " << time << " in: " << M_outputFolder << " ... " << std::flush;
         if (1 == step)
         {
             M_boundary_ve.M_EXOExporter->write_equation_systems(M_outputFolder + M_model + "_endo.exo", *M_boundary_ve.M_boundary_es);
@@ -544,8 +921,7 @@ namespace BeatIt
 
     void ElectroSolver::save_exo_timestep(int step, double time)
     {
-        std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << ".exo at time " << time << " in: " << M_outputFolder << " ... "
-                << std::flush;
+        std::cout << "* " << M_model << ": EXODUSII::Exporting " << M_model << ".exo at time " << time << " in: " << M_outputFolder << " ... " << std::flush;
         M_EXOExporter->write_timestep(M_outputFolder + M_model + ".exo", M_equationSystems, step, time);
         std::cout << "done " << std::endl;
     }
@@ -556,10 +932,10 @@ namespace BeatIt
 //        Exporter vtk(M_equationSystems.get_mesh());
 //        vtk.write_equation_systems(M_outputFolder + "parameters.pvtu", M_equationSystems, &M_parametersExporterNames);
 //        std::cout << "done " << std::endl;
-        std::cout << "* " << M_model << ": EXODUSII::Exporting parameters in: "
-                << M_outputFolder << " ... " << std::flush;
-        EXOExporter exo( M_equationSystems.get_mesh() );
-        exo.write(M_outputFolder+"parameters.exo");
+        std::cout << "* " << M_model << ": EXODUSII::Exporting parameters in: " << M_outputFolder << " ... " << std::flush;
+        EXOExporter exo(M_equationSystems.get_mesh());
+        exo.write_equation_systems(M_outputFolder+"parameters.exo", M_equationSystems, &M_parametersExporterNames);
+//        exo.write(M_outputFolder + "parameters.exo");
         exo.write_element_data(M_equationSystems);
         std::cout << "done " << std::endl;
 
@@ -592,15 +968,17 @@ namespace BeatIt
         std::cout << "done " << std::endl;
     }
 
-
-
     void ElectroSolver::save_activation_times(int step)
     {
         std::cout << "* " << M_model << ": VTKIO::Exporting activaton times: " << M_outputFolder << " ... " << std::flush;
         Exporter vtk(M_equationSystems.get_mesh());
         std::set < std::string > output;
         output.insert("activation_times");
-        vtk.write_equation_systems(M_outputFolder + "activation_times_"+std::to_string(step)+".pvtu", M_equationSystems, &output);
+
+        std::ostringstream ss;
+        ss << std::setw(4) << std::setfill('0') << step;
+        std::string step_str = ss.str();
+        vtk.write_equation_systems(M_outputFolder + "activation_times_" + step_str + ".pvtu", M_equationSystems, &output);
         std::cout << "done " << std::endl;
     }
 
@@ -610,10 +988,9 @@ namespace BeatIt
         Exporter vtk(M_equationSystems.get_mesh());
         std::set < std::string > output;
         output.insert("CV");
-        vtk.write_equation_systems(M_outputFolder + "CV"+std::to_string(step)+".pvtu", M_equationSystems, &output);
+        vtk.write_equation_systems(M_outputFolder + "CV" + std::to_string(step) + ".pvtu", M_equationSystems, &output);
         std::cout << "done " << std::endl;
     }
-
 
     void ElectroSolver::save(int step)
     {
@@ -625,8 +1002,7 @@ namespace BeatIt
 
         std::cout << "* " << M_model << ": VTKIO::Exporting " << step << " in: " << M_outputFolder << " ... " << std::flush;
         M_exporter->write_equation_systems(M_outputFolder + M_model + "_" + step_str + ".pvtu", M_equationSystems, &M_exporterNames);
-        M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model_" + step_str + ".pvtu", M_equationSystems,
-                &M_ionicModelExporterNames);
+        M_ionicModelExporter->write_equation_systems(M_outputFolder + "ionic_model_" + step_str + ".pvtu", M_equationSystems, &M_ionicModelExporterNames);
         std::cout << "done " << std::endl;
     }
 
@@ -660,22 +1036,21 @@ namespace BeatIt
         std::vector<double> at;
 
         libMesh::FEType fe_type = dof_map_at.variable_type(0);
-        libMesh::UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type));
+        libMesh::UniquePtr < libMesh::FEBase > fe_qp1(libMesh::FEBase::build(dim, fe_type));
         // A 5th order Gauss quadrature rule for numerical integration.
         libMesh::QGauss qrule(dim, libMesh::FIRST);
         // Tell the finite element object to use our quadrature rule.
         fe_qp1->attach_quadrature_rule(&qrule);
         // The element shape functions evaluated at the quadrature points.
-        const std::vector<std::vector<libMesh::Real> > & phi= fe_qp1->get_phi();
+        const std::vector<std::vector<libMesh::Real> > & phi = fe_qp1->get_phi();
 
         // The element shape function gradients evaluated at the quadrature
         // points.
         const std::vector<std::vector<libMesh::RealGradient> > & dphi = fe_qp1->get_dphi();
 
-        libMesh::VectorValue<libMesh::Number> CV;
-        libMesh::VectorValue<libMesh::Number> CV_direction;
-        libMesh::VectorValue<libMesh::Number> grad_at;
-
+        libMesh::VectorValue < libMesh::Number > CV;
+        libMesh::VectorValue < libMesh::Number > CV_direction;
+        libMesh::VectorValue < libMesh::Number > grad_at;
 
         for (; el != end_el; ++el)
         {
@@ -700,10 +1075,10 @@ namespace BeatIt
             double grad_at_mag2 = grad_at.norm_sq();
             double grad_at_mag = std::sqrt(grad_at_mag2);
 
-            double cv0 = 1000*grad_at(0)/grad_at_mag2;
-            double cv1 = 1000*grad_at(1)/grad_at_mag2;
-            double cv2 = 1000*grad_at(2)/grad_at_mag2;
-           // std::cout << "grad_at_mag2: " << grad_at_mag2 << ", cv = " << cv0 << ", " << cv1 << ", " << cv2 << std::endl;
+            double cv0 = 1000 * grad_at(0) / grad_at_mag2;
+            double cv1 = 1000 * grad_at(1) / grad_at_mag2;
+            double cv2 = 1000 * grad_at(2) / grad_at_mag2;
+            // std::cout << "grad_at_mag2: " << grad_at_mag2 << ", cv = " << cv0 << ", " << cv1 << ", " << cv2 << std::endl;
 
             CV_system.solution->set(dof_indices_CV[0], cv0);
             CV_system.solution->set(dof_indices_CV[1], cv1);
@@ -718,6 +1093,8 @@ namespace BeatIt
         ParameterSystem& activation_times_system = M_equationSystems.get_system < ParameterSystem > ("activation_times");
         // WAVE
         ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
+        // Setting initial conditions
+        ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
 
         const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 
@@ -725,12 +1102,15 @@ namespace BeatIt
         const libMesh::MeshBase::const_node_iterator end_node = mesh.local_nodes_end();
 
         const libMesh::DofMap & dof_map = wave_system.get_dof_map();
+        const libMesh::DofMap & dof_map_q = system.get_dof_map();
         const libMesh::DofMap & dof_map_at = activation_times_system.get_dof_map();
 
+        std::vector < libMesh::dof_id_type > dof_indices_Q;
         std::vector < libMesh::dof_id_type > dof_indices_V;
         std::vector < libMesh::dof_id_type > dof_indices_at;
 
         double v = 0.0;
+        double q = 0.0;
         double at = 0.0;
 
         for (; node != end_node; ++node)
@@ -740,16 +1120,21 @@ namespace BeatIt
 
             dof_map.dof_indices(nn, dof_indices_V, 0);
             dof_map_at.dof_indices(nn, dof_indices_at, 0);
+            dof_map_q.dof_indices(nn, dof_indices_Q, 0);
 
             if (dof_indices_V.size() > 0)
             {
                 v = (*wave_system.solution)(dof_indices_V[0]);
                 at = (*activation_times_system.solution)(dof_indices_at[0]);
+                q = (*system.solution)(dof_indices_Q[0]);
                 if (v > threshold && at < 0.0)
                 {
                     activation_times_system.solution->set(dof_indices_at[0], time);
                 }
-
+                else if( v <= -40.0 && at > 0.0)
+                {
+                    activation_times_system.solution->set(dof_indices_at[0], -1.0);
+                }
             }
         }
 
@@ -760,7 +1145,6 @@ namespace BeatIt
     void ElectroSolver::advance()
     {
         ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
-        IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
 
         system.solution->close();
         system.old_local_solution->close();
@@ -769,13 +1153,17 @@ namespace BeatIt
         *system.old_local_solution = *system.solution;
         system.update();
 
-        ionic_model_system.solution->close();
-        ionic_model_system.old_local_solution->close();
-        ionic_model_system.older_local_solution->close();
-        *ionic_model_system.older_local_solution = *ionic_model_system.old_local_solution;
-        *ionic_model_system.old_local_solution = *ionic_model_system.solution;
-        ionic_model_system.get_vector("rhs_old") = *ionic_model_system.rhs;
-        ionic_model_system.update();
+        for (auto && name : M_ionic_models_systems_name_vec)
+        {
+            IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (name);
+            ionic_model_system.solution->close();
+            ionic_model_system.old_local_solution->close();
+            ionic_model_system.older_local_solution->close();
+            *ionic_model_system.older_local_solution = *ionic_model_system.old_local_solution;
+            *ionic_model_system.old_local_solution = *ionic_model_system.solution;
+            ionic_model_system.get_vector("rhs_old") = *ionic_model_system.rhs;
+            ionic_model_system.update();
+        }
         // WAVE
         ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
         wave_system.solution->close();
@@ -795,9 +1183,11 @@ namespace BeatIt
         iion_system.update();
     }
 
-    std::string ElectroSolver::get_ionic_model_name() const
+    std::string ElectroSolver::get_ionic_model_name(unsigned int key) const
     {
-        return M_ionicModelPtr->ionicModelName();
+        auto it = M_ionicModelPtrMap.find(key);
+        if (it != M_ionicModelPtrMap.end()) return it->second->ionicModelName();
+        else throw std::runtime_error("ElectroSolver::get_ionic_model_name");
     }
 
     double ElectroSolver::last_activation_time()
@@ -826,7 +1216,7 @@ namespace BeatIt
         libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
         libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
 
-        if(subdomain >= 0 )
+        if (subdomain >= 0)
         {
             el = mesh.active_local_subdomain_elements_begin(subdomain);
             end_el = mesh.active_local_subdomain_elements_end(subdomain);
@@ -879,11 +1269,9 @@ namespace BeatIt
         return xfiber_system.solution;
     }
 
-    void ElectroSolver::solve_reaction_step(double dt, double time, int step, bool useMidpoint, const std::string& mass,
-            libMesh::NumericVector<libMesh::Number>* I4f_ptr)
+    void ElectroSolver::solve_reaction_step(double dt, double time, int step, bool useMidpoint, const std::string& mass, libMesh::NumericVector<libMesh::Number>* I4f_ptr)
     {
-        if(M_FEFamily == libMesh::MONOMIAL ||
-           M_FEFamily == libMesh::L2_LAGRANGE )
+        if (M_FEFamily == libMesh::MONOMIAL || M_FEFamily == libMesh::L2_LAGRANGE)
         {
             solve_reaction_step_dg(dt, time, step, useMidpoint, mass, I4f_ptr);
         }
@@ -891,39 +1279,29 @@ namespace BeatIt
 
     }
 
-
-    void ElectroSolver::solve_reaction_step_cg(double dt, double time, int step, bool useMidpoint, const std::string& mass,
-            libMesh::NumericVector<libMesh::Number>* I4f_ptr)
+    void ElectroSolver::solve_reaction_step_cg(double dt, double time, int step, bool useMidpoint, const std::string& mass, libMesh::NumericVector<libMesh::Number>* I4f_ptr)
     {
         const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 //    BidomainSystem& bidomain_system = M_equationSystems.get_system
 //            < BidomainSystem > ("bidomain"); //Q
         ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
-        IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
         IonicModelSystem& istim_system = M_equationSystems.get_system < IonicModelSystem > ("istim");
         // WAVE
         ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
         IonicModelSystem& iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
 
         system.rhs->zero();
-        iion_system.solution->zero();
         istim_system.solution->zero();
-        auto& iion_rhs_old = ionic_model_system.get_vector("rhs_old");
         istim_system.get_vector("stim_i").zero();
         istim_system.get_vector("stim_e").zero();
         istim_system.get_vector("surf_stim_i").zero();
         istim_system.get_vector("surf_stim_e").zero();
-        //iion_system.old_local_solution->zero();
+        iion_system.solution->zero();
         iion_system.get_vector("diion").zero();
 
-        double Cm = M_ionicModelPtr->membraneCapacitance();
+        //iion_system.old_local_solution->zero();
 
-        int num_vars = ionic_model_system.n_vars();
-        std::vector<double> values(num_vars + 1, 0.0);
-        std::vector<double> old_values(num_vars + 1, 0.0);
-
-        std::vector<double> gating_rhs(num_vars + 1, 0.0); // First entry is reserved to Q^n
-        std::vector<double> gating_rhs_old(num_vars + 1, 0.0); // First entry is reserved to Q^n-1
+        double Cm = 1.0;        //M_ionicModelPtr->membraneCapacitance();
 
         int var_index = 0;
 
@@ -932,14 +1310,13 @@ namespace BeatIt
 
         const libMesh::DofMap & dof_map = system.get_dof_map();
         const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
-        const libMesh::DofMap & dof_map_gating = ionic_model_system.get_dof_map();
         const libMesh::DofMap & dof_map_istim = istim_system.get_dof_map();
 
         std::vector < libMesh::dof_id_type > dof_indices;
         std::vector < libMesh::dof_id_type > dof_indices_V;
         std::vector < libMesh::dof_id_type > dof_indices_Q;
-        std::vector < libMesh::dof_id_type > dof_indices_gating;
         std::vector < libMesh::dof_id_type > dof_indices_istim;
+        std::vector < libMesh::dof_id_type > dof_indices_gating;
 
         if (M_pacing) M_pacing->update(time);
         if (M_pacing_i) M_pacing_i->update(time);
@@ -963,14 +1340,13 @@ namespace BeatIt
             // Are we in the bath?
             auto n_var = nn->n_vars(system.number());
             auto n_dofs = nn->n_dofs(system.number());
-           // std::cout << "n_dofs per node: " << n_dofs << ", n_var: " << n_var << std::endl;
+            // std::cout << "n_dofs per node: " << n_dofs << ", n_var: " << n_var << std::endl;
             libMesh::Point p((*nn)(0), (*nn)(1), (*nn)(2));
             if (n_var == n_dofs)
             {
                 dof_map.dof_indices(nn, dof_indices_Q, 0);
                 dof_map_V.dof_indices(nn, dof_indices_V, 0);
                 dof_map_istim.dof_indices(nn, dof_indices_istim, 0);
-                dof_map_gating.dof_indices(nn, dof_indices_gating);
 
                 if (M_pacing_i) stim_i = M_pacing_i->eval(p, time);
                 if (M_pacing_e) stim_e = M_pacing_e->eval(p, time);
@@ -979,80 +1355,112 @@ namespace BeatIt
                 if (M_pacing) istim = M_pacing->eval(p, time);
 
                 double Iion_old = 0.0;
-                values[0] = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
-                gating_rhs[0] = (*system.old_local_solution)(dof_indices_Q[0]); //Q^n
+                double v = (*wave_system.old_local_solution)(dof_indices_V[0]); //V^n
+                double gating_rhs_ = (*system.old_local_solution)(dof_indices_Q[0]); //Q^n
                 Iion_old = (*iion_system.old_local_solution)(dof_indices_istim[0]); // gating
+                int key = iion_system.get_vector("ionic_model_map")(dof_indices_istim[0]);
+                auto it_ionic_model = M_ionicModelPtrMap.find(key);
+                auto it_ionic_model_name = M_ionicModelNameMap.find(key);
+//                std::cout << "key: " << key << std::endl;
 
-                for (int nv = 0; nv < num_vars; ++nv)
+                IonicModel * ionicModelPtr = nullptr;
+                if (it_ionic_model != M_ionicModelPtrMap.end()) ionicModelPtr = it_ionic_model->second.get();
+                else
                 {
-                    var_index = dof_indices_gating[nv];
-                    values[nv + 1] = (*ionic_model_system.old_local_solution)(var_index);
-                    old_values[nv + 1] = values[nv + 1];
-
+                   throw std::runtime_error("node without ionicModelPtr!!!");
                 }
-
-                if (TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
+//                if (it_ionic_model_name != M_ionicModelNameMap.end()) ionic_model_system_name = it_ionic_model_name->second;
+                std::string ionic_model_system_name = M_ionicModelNameMap[it_ionic_model->first];
+//                std::cout << "node ID: " << nn->id() << std::endl;
+//                std::cout  << "ionicModelPtr: " << ionicModelPtr << std::end;
+//                std::cout  << "ionic_model_system_name: " << ionic_model_system_name << std::end;
+               // std::cout << "ptr: " << ionicModelPtr << std::endl;
+                if (ionicModelPtr)
                 {
-                    M_ionicModelPtr->updateVariables(values, istim, dt);
+                    IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (ionic_model_system_name);
+                    auto& iion_rhs_old = ionic_model_system.get_vector("rhs_old");
+                    int num_vars = ionic_model_system.n_vars();
+                   // std::cout << "ionic_model_system_name: " << ionicModelPtr->ionicModelName() << ", num_vars: " << num_vars << std::endl;
+                    std::vector<double> values(num_vars + 1, 0.0);
+                    values[0] = v;
+                    std::vector<double> old_values(num_vars + 1, 0.0);
+                    std::vector<double> gating_rhs(num_vars + 1, 0.0); // First entry is reserved to Q^n
+                    gating_rhs[0] = gating_rhs_;
+                    std::vector<double> gating_rhs_old(num_vars + 1, 0.0); // First entry is reserved to Q^n-1
+                    const libMesh::DofMap & dof_map_gating = ionic_model_system.get_dof_map();
+                    dof_map_gating.dof_indices(nn, dof_indices_gating);
 
-                }
-                else // using SBDF2
-                {
-                    if (M_timestep_counter >= 0)
+                    for (int nv = 0; nv < num_vars; ++nv)
                     {
-                        bool overwrite = true;
-                        // Recall: gating_rhs[0] = Q^n
-                        M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
+                        var_index = dof_indices_gating[nv];
+                        values[nv + 1] = (*ionic_model_system.old_local_solution)(var_index);
+                        old_values[nv + 1] = values[nv + 1];
+
                     }
-                    else
+
+                    if (TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
                     {
-                        bool overwrite = false;
-                        // Recall: gating_rhs[0] = Q^n
-                        M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
-                        for (int nv = 0; nv < values.size(); ++nv)
+                        ionicModelPtr->updateVariables(values, istim, dt);
+
+                    }
+                    else // using SBDF2
+                    {
+                        if (M_timestep_counter >= 0)
                         {
-                            var_index = dof_indices_gating[nv];
-                            ionic_model_system.rhs->set(var_index, gating_rhs[nv + 1]);
-
-                            old_values[nv + 1] = (*ionic_model_system.older_local_solution)(var_index);
-                            double f_nm1 = iion_rhs_old(var_index);
-                            double f_n = gating_rhs[nv + 1];
-                            // Update using SBDF2
-                            // w^n+1 = 4/3 * w^n - 1/3 * w^n-1 + 2/3*dt * (2*f^n - f^n-1)
-                            // w^n+1 = ( 4 * w^n - w^n-1 + 2 * dt * (2*f^n - f^n-1) ) / 3
-                            values[nv + 1] = (4.0 * values[nv + 1] - old_values[nv + 1] + 2.0 * dt * (2 * f_n - f_nm1)) / 3;
+                            bool overwrite = true;
+                            // Recall: gating_rhs[0] = Q^n
+                            ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
                         }
+                        else
+                        {
+                            bool overwrite = false;
+                            // Recall: gating_rhs[0] = Q^n
+                            ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
+                            for (int nv = 0; nv < values.size(); ++nv)
+                            {
+                                var_index = dof_indices_gating[nv];
+                                ionic_model_system.rhs->set(var_index, gating_rhs[nv + 1]);
+
+                                old_values[nv + 1] = (*ionic_model_system.older_local_solution)(var_index);
+                                double f_nm1 = iion_rhs_old(var_index);
+                                double f_n = gating_rhs[nv + 1];
+                                // Update using SBDF2
+                                // w^n+1 = 4/3 * w^n - 1/3 * w^n-1 + 2/3*dt * (2*f^n - f^n-1)
+                                // w^n+1 = ( 4 * w^n - w^n-1 + 2 * dt * (2*f^n - f^n-1) ) / 3
+                                values[nv + 1] = (4.0 * values[nv + 1] - old_values[nv + 1] + 2.0 * dt * (2 * f_n - f_nm1)) / 3;
+                            }
+                        }
+
                     }
+                    double Iion = ionicModelPtr->current_scaling() * ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
+                    // Recall: gating_rhs[0] = Q^n
+                    // HACK: For now, as I've implemented the second order scheme only for a dew ionic models
+                    //       I keep everything as it was before I started the implementation of SBDF2
+                    if (ionicModelPtr->isSecondOrderImplemented()) dIion = ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, gating_rhs, dt, M_meshSize);
+                    else dIion = ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, old_values, dt, M_meshSize);
 
-                }
-                double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
-                // Recall: gating_rhs[0] = Q^n
-                // HACK: For now, as I've implemented the second order scheme only for a dew ionic models
-                //       I keep everything as it was before I started the implementation of SBDF2
-                if (M_ionicModelPtr->isSecondOrderImplemented()) dIion = M_ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, gating_rhs, dt, M_meshSize);
-                else dIion = M_ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, old_values, dt, M_meshSize);
+                    double Isac = 0.0;
+                    if (I4f_ptr)
+                    {
+                        double I4f = (*I4f_ptr)(dof_indices_V[0]);
+                        Isac = ionicModelPtr->evaluateSAC(values[0], I4f);
+                    }
+                    Iion += Isac;
 
-                double Isac = 0.0;
-                if (I4f_ptr)
-                {
-                    double I4f = (*I4f_ptr)(dof_indices_V[0]);
-                    Isac = M_ionicModelPtr->evaluateSAC(values[0], I4f);
-                }
-                Iion += Isac;
+                    iion_system.solution->set(dof_indices_istim[0], Iion); // contains Istim
+                    istim_system.solution->set(dof_indices_istim[0], istim);
+                    istim_system.get_vector("stim_i").set(dof_indices_istim[0], stim_i); //Istim^n+1
+                    istim_system.get_vector("surf_stim_i").set(dof_indices_istim[0], surf_stim_i); //Istim^n+1
+                    istim_system.get_vector("stim_e").set(dof_indices_istim[0], stim_e); //Istim^n+1
+                    istim_system.get_vector("surf_stim_e").set(dof_indices_istim[0], surf_stim_e); //Istim^n+1
 
-                iion_system.solution->set(dof_indices_istim[0], Iion); // contains Istim
-                istim_system.solution->set(dof_indices_istim[0], istim);
-                istim_system.get_vector("stim_i").set(dof_indices_istim[0], stim_i); //Istim^n+1
-                istim_system.get_vector("surf_stim_i").set(dof_indices_istim[0], surf_stim_i); //Istim^n+1
-                istim_system.get_vector("stim_e").set(dof_indices_istim[0], stim_e); //Istim^n+1
-                istim_system.get_vector("surf_stim_e").set(dof_indices_istim[0], surf_stim_e); //Istim^n+1
+                    iion_system.get_vector("diion").set(dof_indices_istim[0], dIion);
+                    for (int nv = 0; nv < num_vars; ++nv)
+                    {
+                        var_index = dof_indices_gating[nv];
 
-                iion_system.get_vector("diion").set(dof_indices_istim[0], dIion);
-                for (int nv = 0; nv < num_vars; ++nv)
-                {
-                    var_index = dof_indices_gating[nv];
-
-                    ionic_model_system.solution->set(var_index, values[nv + 1]);
+                        ionic_model_system.solution->set(var_index, values[nv + 1]);
+                    }
                 }
             }
             c++;
@@ -1070,207 +1478,83 @@ namespace BeatIt
         istim_system.get_vector("stim_e").close();
         istim_system.get_vector("surf_stim_i").close();
         istim_system.get_vector("surf_stim_e").close();
-        ionic_model_system.solution->close();
         iion_system.get_vector("diion").close();
         iion_system.get_vector("diion_old").close();
-        ionic_model_system.get_vector("rhs_old").close();
-        ionic_model_system.rhs->close();
 
-        iion_system.update();
-        ionic_model_system.update();
-        istim_system.update();
-    }
-
-
-    void ElectroSolver::solve_reaction_step_dg(double dt, double time, int step, bool useMidpoint, const std::string& mass,
-            libMesh::NumericVector<libMesh::Number>* I4f_ptr)
-    {
-        const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
-        ElectroSystem& system = M_equationSystems.get_system < ElectroSystem > (M_model);
-        IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
-        IonicModelSystem& istim_system = M_equationSystems.get_system < IonicModelSystem > ("istim");
-        // WAVE
-        ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
-        IonicModelSystem& iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
-
-        system.rhs->zero();
-        iion_system.solution->zero();
-        istim_system.solution->zero();
-        auto& iion_rhs_old = ionic_model_system.get_vector("rhs_old");
-        istim_system.get_vector("stim_i").zero();
-        istim_system.get_vector("stim_e").zero();
-        istim_system.get_vector("surf_stim_i").zero();
-        istim_system.get_vector("surf_stim_e").zero();
-        //iion_system.old_local_solution->zero();
-        iion_system.get_vector("diion").zero();
-
-        double Cm = M_ionicModelPtr->membraneCapacitance();
-
-        int num_vars = ionic_model_system.n_vars();
-        std::vector<double> values(num_vars + 1, 0.0);
-        std::vector<double> old_values(num_vars + 1, 0.0);
-
-        std::vector<double> gating_rhs(num_vars + 1, 0.0); // First entry is reserved to Q^n
-        std::vector<double> gating_rhs_old(num_vars + 1, 0.0); // First entry is reserved to Q^n-1
-
-        int var_index = 0;
-
-        libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
-        const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
-
-        const libMesh::DofMap & dof_map = system.get_dof_map();
-        const libMesh::DofMap & dof_map_V = wave_system.get_dof_map();
-        const libMesh::DofMap & dof_map_gating = ionic_model_system.get_dof_map();
-        const libMesh::DofMap & dof_map_istim = istim_system.get_dof_map();
-
-        std::vector < libMesh::dof_id_type > dof_indices;
-        std::vector < libMesh::dof_id_type > dof_indices_V;
-        std::vector < libMesh::dof_id_type > dof_indices_Q;
-        std::vector < libMesh::dof_id_type > dof_indices_gating;
-        std::vector < libMesh::dof_id_type > dof_indices_istim;
-
-        if (M_pacing) M_pacing->update(time);
-        if (M_pacing_i) M_pacing_i->update(time);
-        if (M_pacing_e) M_pacing_e->update(time);
-        if (M_surf_pacing_i) M_surf_pacing_i->update(time);
-        if (M_surf_pacing_e) M_surf_pacing_e->update(time);
-
-        int c = 0;
-
-        for (; el != end_el; ++el)
+        for (auto && name : M_ionic_models_systems_name_vec)
         {
-            const libMesh::Elem * elem = *el;
-            const unsigned int elem_id = elem->id();
-            auto n_var = elem->n_vars(wave_system.number());
-            auto n_dofs = elem->n_dofs(wave_system.number());
-            if (n_var > 0)
-            {
-                dof_map.dof_indices(elem, dof_indices_Q, 0);
-                dof_map_V.dof_indices(elem, dof_indices_V, 0);
-                dof_map_istim.dof_indices(elem, dof_indices_istim, 0);
-
-                libMesh::Point p(elem->centroid());
-
-                for(int k = 0; k < dof_indices_Q.size(); ++k)
-                {
-                    double istim = 0.0;
-                    double istim_zero = 0.0;
-                    double stim_i = 0.0;
-                    double surf_stim_i = 0.0;
-                    double stim_e = 0.0;
-                    double surf_stim_e = 0.0;
-
-                    double dIion = 0.0;
-
-                    if (M_pacing_i) stim_i = M_pacing_i->eval(p, time);
-                    if (M_pacing_e) stim_e = M_pacing_e->eval(p, time);
-                    if (M_surf_pacing_i) surf_stim_i = M_surf_pacing_i->eval(p, time);
-                    if (M_surf_pacing_e) surf_stim_e = M_surf_pacing_e->eval(p, time);
-                    if (M_pacing) istim = M_pacing->eval(p, time);
-
-                    double Iion_old = 0.0;
-                    values[0] = (*wave_system.old_local_solution)(dof_indices_V[k]); //V^n
-                    gating_rhs[0] = (*system.old_local_solution)(dof_indices_Q[k]); //Q^n
-                    Iion_old = (*iion_system.old_local_solution)(dof_indices_istim[k]); // gating
-
-                    for (int nv = 0; nv < num_vars; ++nv)
-                    {
-                        dof_map_gating.dof_indices(elem, dof_indices_gating, nv);
-                        var_index = dof_indices_gating[k];
-                        values[nv + 1] = (*ionic_model_system.old_local_solution)(var_index);
-                        old_values[nv + 1] = values[nv + 1];
-                    }
-
-                    if (TimeIntegrator::FirstOrderIMEX == M_timeIntegrator)
-                    {
-                        M_ionicModelPtr->updateVariables(values, istim, dt);
-                    }
-                    else // using SBDF2
-                    {
-                        if (M_timestep_counter >= 0)
-                        {
-                            bool overwrite = true;
-                            // Recall: gating_rhs[0] = Q^n
-                            M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
-                        }
-                        else
-                        {
-                            bool overwrite = false;
-                            // Recall: gating_rhs[0] = Q^n
-                            M_ionicModelPtr->updateVariables(values, gating_rhs, istim, dt, overwrite);
-                            for (int nv = 0; nv < values.size(); ++nv)
-                            {
-                                dof_map_gating.dof_indices(elem, dof_indices_gating, nv);
-                                var_index = dof_indices_gating[k];
-                                ionic_model_system.rhs->set(var_index, gating_rhs[nv + 1]);
-
-                                old_values[nv + 1] = (*ionic_model_system.older_local_solution)(var_index);
-                                double f_nm1 = iion_rhs_old(var_index);
-                                double f_n = gating_rhs[nv + 1];
-                                // Update using SBDF2
-                                // w^n+1 = 4/3 * w^n - 1/3 * w^n-1 + 2/3*dt * (2*f^n - f^n-1)
-                                // w^n+1 = ( 4 * w^n - w^n-1 + 2 * dt * (2*f^n - f^n-1) ) / 3
-                                values[nv + 1] = (4.0 * values[nv + 1] - old_values[nv + 1] + 2.0 * dt * (2 * f_n - f_nm1)) / 3;
-                            }
-                        }
-
-                    }
-                    double Iion = M_ionicModelPtr->evaluateIonicCurrent(values, istim, dt);
-                    // Recall: gating_rhs[0] = Q^n
-                    // HACK: For now, as I've implemented the second order scheme only for a dew ionic models
-                    //       I keep everything as it was before I started the implementation of SBDF2
-                    if (M_ionicModelPtr->isSecondOrderImplemented())
-                        dIion = M_ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, gating_rhs, dt, M_meshSize);
-                    else
-                        dIion = M_ionicModelPtr->evaluateIonicCurrentTimeDerivative(values, old_values, dt, M_meshSize);
-
-                    double Isac = 0.0;
-                    if (I4f_ptr)
-                    {
-                        std::cout << "WARNING: THIS MAY NOT WORK WITH DG: I4f_ptr needs to have the same size as V"<< std::endl;
-                        double I4f = (*I4f_ptr)(dof_indices_V[k]);
-                        Isac = M_ionicModelPtr->evaluateSAC(values[0], I4f);
-                    }
-                    Iion += Isac;
-
-                    iion_system.solution->set(dof_indices_istim[k], Iion); // contains Istim
-                    istim_system.solution->set(dof_indices_istim[k], istim);
-                    istim_system.get_vector("stim_i").set(dof_indices_istim[k], stim_i); //Istim^n+1
-                    istim_system.get_vector("surf_stim_i").set(dof_indices_istim[k], surf_stim_i); //Istim^n+1
-                    istim_system.get_vector("stim_e").set(dof_indices_istim[k], stim_e); //Istim^n+1
-                    istim_system.get_vector("surf_stim_e").set(dof_indices_istim[k], surf_stim_e); //Istim^n+1
-
-                    iion_system.get_vector("diion").set(dof_indices_istim[k], dIion);
-                    for (int nv = 0; nv < num_vars; ++nv)
-                    {
-                        dof_map_gating.dof_indices(elem, dof_indices_gating, nv);
-                        var_index = dof_indices_gating[k];
-                        ionic_model_system.solution->set(var_index, values[nv + 1]);
-                    }
-                }
-            }
-            c++;
-
+            IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (name);
+            ionic_model_system.solution->close();
+            ionic_model_system.get_vector("rhs_old").close();
+            ionic_model_system.rhs->close();
+            ionic_model_system.update();
         }
 
-        iion_system.solution->close();
-        istim_system.solution->close();
-
-        istim_system.get_vector("stim_i").close();
-        istim_system.get_vector("stim_e").close();
-        istim_system.get_vector("surf_stim_i").close();
-        istim_system.get_vector("surf_stim_e").close();
-        ionic_model_system.solution->close();
-        iion_system.get_vector("diion").close();
-        iion_system.get_vector("diion_old").close();
-        ionic_model_system.get_vector("rhs_old").close();
-        ionic_model_system.rhs->close();
-
         iion_system.update();
-        ionic_model_system.update();
         istim_system.update();
     }
 
+    void ElectroSolver::solve_reaction_step_dg(double dt, double time, int step, bool useMidpoint, const std::string& mass, libMesh::NumericVector<libMesh::Number>* I4f_ptr)
+    {
+        throw std::runtime_error("DG NOT CODED!");
+    }
 
+    void ElectroSolver::setup_ODE_systems(GetPot& data, std::string section)
+    {
+        // ///////////////////////////////////////////////////////////////////////
+        // ///////////////////////////////////////////////////////////////////////
+        // 2) ODEs
+        std::cout << "* ElectroSolver: Creating new System for the ionic model. Data section: " << section << std::endl;
+        // Create Ionic Model
+        std::string ionic_models_list = data(section + "/ionic_models_list", "NONE");
+        BeatIt::readList(ionic_models_list, M_ionic_models_vec);
+        int num_ionic_models = M_ionic_models_vec.size();
 
+        std::string ionic_models_IDs_list = data(section + "/ionic_models_IDs_list", "NONE");
+        BeatIt::readList(ionic_models_IDs_list, M_ionic_models_IDs_vec);
+        if (M_ionic_models_IDs_vec.size() < 1)
+        {
+            for (auto && m : M_ionic_models_vec)
+                M_ionic_models_IDs_vec.push_back(secret_blockID_key);
+        }
+
+        for (int k = 0; k < num_ionic_models; ++k)
+        {
+        	std::string ionic_model_system_name = M_ionic_models_vec[k] + "_" + std::to_string(k);
+        	M_ionic_models_systems_name_vec.push_back(ionic_model_system_name);
+            //        std::string ionic_model = M_datafile(section + "/ionic_model", "NashPanfilov");
+            IonicModelSystem& ionic_model_system = M_equationSystems.add_system < IonicModelSystem > (M_ionic_models_systems_name_vec[k]);
+            M_ionicModelExporterNames.insert(M_ionic_models_systems_name_vec[k]);
+
+            std::shared_ptr<IonicModel> ionicModelPtr(BeatIt::IonicModel::IonicModelFactory::Create(M_ionic_models_vec[k]));
+            M_ionicModelPtrMap[M_ionic_models_IDs_vec[k]] = ionicModelPtr;
+            M_ionicModelNameMap[M_ionic_models_IDs_vec[k]] = M_ionic_models_systems_name_vec[k];
+            ionicModelPtr->setup(M_datafile, section);
+            int num_vars = ionicModelPtr->numVariables();
+            // TO DO: Generalize to other conditions
+            // We need to exclude the potential
+            // therefore we loop up to num_vars-1
+            std::set<short unsigned int> gating_block_id;
+            gating_block_id.insert(M_ionic_models_IDs_vec[k]);
+            for (int nv = 0; nv < num_vars - 1; ++nv)
+            {
+                std::string var_name = ionicModelPtr->variableName(nv);
+                // For the time being we use P1 for the variables
+                //if (M_tissueBlockID >= 0)
+                ionic_model_system.add_variable(&var_name[0], M_order, M_FEFamily, &gating_block_id);
+                //        else
+                //            ionic_model_system.add_variable(&var_name[0], M_order);
+            }
+            ionic_model_system.add_vector("rhs_old");
+            //ionic_model_system.add_vector("rhs_older");
+            ionic_model_system.init();
+        }
+        std::cout << "Ionic Model Name Map: " << std::endl;
+        for (auto && m : M_ionicModelNameMap)
+            std::cout << m.first << ", " << m.second << std::endl;
+        std::cout << "Ionic Model Ptr Map: " << std::endl;
+        for (auto && m : M_ionicModelPtrMap)
+            std::cout << m.first << ", " << m.second << std::endl;
+
+    }
 } /* namespace BeatIt */

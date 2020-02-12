@@ -125,6 +125,9 @@ public:
 	//Nernst Potentials
 	void nernst_potentials(const std::vector<double>& variables);
 
+    void setup(GetPot& /*data*/, std::string /*section*/);
+
+
 private:
 	void update();
 	/* Ion Current Functions */
@@ -138,7 +141,7 @@ private:
     double R_cell; // 3.9 /* Radius of the cell (um) */
     constexpr static double V_ipart =  0.46; /* part of the cell volume occupied by myoplasm */
     constexpr static double V_jsrpart =  0.0012; /* part of the cell volume occupied by junctional SR */
-    constexpr static double V_nsrpart =  0.46; /* part of the cell volume occupied by network SR */
+    constexpr static double V_nsrpart =  0.0116; /* part of the cell volume occupied by network SR */
     double V_cell;// = pi * R_cell * R_cell * L_cell; /*cell volume */
     double V_sub;// = 2 * pi * L_sub * L_cell * ( R_cell - 0.5 * L_sub ); /* submembrane space volume */
     double V_i;// = V_ipart * V_cell - V_sub; /*myoplasmic  volume */
@@ -170,7 +173,8 @@ private:
 
     // Sarcolemmal ion currents and their conductances
     // If
-    const double g_f = 0.00427; //uS
+//    const double g_f = 0.00427; //uS
+    double g_f;
 //    const double g_fNa = 0.00268; //uS
 //    const double g_fK = 0.00159; //uS
     //ICaL

@@ -101,7 +101,7 @@ Electromechanics::setup( GetPot& data,
     GetPot Edata(electro_data);
     M_monowave.reset( new Monowave(M_equationSystems) );
     M_monowave->setup(Edata, electro_section);
-    std::string ionic_model_name = M_monowave->M_ionicModelPtr->ionicModelName();
+//    std::string ionic_model_name = M_monowave->M_ionicModelPtr->ionicModelName();
 
     // Mechanics
     std::cout << "* ELECTROMECHANICS: creating mechanical solver " << std::endl;
@@ -121,8 +121,8 @@ Electromechanics::setup( GetPot& data,
     activation_system.add_variable( "gammaf", libMesh::FIRST);
     activation_system.init();
 
-    if(ionic_model_name != "NashPanfilov" && ionic_model_name != "FentonKarma")
-    {
+//    if(ionic_model_name != "NashPanfilov" && ionic_model_name != "FentonKarma")
+//    {
 		ActivationSystem& NL06_system = M_equationSystems.add_system<ActivationSystem>("NL06");
 		NL06_system.add_variable( "TCa", libMesh::FIRST);
 		NL06_system.add_variable( "TCas", libMesh::FIRST);
@@ -130,7 +130,7 @@ Electromechanics::setup( GetPot& data,
 		NL06_system.add_variable( "X", libMesh::FIRST);
 		NL06_system.add_variable( "F", libMesh::FIRST);
 		NL06_system.init();
-    }
+//    }
 
     BeatIt::createOutputFolder(activation_system.get_mesh().comm(), M_outputFolder);
     M_equationSystems.print_info(std::cout);
@@ -160,9 +160,11 @@ void
 Electromechanics::compute_activation(double dt)
 {
 //			std::cout << "\n Solving activation: "  <<  std::endl;
-
-    std::string ionic_model_name = M_monowave->M_ionicModelPtr->ionicModelName();
-    ActivationSystem& activation_system = M_equationSystems.get_system<ActivationSystem>("activation");
+    throw std::runtime_error("Electromechanics CODE is broken");
+//    std::string ionic_model_name = M_monowave->M_ionicModelPtr->ionicModelName();
+    // TO DO: move ionic model ptr to map
+    std::string ionic_model_name = ""; //M_monowave->M_ionicModelPtr->ionicModelName();
+        ActivationSystem& activation_system = M_equationSystems.get_system<ActivationSystem>("activation");
     typedef libMesh::ExplicitSystem                     ParameterSystem;
     ParameterSystem& dummy_system       = M_equationSystems.get_system<ParameterSystem>("dumb");
     typedef libMesh::TransientExplicitSystem           IonicModelSystem;

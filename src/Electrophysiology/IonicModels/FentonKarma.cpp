@@ -84,6 +84,7 @@ void
 FentonKarma::setup(GetPot& data, std::string sect)
 {
 	std::string section = sect + "/FentonKarma";
+	super::setup(data,sect);
 	// From Fenton: Mechanisms of Spiral break up
     // parameter set 1, 3, 4, 5, 6, 8, 9, 10
 	// Parameter set 100 for the Right Atria

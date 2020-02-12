@@ -143,16 +143,16 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // Starts by creating the equation systems
     // 1) ADR
-    M_tissueBlockID = M_datafile(section + "/tissue_blockID", -1);
-    std::set<libMesh::subdomain_id_type> active_tissue_subdomain;
-    active_tissue_subdomain.clear();
-    active_tissue_subdomain.insert(static_cast<libMesh::subdomain_id_type>(M_tissueBlockID));
+
+//    std::set<libMesh::subdomain_id_type> active_tissue_subdomain;
+//    active_tissue_subdomain.clear();
+//    active_tissue_subdomain.insert(static_cast<libMesh::subdomain_id_type>(M_tissueBlockID));
 
     std::cout << "* BIDOMAIN+BATH: Creating new System for the hyperbolic bidomain equations" << std::endl;
     BidomainSystem& bidomain_system = M_equationSystems.add_system<BidomainSystem>(M_model);
     // TO DO: Generalize to higher order
-    if (M_tissueBlockID >= 0)
-        bidomain_system.add_variable("Q", M_order, &active_tissue_subdomain);
+    if (M_tissueBlockIDs.size() >= 0)
+        bidomain_system.add_variable("Q", M_order, &M_tissueBlockIDs);
     else
         bidomain_system.add_variable("Q", M_order);
     bidomain_system.add_variable("Ve", M_order);
@@ -226,8 +226,8 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     // WAVE
 
     BidomainSystem& wave_system = M_equationSystems.add_system<BidomainSystem>("wave");
-    if (M_tissueBlockID >= 0)
-        wave_system.add_variable("V", M_order, &active_tissue_subdomain);
+    if (M_tissueBlockIDs.size() >= 0)
+        wave_system.add_variable("V", M_order, &M_tissueBlockIDs);
     else
         wave_system.add_variable("V", M_order);
 
@@ -237,33 +237,8 @@ void BidomainWithBath::setup_systems(GetPot& data, std::string section)
     wave_system.init();
     M_exporterNames.insert("wave");
 
-    // ///////////////////////////////////////////////////////////////////////
-    // ///////////////////////////////////////////////////////////////////////
-    // 2) ODEs
-    std::cout << "* BIDOMAIN+BATH: Creating new System for the ionic model " << std::endl;
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
-    // Create Ionic Model
-    std::string ionic_model = M_datafile(section + "/ionic_model", "NashPanfilov");
-    M_ionicModelPtr.reset(BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
-    M_ionicModelPtr->setup(M_datafile, section);
-    int num_vars = M_ionicModelPtr->numVariables();
-    // TO DO: Generalize to other conditions
-    // We need to exclude the potential
-    // therefore we loop up to num_vars-1
-    for (int nv = 0; nv < num_vars - 1; ++nv)
-    {
-        std::string var_name = M_ionicModelPtr->variableName(nv);
-        // For the time being we use P1 for the variables
-        if (M_tissueBlockID >= 0)
-            ionic_model_system.add_variable(&var_name[0], M_order, &active_tissue_subdomain);
-        else
-            ionic_model_system.add_variable(&var_name[0], M_order);
-    }
-    ionic_model_system.add_vector("rhs_old");
-    //ionic_model_system.add_vector("rhs_older");
-    ionic_model_system.init();
+    setup_ODE_systems(data, section);
 
-    M_ionicModelExporterNames.insert("ionic_model");
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
@@ -529,11 +504,11 @@ void BidomainWithBath::assemble_matrices(double dt)
     //const libMesh::Real Cm = M_equationSystems.parameters.get<libMesh::Real>("Cm");
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");
-    double Cm = M_ionicModelPtr->membraneCapacitance();
+    double Cm = 1.0; // M_ionicModelPtr->membraneCapacitance();
 
     // Get a reference to the LinearImplicitSystem we are solving
     BidomainSystem& bidomain_system = M_equationSystems.get_system<BidomainSystem>(M_model);
-    IonicModelSystem& ionic_model_system = M_equationSystems.get_system<IonicModelSystem>("ionic_model");
+//    IonicModelSystem& ionic_model_system = M_equationSystems.get_system<IonicModelSystem>("ionic_model");
     BidomainSystem& wave_system = M_equationSystems.get_system<BidomainSystem>("wave");
 
     unsigned int Q_var = bidomain_system.variable_number("Q");
@@ -822,9 +797,11 @@ void BidomainWithBath::assemble_matrices(double dt)
         Mel.resize(n_dofs, n_dofs);
         Fe.resize(n_dofs);
 
-        if (M_tissueBlockID == elem->subdomain_id() || M_tissueBlockID < 0)
-        {
+        auto bid = elem->subdomain_id();
+        auto it_bid = M_tissueBlockIDs.find(bid);
 
+        if (it_bid != M_tissueBlockIDs.end() || M_tissueBlockIDs.size() < 1)
+        {
             // Assemble Mass terms
             for (unsigned int qp = 0; qp < qrule.n_points(); qp++)
             {
@@ -884,7 +861,6 @@ void BidomainWithBath::assemble_matrices(double dt)
         }
         else
         {
-
             Ke.resize(n_Ve_dofs, n_Ve_dofs);
             Me.resize(n_Ve_dofs, n_Ve_dofs);
             Mel.resize(n_Ve_dofs, n_Ve_dofs);
@@ -963,7 +939,7 @@ void BidomainWithBath::assemble_matrices(double dt)
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Me, Fe, dof_indices);
 //      dof_map_bidomain.constrain_element_matrix_and_vector(Mel, Fe, dof_indices);
 
-        if (M_tissueBlockID == elem->subdomain_id() || M_tissueBlockID < 0)
+        if (it_bid != M_tissueBlockIDs.end() || M_tissueBlockIDs.size() < 1)
         {
             bidomain_system.get_matrix("mass").add_matrix(Me, dof_indices);
             bidomain_system.get_matrix("lumped_mass").add_matrix(Mel, dof_indices);
@@ -1126,7 +1102,7 @@ void BidomainWithBath::form_system_rhs(double dt, bool useMidpoint, const std::s
     bidomain_system.get_vector("old_solution").close();
     iion_system.get_vector("diion").close();
 
-    double Cm = M_ionicModelPtr->membraneCapacitance();
+    double Cm = 1.0; //M_ionicModelPtr->membraneCapacitance();
     const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
     const libMesh::Real tau_e = M_equationSystems.parameters.get<libMesh::Real>("tau_e");
     const libMesh::Real tau_i = M_equationSystems.parameters.get<libMesh::Real>("tau_i");

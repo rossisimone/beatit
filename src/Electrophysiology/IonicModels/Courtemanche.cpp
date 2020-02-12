@@ -115,6 +115,10 @@ Courtemanche::Courtemanche() :
 	//iky = 0.6;
 	M_variablesNames[25] = "iky";
 
+	double cell_volume = pi * a * a * l; // cm^3
+	double cell_surface_area = 2.0 * pi * a * a + 2.0 * pi * a * l;//cm^2
+	M_surface_to_volume_ratio = cell_surface_area /  cell_volume; //cm^-1
+
 }
 
 void Courtemanche::initializeSaveData(std::ostream& output)

@@ -74,7 +74,6 @@ public:
     void solve_diffusion_step(double dt, double time,  bool useMidpoint = true, const std::string& mass = "lumped_mass", bool reassemble = true);
 
 
-    int M_tissueBlockID;
 
     // For Dirichlet Boundary conditions
     // We use the boundary info to get the list of node with the specified ID

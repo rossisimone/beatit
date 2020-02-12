@@ -49,6 +49,7 @@
 
 #include "Electrophysiology/IonicModels/Fabbri17.hpp"
 #include <cmath>
+#include "libmesh/getpot.h"
 
 namespace BeatIt
 {
@@ -61,9 +62,21 @@ IonicModel* createFabbri17()
 Fabbri17::Fabbri17() :
 		super(33, 0, "Fabbri17", CellType::MCell)
 {
+    // funny current conductance
+
+    g_f = 0.00427;
     C = 5.7e-5; /* cell capacitance (uF) */
+    M_membrane_capacitance = C;
     L_cell = 67.0; /* Length of the cell (um) */
     R_cell = 3.9; /* Radius of the cell (um) */
+
+    double pi = 3.141592;
+    double a = R_cell * 1e-4;  /* Radius of the cell (cm) */
+    double l = L_cell * 1e-4;  /* Length of the cell (cm) */
+    double cell_volume = pi * a * a * l; // cm^3
+    double cell_surface_area = 2.0 * pi * a * a + 2.0 * pi * a * l; // cm^2
+//    M_surface_to_volume_ratio = cell_surface_area /  cell_volume; // 1/cm
+
 
     double scaling = 1e-9; // um to mm
     V_cell = scaling*pi * R_cell * R_cell * L_cell; /*cell volume */
@@ -184,6 +197,61 @@ Fabbri17::Fabbri17() :
     // 32
     M_variablesNames[31] = "a";
 }
+
+void
+Fabbri17::setup(GetPot& data, std::string section)
+{
+    M_membrane_capacitance = data(section+"/Cm", 5.7e-5 ); //uF/cm^2
+    M_surface_to_volume_ratio = data(section+"/Chi", 1400.0 );// 1/cm
+    g_f = data(section+"/Fabbri17/g_f", 0.00427 ); //uF/cm^2
+    L_cell = data(section+"/Fabbri17/L_cell", 67.0 ); //uF/cm^2
+    R_cell = data(section+"/Fabbri17/R_cell", 3.9 ); //uF/cm^2
+    double volume  = data(section+"/Fabbri17/volume", -666.0 ); //um^3
+    double cell_aspect_ratio  = data(section+"/Fabbri17/cell_aspect_ratio", 10.0 ); //Length / Width = Length / 2 / R_cell
+    if(volume > 0 && cell_aspect_ratio > 0)  // um^3 -> cm^3
+    {
+        R_cell = std::pow(volume/(2*3.1415*cell_aspect_ratio) , 1.0/3.0);
+        L_cell = 2*R_cell*cell_aspect_ratio;
+    }
+    double area  = data(section+"/Fabbri17/area", -666.0 ); //um^2
+
+    //Reevaluate volumes
+    double pi = 3.141592;
+    double a = R_cell * 1e-4;  /* Radius of the cell (cm) */
+    double l = L_cell * 1e-4;  /* Length of the cell (cm) */
+
+    double cell_volume = pi * a * a * l; // cm^3
+    double cell_surface_area = 2.0 * pi * a * a + 2.0 * pi * a * l; // cm^2
+    if(area > 0) cell_surface_area = area*1e-8; // um^2 -> cm^2
+//    M_surface_to_volume_ratio = cell_surface_area /  cell_volume; // 1/cm
+
+
+    double scaling = 1e-9; // um to mm
+    V_cell = scaling*pi * R_cell * R_cell * L_cell; /*cell volume */
+    V_sub = scaling*2 * pi * L_sub * L_cell * ( R_cell - 0.5 * L_sub ); /* submembrane space volume */
+    V_i = V_ipart * V_cell - V_sub; /*myoplasmic  volume */
+    V_jsr = V_jsrpart * V_cell; /*JSR  volume */
+    V_nsr = V_nsrpart * V_cell; /*NSR  volume */
+
+    // Define C / cell_surface_area = ratio
+    double capacitance_area_ratio = data(section+"/Fabbri17/capacitance_area_ratio", -1.0); //uF/cm^2
+    if( capacitance_area_ratio > 0 )
+    {
+        std::cout << "Using capacitance_area_ratio to define capacitance" << std::endl;
+        // C = cell_surface_area * ratio
+        C = capacitance_area_ratio * cell_surface_area;
+        M_membrane_capacitance = C;
+    }
+    std::cout << "* IONIC MODEL: Fabbri 17:  setup, reading parameters from base section: " << section << std::endl;
+    std::cout << "\tCapacitance/Area: " << capacitance_area_ratio << std::endl;
+    std::cout << "\tCapacitance: " << M_membrane_capacitance*1e6 << " pF" << std::endl;
+    std::cout << "\tCell Length: " << L_cell << " um" << std::endl;
+    std::cout << "\tCell Radius: " << R_cell << " um" << std::endl;
+    std::cout << "\tArea: " << cell_surface_area*1e8 << " um^2"<< std::endl;
+    std::cout << "\tVolume: " << cell_volume*1e12 << " um^3"<< std::endl;
+    std::cout << "\tg_f: " << g_f << " nS" << std::endl;
+}
+
 
 void Fabbri17::initializeSaveData(std::ostream& output)
 {
@@ -315,10 +383,14 @@ double Fabbri17::evaluateIonicCurrent(std::vector<double>& variables,
 //    std::cout << ", i_Kur: " << i_Kur;
 //    std::cout << ", i_tot: " << i_tot << std::endl;
 //    i_tot = i_f;
-    double dV = i_tot / C;
+    // [V/s] -> [V/1000ms] = [ 1e-3 * V/ms];
+//    std::cout << "C: " <<  C << ", Cm: " << M_membrane_capacitance << std::endl;
+    double dV = i_tot / M_membrane_capacitance;
+    double s_to_ms = 1e-3;
  //   std::cout << "i_f: " << i_f << ", dV: " << dV << ", C: " << C << std::endl;
     //std::cout << "dV: " << dV << ", itot: " << i_tot << ", C: " << C << std::endl;
-    return dV;
+
+    return s_to_ms * dV;
 }
 
 void Fabbri17::get_currents(std::vector<double>& currents)
@@ -341,7 +413,9 @@ void Fabbri17::get_currents(std::vector<double>& currents)
 void Fabbri17::updateVariables(std::vector<double>& variables,
 		double appliedCurrent, double dt)
 {
-	this->dt = dt;
+    // This code runs in seconds
+    // but outside model is in milliseconds
+	this->dt = 1e-3*dt;
 	//istim = -appliedCurrent;
 	V = variables[0];
 	v = variables[0];
@@ -665,32 +739,37 @@ Fabbri17::update()
       if(Iso_1_uM > 0 ) b_up = -0.25;
       if(ACh > 0 ) b_up =  0.7*ACh/(0.00009+ACh);
 
+
     double P_up = P_up_basal*(1-b_up);
+//    std::cout << "P_up: " << P_up << std::endl;
+//    std::cout << "Ca_sub: " << Ca_sub << std::endl;
+//    std::cout << "Cai: " << Cai << std::endl;
+
     double j_Ca_dif = (Ca_sub-Cai)/tau_dif_Ca;
     double j_up = P_up/(1+exp((-Cai+K_up)/slope_up));
     double j_tr = (Ca_nsr-Ca_jsr)/tau_tr;
 
     // Ca_buffering
     double delta_fTC = kf_TC*Cai*(1-fTC)-kb_TC*fTC;
-    fTC += dt * delta_fTC;
-
     double delta_fTMC = kf_TMC*Cai*(1-(fTMC+fTMM))-kb_TMC*fTMC;
-    fTMC += dt * delta_fTMC;
-
     double delta_fTMM = kf_TMM*Mgi*(1-(fTMC+fTMM))-kb_TMM*fTMM;
-    fTMM += dt * delta_fTMM;
-
     double delta_fCMi = kf_CM*Cai*(1-fCMi)-kb_CM*fCMi;
-    fCMi += dt * delta_fCMi;
-
     double delta_fCMs = kf_CM*Ca_sub*(1-fCMs)-kb_CM*fCMs;
-    fCMs += dt * delta_fCMs;
-
     double delta_fCQ = kf_CQ*Ca_jsr*(1-fCQ)-kb_CQ*fCQ;
+
+    fTC += dt * delta_fTC;
+    fTMC += dt * delta_fTMC;
+    fTMM += dt * delta_fTMM;
+    fCMi += dt * delta_fCMi;
+    fCMs += dt * delta_fCMs;
     fCQ += dt * delta_fCQ;
 
     // Ca_dynamics
     double dCai = 1*(j_Ca_dif*V_sub-j_up*V_nsr)/V_i-(CM_tot*delta_fCMi+TC_tot*delta_fTC+TMC_tot*delta_fTMC);
+//    std::cout << "dCai: " << dCai << std::endl;
+//    std::cout << "V_sub: " << V_sub << std::endl;
+//    std::cout << "V_nsr: " << V_nsr << std::endl;
+//    std::cout << "V_jsr: " << V_jsr << std::endl;
     double dCa_sub = j_SRCarel*V_jsr/V_sub-((i_siCa+i_CaT-2*i_NaCa)/(2.0*F*V_sub)+j_Ca_dif+CM_tot*delta_fCMs);
     double dCa_nsr = j_up-j_tr*V_jsr/V_nsr;
     double dCa_jsr = j_tr-(j_SRCarel+CQ_tot*delta_fCQ);

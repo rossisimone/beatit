@@ -90,6 +90,11 @@ public:
         return 0.0;
     }
 
+    // convert currents to uA/uF
+    virtual double current_scaling()
+    {
+        return 1.0;
+    }
 	//! Evaluate total ionic current for the computation of the potential
 	/*!
      *  \param [in] V transmember potential
@@ -112,7 +117,7 @@ public:
 
     virtual void setup(GetPot& /*data*/, std::string /*section*/);
 
-    // Number of variables inlcluding transmembrane potential
+    // Number of variables including transmembrane potential
     int numVariables()
     {
     	return M_numVariables;
@@ -139,14 +144,23 @@ public:
         M_cellType = type;
     }
 
+    void set_membrane_capacitance(double C = 1.0)
+    {
+    	M_membrane_capacitance = C;
+    }
     virtual double membraneCapacitance()
     {
         return M_membrane_capacitance;
     }
     virtual void get_currents(std::vector<double>& currents)
     {
-
     }
+
+    virtual double surfaceToVolumeRatio()
+    {
+        return M_surface_to_volume_ratio;
+    }
+
 protected:
 
 //    /// Transmembrane potential
@@ -179,8 +193,10 @@ protected:
     // This is useful for Forward-Backwart Euler
     // and other time integrators
     bool M_overwrite;
-
+    // Membrane Capacitance Cm
     double M_membrane_capacitance;
+    // Surface to Volume ratio \Chi
+    double M_surface_to_volume_ratio;
 
 };
 

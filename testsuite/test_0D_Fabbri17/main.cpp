@@ -53,6 +53,8 @@
 #include <cmath>
 #include <iomanip>
 #include "Util/CTestUtil.hpp"
+#include "Util/IO/io.hpp"
+#include "libmesh/getpot.h"
 
 
 struct Stimulus
@@ -82,28 +84,38 @@ struct Stimulus
 };
 
 
-int main()
+int main(int argc, char ** argv)
 {
     BeatIt::printBanner(std::cout);
+	// Import input file
+	GetPot data = BeatIt::readInputFile(argc, argv);
 
-	std::unique_ptr<BeatIt::IonicModel> pORd( BeatIt::IonicModel::IonicModelFactory::Create("Fabbri17") );
-	int numVar = pORd->numVariables();
+	std::string output_folder = data("output_folder","Output");
+	BeatIt::createOutputFolder(output_folder);
+
+	std::unique_ptr<BeatIt::IonicModel> pFabbri17( BeatIt::IonicModel::IonicModelFactory::Create("Fabbri17") );
+	int numVar = pFabbri17->numVariables();
 	std::vector<double> variables(numVar, 0.0);
 	std::vector<double> currents(12, 0.0);
 
-	std::ofstream output("results.txt");
-	std::ofstream output_iion("currents.txt");
-	pORd->initializeSaveData(output);
-	pORd->initialize(variables);
+	std::ofstream output(output_folder+"/results.txt");
+	std::ofstream output_iion(output_folder+"/currents.txt");
+	pFabbri17->initializeSaveData(output);
+
+	pFabbri17->setup(data,"san");
+	pFabbri17->initialize(variables);
+
+//	double C = data("C", 5.7e-5);
+//	pFabbri17->set_membrane_capacitance(C);
 
         std::cout << std::setprecision(15);
         // model is in seconds
 	double dt = 0.001; // = 1ms
-        dt =1e-5;
-	int save_iter = static_cast<int>(1e-3 / dt);
+        dt =1e-2;
+	int save_iter = static_cast<int>(1.0 / dt);
 //	save_iter = 1;
-        double TF = 10; //500;//2*1000;
-//        TF = 100;
+        double TF = 10e3; //500;//2*1000;
+        //TF = 1e-2;
 	double Ist = 0;
 	double time = 0.0;
 	BeatIt::saveData(0.0, variables, output);
@@ -116,13 +128,13 @@ int main()
 	{
 		Ist = stimulus.get(time);
 
-		pORd->solve(variables, Ist, dt);
+		pFabbri17->solve(variables, Ist, dt);
 		time += dt;
 		++iter;
 		if( 0 == iter%save_iter )
 		{
 			BeatIt::saveData(time, variables, output);
-			pORd->get_currents(currents);;
+			pFabbri17->get_currents(currents);;
 			BeatIt::saveData(time, currents, output_iion);
 		}
 

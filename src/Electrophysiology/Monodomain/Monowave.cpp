@@ -166,30 +166,7 @@ void Monowave::setup_systems(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // 2) ODEs
-    std::cout << "* MONOWAVE: Creating new System for the ionic model " << std::endl;
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
-    // Create Ionic Model
-    std::string ionic_model = M_datafile(section + "/ionic_model", "CICCIA");
-    std::cout << "* MONOWAVE: using " << ionic_model << std::endl;
-    M_ionicModelPtr.reset(BeatIt::IonicModel::IonicModelFactory::Create(ionic_model));
-    M_ionicModelPtr->setup(M_datafile, section);
-    int num_vars = M_ionicModelPtr->numVariables();
-    // TO DO: Generalize to other conditions
-    // We need to exclude the potential
-    // therefore we loop up to num_vars-1
-    for (int nv = 0; nv < num_vars - 1; ++nv)
-    {
-        std::cout << "* MONOWAVE: add variable " << nv << std::endl;
-
-        std::string var_name = M_ionicModelPtr->variableName(nv);
-        // For the time being we use P1 for the variables
-        ionic_model_system.add_variable(&var_name[0], M_order, M_FEFamily);
-    }
-    ionic_model_system.add_vector("rhs_old");
-
-    std::cout << "* MONOWAVE: Init ionic model " << std::endl;
-    ionic_model_system.init();
-    M_ionicModelExporterNames.insert("ionic_model");
+    setup_ODE_systems(data, section);
     // Add the applied current to this system
     std::cout << "* MONOWAVE: Creating auxiliary explicit systems " << std::endl;
 
@@ -247,79 +224,79 @@ void Monowave::setup_systems(GetPot& data, std::string section)
 
 void Monowave::init_systems(double time)
 {
-    std::cout << "* MONOWAVE: initSystems: " << std::endl;
-
-    // WAVE
-    ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
-
-    std::string v_ic = M_datafile(M_section + "/ic", "NOIC");
-    std::cout << "IC: " << v_ic << std::endl;
-    if (v_ic != "NOIC")
-    {
-        std::cout << "* MONOWAVE: Found monodomain initial condition: " << v_ic << std::endl;
-        SpiritFunction monodomain_ic;
-        monodomain_ic.read(v_ic);
-        M_equationSystems.parameters.set<libMesh::Real>("time") = time;
-        wave_system.time = time;
-        std::cout << "* MONOWAVE: Projecting initial condition to monodomain system ... " << std::flush;
-        wave_system.project_solution(&monodomain_ic);
-        std::cout << " done" << std::endl;
-    }
-    wave_system.solution->close();
-    wave_system.old_local_solution->close();
-    wave_system.older_local_solution->close();
-    std::cout << "* MONOWAVE: Copying initial conditions to vectors at n nd at n-1... " << std::flush;
-
-    advance();
-    std::cout << " done" << std::endl;
-
-    IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
-    std::cout << "* MONOWAVE: Initializing activation times to -1  ... " << std::flush;
-    ParameterSystem& activation_times_system = M_equationSystems.get_system<ParameterSystem>("activation_times");
-    auto first_local_index = activation_times_system.solution->first_local_index();
-    auto last_local_index = activation_times_system.solution->last_local_index();
-
-    for (auto i = first_local_index; i < last_local_index; ++i)
-    {
-        activation_times_system.solution->set(i, -1.0);
-    }
-    std::cout << " done" << std::endl;
-
-    std::string fibers_data = M_datafile(M_section + "/fibers", "1.0, 0.0, 0.0");
-    std::string sheets_data = M_datafile(M_section + "/sheets", "0.0, 1.0, 0.0");
-    std::string xfibers_data = M_datafile(M_section + "/xfibers", "0.0, 0.0, 1.0");
-
-    SpiritFunction fibers_func;
-    SpiritFunction sheets_func;
-    SpiritFunction xfibers_func;
-
-    fibers_func.read(fibers_data);
-    sheets_func.read(sheets_data);
-    xfibers_func.read(xfibers_data);
-
-    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
-    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
-    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
-
-    std::cout << "* MONOWAVE: Creating fibers from function: " << fibers_data << std::flush;
-    fiber_system.project_solution(&fibers_func);
-    std::cout << " done" << std::endl;
-    std::cout << "* MONOWAVE: Creating sheets from function: " << sheets_data << std::flush;
-    sheets_system.project_solution(&sheets_func);
-    std::cout << " done" << std::endl;
-    std::cout << "* MONOWAVE: Creating xfibers from function: " << xfibers_data << std::flush;
-    xfiber_system.project_solution(&xfibers_func);
-    std::cout << " done" << std::endl;
-
-    ParameterSystem& conductivity_system = M_equationSystems.get_system<ParameterSystem>("conductivity");
-    std::string Dff_data = M_datafile(M_section + "/Dff", "1.3342");
-    std::string Dss_data = M_datafile(M_section + "/Dss", "0.17606");
-    std::string Dnn_data = M_datafile(M_section + "/Dnn", "0.17606");
-    SpiritFunction conductivity_func;
-    conductivity_func.add_function(Dff_data);
-    conductivity_func.add_function(Dss_data);
-    conductivity_func.add_function(Dnn_data);
-    conductivity_system.project_solution(&conductivity_func);
+//    std::cout << "* MONOWAVE: initSystems: " << std::endl;
+//
+//    // WAVE
+//    ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
+//
+//    std::string v_ic = M_datafile(M_section + "/ic", "NOIC");
+//    std::cout << "IC: " << v_ic << std::endl;
+//    if (v_ic != "NOIC")
+//    {
+//        std::cout << "* MONOWAVE: Found monodomain initial condition: " << v_ic << std::endl;
+//        SpiritFunction monodomain_ic;
+//        monodomain_ic.read(v_ic);
+//        M_equationSystems.parameters.set<libMesh::Real>("time") = time;
+//        wave_system.time = time;
+//        std::cout << "* MONOWAVE: Projecting initial condition to monodomain system ... " << std::flush;
+//        wave_system.project_solution(&monodomain_ic);
+//        std::cout << " done" << std::endl;
+//    }
+//    wave_system.solution->close();
+//    wave_system.old_local_solution->close();
+//    wave_system.older_local_solution->close();
+//    std::cout << "* MONOWAVE: Copying initial conditions to vectors at n nd at n-1... " << std::flush;
+//
+//    advance();
+//    std::cout << " done" << std::endl;
+//
+//    IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
+//    std::cout << "* MONOWAVE: Initializing activation times to -1  ... " << std::flush;
+//    ParameterSystem& activation_times_system = M_equationSystems.get_system<ParameterSystem>("activation_times");
+//    auto first_local_index = activation_times_system.solution->first_local_index();
+//    auto last_local_index = activation_times_system.solution->last_local_index();
+//
+//    for (auto i = first_local_index; i < last_local_index; ++i)
+//    {
+//        activation_times_system.solution->set(i, -1.0);
+//    }
+//    std::cout << " done" << std::endl;
+//
+//    std::string fibers_data = M_datafile(M_section + "/fibers", "1.0, 0.0, 0.0");
+//    std::string sheets_data = M_datafile(M_section + "/sheets", "0.0, 1.0, 0.0");
+//    std::string xfibers_data = M_datafile(M_section + "/xfibers", "0.0, 0.0, 1.0");
+//
+//    SpiritFunction fibers_func;
+//    SpiritFunction sheets_func;
+//    SpiritFunction xfibers_func;
+//
+//    fibers_func.read(fibers_data);
+//    sheets_func.read(sheets_data);
+//    xfibers_func.read(xfibers_data);
+//
+//    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
+//    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
+//    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
+//
+//    std::cout << "* MONOWAVE: Creating fibers from function: " << fibers_data << std::flush;
+//    fiber_system.project_solution(&fibers_func);
+//    std::cout << " done" << std::endl;
+//    std::cout << "* MONOWAVE: Creating sheets from function: " << sheets_data << std::flush;
+//    sheets_system.project_solution(&sheets_func);
+//    std::cout << " done" << std::endl;
+//    std::cout << "* MONOWAVE: Creating xfibers from function: " << xfibers_data << std::flush;
+//    xfiber_system.project_solution(&xfibers_func);
+//    std::cout << " done" << std::endl;
+//
+//    ParameterSystem& conductivity_system = M_equationSystems.get_system<ParameterSystem>("conductivity");
+//    std::string Dff_data = M_datafile(M_section + "/Dff", "1.3342");
+//    std::string Dss_data = M_datafile(M_section + "/Dss", "0.17606");
+//    std::string Dnn_data = M_datafile(M_section + "/Dnn", "0.17606");
+//    SpiritFunction conductivity_func;
+//    conductivity_func.add_function(Dff_data);
+//    conductivity_func.add_function(Dss_data);
+//    conductivity_func.add_function(Dnn_data);
+//    conductivity_system.project_solution(&conductivity_func);
 
 }
 
@@ -335,7 +312,7 @@ void Monowave::cut(double time, std::string f)
     cut_system.project_solution(&func);
     cut_system.solution->close();
 //    cut_system.update();
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
+    IonicModelSystem& ionic_model_system = M_equationSystems.get_system<IonicModelSystem>("ionic_model");
     // WAVE
     ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
     ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
@@ -346,7 +323,9 @@ void Monowave::cut(double time, std::string f)
     std::vector<double> init_val(n_vars + 1, 0.0);
     double cut_value = 0.0;
 
-    M_ionicModelPtr->initialize(init_val);
+    // TODO: this is not going to work anymore
+    //M_ionicModelMap->initialize(init_val);
+    init_val[0] = -85.0;
 
     ionic_model_system.solution->close();
     wave_system.solution->close();
@@ -1486,7 +1465,7 @@ void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::s
 // WAVE
     std::cout << "* MONOWAVE: forming system matrix using the " << mass << " matrix" << std::endl;
     M_systemMass = mass;
-    double Cm = M_ionicModelPtr->membraneCapacitance();
+    double Cm =1.0; // M_ionicModelPtr->membraneCapacitance();
 
     const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau");
 
@@ -1523,7 +1502,7 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
     IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
     IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
 
-    double Cm = M_ionicModelPtr->membraneCapacitance();
+    double Cm = 1.0; //M_ionicModelPtr->membraneCapacitance();
     const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau"); // time constant
 
     monodomain_system.rhs->zero();

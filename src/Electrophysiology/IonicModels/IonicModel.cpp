@@ -29,7 +29,8 @@ IonicModel::IonicModel( int numVar,
 
 void IonicModel::setup(GetPot& data, std::string section)
 {
-    M_membrane_capacitance = data(section+"/membrane_capacitance", 1.0 );
+    M_membrane_capacitance = data(section+"/Cm", 1.0 ); //uF/cm^2
+    M_surface_to_volume_ratio = data(section+"/Chi", 1400.0 );// 1/cm
 }
 
 double

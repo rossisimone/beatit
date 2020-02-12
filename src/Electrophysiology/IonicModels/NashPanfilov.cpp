@@ -75,6 +75,7 @@ NashPanfilov::NashPanfilov()
 void
 NashPanfilov::setup(GetPot& data, std::string sect)
 {
+    super::setup(data, sect);
 	std::string section = sect + "/NashPanfilov";
 	M_mu1     = data(section+"/mu1",       0.12);
 	M_mu2     = data(section+"/mu2",       0.3);

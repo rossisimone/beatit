@@ -897,6 +897,8 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMe
                             const double zq = qface_point[qp](2);
 
                             // Evaluate displacements velocities and gradients at the quadrature node
+
+                           Fk *= 0.0;
                            for (int idim = 0; idim < dim; idim++)
                            {
                                for (int jdim = 0; jdim < dim; jdim++)
@@ -921,7 +923,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMe
                                {
                                    test *= 0.0;
                                    test(idim) = JxW_face[qp] * phi_face[i][qp];
-                                   Fe(i + idim * n_ux_dofs) += pressure * Jk * Finvtk * normals[qp] * test;
+                                   Fe(i + idim * n_ux_dofs) += pressure * Jk  * Finvtk * normals[qp] * test;
 
                                    for (int jdim = 0; jdim < dim; ++jdim)
                                    {
