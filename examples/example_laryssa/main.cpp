@@ -165,6 +165,8 @@ int main(int argc, char ** argv)
     // Assemble matrices
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
+    // output file counter
+    int save_iter = 0;
     // Export initial condition at time
     solver->save_potential(save_iter, datatime.M_startTime);
 
@@ -204,7 +206,7 @@ int main(int argc, char ** argv)
         //Export the solution if at the right timestep
         if (0 == datatime.M_iter % datatime.M_saveIter)
         {
-            // output file counter
+            // update output file counter
             save_iter++;
             // export current solution
             solver->save_potential(save_iter, datatime.M_time);
@@ -226,6 +228,6 @@ int main(int argc, char ** argv)
     delete solver;
 
     // The end
-    std::cout << "Good luck with your simulation :P" << std::endl
+    std::cout << "Good luck with your simulation :P" << std::endl;
     return 0;
 }
