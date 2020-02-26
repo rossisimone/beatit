@@ -100,10 +100,12 @@ namespace BeatIt
         std::cout << "* " << M_model << ": creating pacing protocol" << std::endl;
 
         std::string pacing_type = M_datafile(M_section + "/pacing/type", "NONE");
+        std::cout << "* ElectroSolver: pacing protocol type : " << pacing_type << " read from: " << M_section << "/pacing/type" << std::endl;
         if ("NONE" != pacing_type)
         {
             M_pacing.reset(BeatIt::PacingProtocol::PacingProtocolFactory::Create(pacing_type));
             M_pacing->setup(M_datafile, M_section + "/pacing");
+            M_pacing->showMe();
         }
 
         std::string pacing_i_type = M_datafile(M_section + "/pacing_i/type", "NONE");
@@ -111,6 +113,7 @@ namespace BeatIt
         {
             M_pacing_i.reset(BeatIt::PacingProtocol::PacingProtocolFactory::Create(pacing_i_type));
             M_pacing_i->setup(M_datafile, M_section + "/pacing_i");
+            M_pacing_i->showMe();
         }
 
         std::string pacing_e_type = M_datafile(M_section + "/pacing_e/type", "NONE");
@@ -118,6 +121,7 @@ namespace BeatIt
         {
             M_pacing_e.reset(BeatIt::PacingProtocol::PacingProtocolFactory::Create(pacing_e_type));
             M_pacing_e->setup(M_datafile, M_section + "/pacing_e");
+            M_pacing_e->showMe();
         }
 
         std::string surf_pacing_i_type = M_datafile(M_section + "/surf_pacing_i/type", "NONE");
@@ -276,7 +280,7 @@ namespace BeatIt
     {
         std::cout << "* ElectroSolver: Init: " << std::endl;
 
-        std::cout << "* Setup ionic model map key vector: " << std::endl;
+        std::cout << "* ElectroSolver: Setup ionic model map key vector: " << std::endl;
         const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
         libMesh::MeshBase::const_element_iterator el_start = mesh.active_local_elements_begin();
         libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
@@ -326,7 +330,7 @@ namespace BeatIt
         }
 
         iion_system.get_vector("ionic_model_map").close();
-        std::cout << "* Setup ionic model vector: " << std::endl;
+        std::cout << "* ElectroSolver: Setup ionic model vector: " << std::endl;
 
         // WAVE
         ElectroSystem& wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
@@ -343,8 +347,7 @@ namespace BeatIt
         std::vector < libMesh::dof_id_type > dof_indices_gating;
 
         int c = 0;
-        std::cout << "* Loop over nodes: " << std::endl;
-
+        // loop over nodes
         for (; node != end_node; ++node)
         {
             const libMesh::Node * nn = *node;
@@ -355,9 +358,9 @@ namespace BeatIt
             {
                 dof_map.dof_indices(nn, dof_indices_Q, 0);
                 dof_map_V.dof_indices(nn, dof_indices_V, 0);
-                int key = iion_system.get_vector("ionic_model_map")(dof_indices_V[0]);
-                auto it_ionic_model = M_ionicModelPtrMap.find(key);
-                auto it_ionic_model_name = M_ionicModelNameMap.find(key);
+                int key_iion = iion_system.get_vector("ionic_model_map")(dof_indices_V[0]);
+                auto it_ionic_model = M_ionicModelPtrMap.find(key_iion);
+                auto it_ionic_model_name = M_ionicModelNameMap.find(key_iion);
                 IonicModel * ionicModelPtr = nullptr;
                 std::string ionic_model_system_name;
                 if (it_ionic_model != M_ionicModelPtrMap.end()) ionicModelPtr = it_ionic_model->second.get();
@@ -372,27 +375,29 @@ namespace BeatIt
                     dof_map_gating.dof_indices(nn, dof_indices_gating);
                     ionicModelPtr->initialize(init_values);
 
-                    std::cout << "\nSetting V: key: " << key << std::endl;
                     wave_system.solution->set(dof_indices_V[0], init_values[0]);
                     for (int nv = 0; nv < num_vars; ++nv)
                     {
-                        std::cout << "Setting gatings: " << nv << std::endl;
-                        std::cout << "value: " << std::flush;
-                        std::cout << init_values[nv + 1] << std::flush;
+//                        std::cout << "Setting gatings: " << nv << std::endl;
+//                        std::cout << "value: " << std::flush;
+//                        std::cout << init_values[nv + 1] << std::flush;
                         ionic_model_system.solution->set(dof_indices_gating[nv], init_values[nv + 1]);
-                        std::cout << " set!" << std::endl;
+//                        std::cout << " set!" << std::endl;
                     }
                 }
                 else
                 {
+                    for(auto && ionicModel : M_ionicModelPtrMap)
+                    {
+                        std::cout << ionicModel.first << ", " << ionicModel.second->ionicModelName() << std::endl;
+                    }
                 	std::cout << "NO IONIC MODEL PTR" << std::endl;
                 	throw std::runtime_error("No ionic Model Ptr");
                 }
             }
         }
-        std::cout << "* Close systems: " << std::endl;
-
         wave_system.solution->close();
+
         for (auto && name : M_ionic_models_systems_name_vec)
         {
             IonicModelSystem& ionic_model_system = M_equationSystems.get_system < IonicModelSystem > (name);
@@ -434,7 +439,7 @@ namespace BeatIt
 //
 //        }
 
-        std::cout << "* Old stuff: " << std::endl;
+//        std::cout << "* Old stuff: " << std::endl;
 
         system.solution->close();
         system.old_local_solution->close();
@@ -489,14 +494,14 @@ namespace BeatIt
         std::string v_ic = M_datafile(M_section + "/ic", "");
         if (v_ic != "")
         {
-            std::cout << "* BIDOMAIN+BATH: Found bidomain initial condition: " << v_ic << std::endl;
+            std::cout << "* ElectroSolver: Found bidomain initial condition: " << v_ic << std::endl;
             SpiritFunction bidomain_ic;
             bidomain_ic.read(v_ic);
             setup_ic(bidomain_ic);
         }
 
         IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
-        std::cout << "* BIDOMAIN+BATH: Initializing activation times to -1  ... " << std::flush;
+        std::cout << "* ElectroSolver: Initializing activation times to -1  ... " << std::flush;
         ParameterSystem& activation_times_system = M_equationSystems.get_system<ParameterSystem>("activation_times");
         auto first_local_index = activation_times_system.solution->first_local_index();
         auto last_local_index = activation_times_system.solution->last_local_index();
@@ -526,13 +531,13 @@ namespace BeatIt
             ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
             ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
 
-            std::cout << "* BIDOMAIN+BATH: Creating fibers from function: " << fibers_data << std::flush;
+            std::cout << "* ElectroSolver:: Creating fibers from function: " << fibers_data << std::flush;
             fiber_system.project_solution(&fibers_func);
             std::cout << " done" << std::endl;
-            std::cout << "* BIDOMAIN+BATH: Creating sheets from function: " << sheets_data << std::flush;
+            std::cout << "* ElectroSolver:: Creating sheets from function: " << sheets_data << std::flush;
             sheets_system.project_solution(&sheets_func);
             std::cout << " done" << std::endl;
-            std::cout << "* BIDOMAIN+BATH: Creating xfibers from function: " << xfibers_data << std::flush;
+            std::cout << "* ElectroSolver:: Creating xfibers from function: " << xfibers_data << std::flush;
             xfiber_system.project_solution(&xfibers_func);
             std::cout << " done" << std::endl;
         }

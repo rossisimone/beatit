@@ -50,6 +50,8 @@
 #include <iomanip>
 #include "Util/GenerateFibers.hpp"
 #include "libmesh/exodusII_io.h"
+#include "libmesh/vtk_io.h"
+#include "libmesh/mesh_refinement.h"
 
 #include <fstream>
 #include <sstream>
@@ -84,8 +86,8 @@ int main (int argc, char ** argv)
       libMesh::Mesh mesh(init.comm());
 
       // We may need XDR support compiled in to read binary .xdr files
-      std::string meshfile = data("mesh/input_mesh_name", "duke_heart_v5.e");
-
+      std::string meshfile = data("input_mesh_name", "NONE");
+      std::cout << "Mesh: " << meshfile << std::endl;
       // Read the input mesh.
       mesh.read (&meshfile[0]);
 
@@ -112,7 +114,16 @@ int main (int argc, char ** argv)
       }
       right_atrium.close();
 
-      libMesh::EquationSystems es(mesh);
+      int num_refs = data("refs", 0);
+      std::cout <<  "refinments: " << num_refs << std::endl;
+      MeshRefinement(mesh).uniformly_refine(num_refs);
+
+      libMesh::ExodusII_IO(mesh).write("heart_refined.e");
+
+      libMesh::Mesh mesh2(init.comm());
+
+      mesh2.read ("heart_refined.e");
+      libMesh::EquationSystems es(mesh2);
 
       std::string pois[N];
       for(int i = 0; i < N; i++) pois[i] = "poisson" + std::to_string(i);
@@ -215,8 +226,8 @@ int main (int argc, char ** argv)
 
 
 
-        libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
-        const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
+        libMesh::MeshBase::const_element_iterator el = mesh2.active_local_elements_begin();
+        const libMesh::MeshBase::const_element_iterator end_el = mesh2.active_local_elements_end();
         std::cout << "\nGetting dof map:  ... " << std::flush;
         const libMesh::DofMap & dof_map = f_sys.get_dof_map();
         const libMesh::DofMap & dof_map_p = es.get_system<libMesh::ExplicitSystem>(pois[0]+"_P0").get_dof_map();
@@ -260,7 +271,10 @@ int main (int argc, char ** argv)
         std::cout << "Calling exporter: ..."  << ". " << std::flush;
 
 		typedef libMesh::ExodusII_IO EXOExporter;
-		EXOExporter exporter(mesh);
+//		typedef libMesh::VTKIO EXOExporter;
+		EXOExporter exporter(mesh2);
+//                exporter.write("output.exo");
+        //exporter.append(true);
 		std::vector<std::string> varname(9);
 		varname[0] = "fibersx";
 		varname[1] = "fibersy";
@@ -272,8 +286,15 @@ int main (int argc, char ** argv)
         varname[7] = "xfibersy";
         varname[8] = "xfibersz";
         exporter.set_output_variables (varname);
-		exporter.write_equation_systems("HeartPois0/poisson0.exo", es);
+        std::string output_file = "heart_with_fibers_HEX8_m" + std::to_string(num_refs) + ".exo";
+
+		exporter.write_equation_systems(output_file, es);
 		exporter.write_element_data(es);
+		std::set<std::string> systems_names;
+//		systems_names.insert("fibers");
+//		systems_names.insert("sheets");
+//		systems_names.insert("xfibers");
+//		exporter.write_discontinuous_equation_systems(output_file, es);
 
         std::cout << " Done!" << std::endl;
 

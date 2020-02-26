@@ -77,6 +77,10 @@ int main (int argc, char ** argv)
 
     int elX = data("elX", 10);
     int elY = data("elY", 2);
+    double minX = data("minX",0.0);
+    double minY = data("minY",0.0);
+    double maxX = data("maxX",10.0);
+    double maxY = data("maxY",2.0);
     //std::string elTypeName = data("elType", "TRI6");
     //std::map<std::string, ElemType> orderMap;
     //orderMap["TRI6"] = TRI6;
@@ -90,8 +94,8 @@ int main (int argc, char ** argv)
     std::cout << "Element type chosen:  " << elType << std::endl;
     MeshTools::Generation::build_square ( mesh,
                                           elX, elY,
-                                          0., 10.,
-                                          0., 2.,
+                                          minX, maxX,
+                                          minY, maxY,
                                           elType );
 
 //    std::string meshfile = data("mesh", "NOMESH");

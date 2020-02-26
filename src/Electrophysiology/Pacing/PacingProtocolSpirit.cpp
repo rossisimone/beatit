@@ -88,4 +88,11 @@ PacingProtocolSpirit::eval(const Point & p,
     return dynamic_cast< SpiritFunction*>(M_pacing)->operator()(time, p(0), p(1), p(2), 0);
 }
 
+void
+PacingProtocolSpirit::showMe()
+{
+    dynamic_cast< SpiritFunction* >(M_pacing)->showMe();
+}
+
+
 } /* namespace BeatIt */

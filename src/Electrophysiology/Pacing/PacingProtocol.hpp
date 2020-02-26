@@ -97,6 +97,8 @@ public:
 
     void set_distance_type(std::string& type);
 
+    virtual void showMe() {}
+
     int S_beats;
     bool M_isPacingOn;
     double M_amplitude;

@@ -59,4 +59,19 @@ target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
 
 SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
 
+SET(TESTNAMEV example_read_fibers)
+message("=== Adding Example : ${TESTNAMEV}")
 
+add_executable(${TESTNAMEV} read_fibers.cpp)
+
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "example_read_fibers")
+
+include_directories ("${PROJECT_SOURCE_DIR}/src")
+include_directories ("${LIBMESH_DIR}/include")
+
+
+target_link_libraries(${TESTNAMEV} beatit)
+target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
+
+
+SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)

@@ -67,6 +67,8 @@ public:
     void update(double time) {}
     double eval  (const Point & p,
                    const double time = 0.);
+
+    void showMe();
 };
 
 PacingProtocol* createPacingProtocolSpirit();
