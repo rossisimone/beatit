@@ -82,18 +82,27 @@ int main(int argc, char ** argv)
         // if nelz = 0 we run in 2D
         int nelz = data("nelz", 10);
         // the cube dimensions are defined as [minx, maxx] x [miny, maxy] x [minz, maxz]
-        int maxx = data("maxx", 1.0);
-        int maxy = data("maxy", 1.0);
-        int maxz = data("maxz", 1.0);
-        int minx = data("minx", 0.0);
-        int miny = data("miny", 0.0);
-        int minz = data("minz", 0.0);
+        double maxx = data("maxx", 1.0);
+        double maxy = data("maxy", 1.0);
+        double maxz = data("maxz", 1.0);
+
+        double minx = data("minx", 0.0);
+        double miny = data("miny", 0.0);
+        double minz = data("minz", 0.0);
 
         // Create a tetrahedral mesh
         auto elType = TET4;
         // If we are in 2D, create a triangle mesh
         if (nelz == 0)
             elType = TRI3;
+
+        std::cout << "Creating the cube [" << minx << ", " << maxx << "] x ["
+                                           << miny << ", " << maxy << "] x ["
+                                           << minx << ", " << maxx << "] " << std::endl;
+        std::cout << "Using " << nelx << " x " << nely << " x " << nelz << " elements." << std::endl;
+        if(TET4 == elType) std::cout << "Element type TET4" << std::endl;
+        else if(TRI3 == elType) std::cout << "Element type TRI3" << std::endl;
+        else std::cout << "NO ELEMENT TYPE!!!" << std::endl;
 
         // Create mesh
         MeshTools::Generation::build_cube(mesh, nelx, nely, nelz, minx, maxx, miny, maxy, minz, maxz, elType);

@@ -7,31 +7,27 @@
 
 
 mesh = NONE
-# if mesh = NONE create a cube
-
+# if mesh = NONE create a cube (BlockID = 0)
 # number of elements
-nelx  = 6
-nely  = 150
+nelx  = 50
+nely  = 25
 nelz  = 0
-
 # Cube dimensions
-minx = -1
-miny = -5.0
-minz = -5.
-
-maxx = 1
-maxy = 10.0
-maxz = 10.0
-
+minx = 0.
+miny = 0.
+minz = 0.
+maxx = 1.0
+maxy = 0.5
+maxz = 0.0
 # scale geometry
 scale = 1.0
 
 [time] # milli seconds
     dt = 0.03125      # Default: 1.0
     init_time = 0.0 # Default: 0.0
-    final_time = 300  # Default: 1.0
+    final_time = 30  # Default: 1.0
     max_iter =  20000000   # Default: 99999999
-    save_iter = 128   # Default: 1 
+    save_iter = 32   # Default: 1 
 [../]
 
 # Models available 
@@ -42,7 +38,8 @@ section= monowave
 [monowave]
      output_folder = Output  # Default: Output
      time_integrator_order = 1 
-     tissue_blockIDs = '0'
+     # If BlockID = 0, then comment tissue_blockIDs value 
+     # tissue_blockIDs = '0'
      ground_ve = false
      symmetric_operator = true
      ionic_models_list = 'Courtemanche'
@@ -92,7 +89,7 @@ section= monowave
      # Fiber fields
      # f = [fx, fy, fz]
      fibers = '1.0, 0.0, 0.0'
-     sheets = '0.0, 1.0, 0.0''
+     sheets = '0.0, 1.0, 0.0'
      xfibers = '0.0,0.0, 1.0'                   # Default: '0.0, 0.0, 1.0'
 
      [./pacing]
@@ -101,8 +98,8 @@ section= monowave
           # function: gives a function f(x,y,z,t) to specify the stimulus
           # S1: S1 stimulation protocol
           # S1S2: S1S2 stimulation protocol
-          type = function # Default: NONE
-          function = '-0.0*(x<= 0.02)*(t>=1)*(t<=3)'          
+          type = 'function' # Default: NONE
+          function = '-100.0*(x<= 0.1)*(t>=0)*(t<=2)'          
           # Check the pacing protocol classes for more info
      [../]
 
