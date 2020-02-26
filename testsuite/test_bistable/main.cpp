@@ -262,7 +262,7 @@ int main(int argc, char ** argv)
 
 void solve(libMesh::EquationSystems & es, int model, bool compute_q, int order)
 {
-	using libMesh::UniquePtr;
+	using std::unique_ptr;
 
 	const libMesh::MeshBase & mesh = es.get_mesh();
 	const unsigned int dim = mesh.mesh_dimension();
@@ -281,7 +281,7 @@ void solve(libMesh::EquationSystems & es, int model, bool compute_q, int order)
 	double time = es.get_system("VSystem").time;
 	double alpha = 0.1;
 
-	UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+	std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 	libMesh::QGauss qrule(dim, libMesh::SECOND);
 	fe->attach_quadrature_rule(&qrule);
 
@@ -489,7 +489,7 @@ void solve(libMesh::EquationSystems & es, int model, bool compute_q, int order)
 
 		Qsys.get_vector("Q2").zero();
 		Qsys.get_vector("Q2").close();
-		libMesh::UniquePtr < libMesh::LinearSolver<libMesh::Number>
+		std::unique_ptr < libMesh::LinearSolver<libMesh::Number>
 				> linearSolver;
 		linearSolver = libMesh::LinearSolver<libMesh::Number>::build(es.comm());
 		linearSolver->init();
@@ -605,7 +605,7 @@ void solve(libMesh::EquationSystems & es, int model, bool compute_q, int order)
 		Qsys.rhs->close();
 		Qsys.rhs->add(1.0, Qsys.get_vector("Qk2"));
 
-		libMesh::UniquePtr < libMesh::LinearSolver<libMesh::Number>
+		std::unique_ptr < libMesh::LinearSolver<libMesh::Number>
 				> linearSolver2;
 		linearSolver2 = libMesh::LinearSolver<libMesh::Number>::build(
 				es.comm());
@@ -698,7 +698,7 @@ void solve(libMesh::EquationSystems & es, int model, bool compute_q, int order)
 
 		Vsys.get_vector("V2").zero();
 		Vsys.get_vector("V2").close();
-		libMesh::UniquePtr < libMesh::LinearSolver<libMesh::Number>
+		std::unique_ptr < libMesh::LinearSolver<libMesh::Number>
 				> linearSolver;
 		linearSolver = libMesh::LinearSolver<libMesh::Number>::build(es.comm());
 		linearSolver->init();
@@ -755,7 +755,7 @@ void solve(libMesh::EquationSystems & es, int model, bool compute_q, int order)
 		Vsys.rhs->close();
 		Vsys.rhs->add(1., Vsys.get_vector("k2"));
 
-		libMesh::UniquePtr < libMesh::LinearSolver<libMesh::Number>
+		std::unique_ptr < libMesh::LinearSolver<libMesh::Number>
 				> linearSolver2;
 		linearSolver2 = libMesh::LinearSolver<libMesh::Number>::build(
 				es.comm());
@@ -932,7 +932,7 @@ void eval_l2_err(double& l2_V_err, double& l2_Q_err, double dt, double mu,
 	Qsys.update();
 	const libMesh::DofMap & dof_map_monodomain = Vsys.get_dof_map();
 	libMesh::FEType fe_type = dof_map_monodomain.variable_type(0);
-	libMesh::UniquePtr<libMesh::FEBase> fe(
+	std::unique_ptr<libMesh::FEBase> fe(
 			libMesh::FEBase::build(dim, fe_type));
 	libMesh::QGauss qrule(dim, libMesh::FOURTH);
 	fe->attach_quadrature_rule(&qrule);

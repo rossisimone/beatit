@@ -130,11 +130,11 @@ public:
    std::string  get_ionic_model_name() const;
 
 
-   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
    get_fibers();
-   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
    get_sheets();
-   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
    get_xfibers();
     //protected:
 
@@ -161,7 +161,7 @@ public:
     bool M_useAMR;
 
     std::unique_ptr<PacingProtocol> M_pacing;
-    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
+    std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
 
     Anisotropy M_anisotropy;
     EquationType M_equationType;

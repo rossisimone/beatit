@@ -149,8 +149,8 @@ public:
     std::unique_ptr<EXOExporter> M_exporter;
     std::unique_ptr<Exporter> M_GMVexporter;
     std::unique_ptr<VTKExporter> M_VTKexporter;
-    libMesh::UniquePtr<libMesh::PetscLinearSolver<libMesh::Number> > M_linearSolver;
-    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_projectionsLinearSolver;
+    std::unique_ptr<libMesh::PetscLinearSolver<libMesh::Number> > M_linearSolver;
+    std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > M_projectionsLinearSolver;
     std::string M_outputFolder;
     SpiritFunction M_rhsFunction;
     std::string M_myName;
@@ -172,7 +172,7 @@ protected:
             const libMesh::Elem*& elem,
             libMesh::DenseMatrix<libMesh::Number>& Ke,
             libMesh::DenseVector<libMesh::Number>& Fe,
-            libMesh::UniquePtr<libMesh::FEBase>& fe_face,
+            std::unique_ptr<libMesh::FEBase>& fe_face,
             libMesh::QGauss& qface,
             const libMesh::MeshBase& mesh,
             int n_ux_dofs,

@@ -65,7 +65,7 @@ namespace BeatIt
 namespace Util
 {
 
-const libMesh::UniquePtr< libMesh::NumericVector<libMesh::Number> >&
+const std::unique_ptr< libMesh::NumericVector<libMesh::Number> >&
 generate_gradient_field( libMesh::MeshBase& mesh,
                          const GetPot& data,
                          const std::string& section = "rule_based_fibers");

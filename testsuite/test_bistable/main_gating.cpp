@@ -260,7 +260,7 @@ void solve(	EquationSystems& es,
 			int t_step,
 			int time_integrator_order)
 {
-	using libMesh::UniquePtr;
+	using std::unique_ptr;
 
 	bool assemble_matrix = true;
 	if(t_step > 2) assemble_matrix = false;
@@ -282,7 +282,7 @@ void solve(	EquationSystems& es,
 	double dt = param.dt;
 	double time = Vsys.time;
 
-	UniquePtr<libMesh::FEBase> fe_matrix(libMesh::FEBase::build(dim, fe_type));
+	std::unique_ptr<libMesh::FEBase> fe_matrix(libMesh::FEBase::build(dim, fe_type));
 	libMesh::QGauss qrule(dim, SECOND);
 	fe_matrix->attach_quadrature_rule(&qrule);
 
@@ -340,7 +340,7 @@ void solve(	EquationSystems& es,
 		Vsys.matrix->close();
 	}
 
-	UniquePtr<libMesh::FEBase> fe_current(libMesh::FEBase::build(dim, fe_type));
+	std::unique_ptr<libMesh::FEBase> fe_current(libMesh::FEBase::build(dim, fe_type));
 	fe_current->attach_quadrature_rule(param.qrule);
 
 	const std::vector<libMesh::Real> & JxW_i = fe_current->get_JxW();
@@ -404,7 +404,7 @@ void solve(	EquationSystems& es,
 	double max_iter = 2000;
 
 	std::pair<unsigned int, double> rval = std::make_pair(0, 0.0);
-	libMesh::UniquePtr < libMesh::LinearSolver<libMesh::Number>
+	std::unique_ptr < libMesh::LinearSolver<libMesh::Number>
 			> linearSolver;
 	linearSolver = libMesh::LinearSolver<libMesh::Number>::build(es.comm());
 	linearSolver->init();

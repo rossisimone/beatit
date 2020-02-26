@@ -96,7 +96,7 @@ PacingProtocolS1::setup(const GetPot& data, std::string section)
  * ``deep'' as necessary to allow independent destruction and
  * simultaneous evaluations of the copies in different threads.
  */
-libMesh::UniquePtr<libMesh::FunctionBase<double> >
+std::unique_ptr<libMesh::FunctionBase<double> >
 PacingProtocolS1::clone () const
 {
 	PacingProtocolS1* pcopy = new PacingProtocolS1;
@@ -118,7 +118,7 @@ PacingProtocolS1::clone () const
     pcopy-> M_z0 = M_z0;
     pcopy-> M_stopTime = M_stopTime;
 
-	return libMesh::UniquePtr<libMesh::FunctionBase<double> >(pcopy);
+	return std::unique_ptr<libMesh::FunctionBase<double> >(pcopy);
 }
 
 

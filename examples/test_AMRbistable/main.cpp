@@ -307,7 +307,7 @@ int main(int argc, char ** argv)
 void solve(
         libMesh::EquationSystems & es)
 {
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
     // It is a good idea to make sure we are assembling
     // the proper system.
 
@@ -368,11 +368,11 @@ void solve(
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::SECOND);
@@ -636,7 +636,7 @@ void solve(
 
 //        std::cout << "Solving for Q2 !" << std::endl;
 
-        libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver;
+        std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > linearSolver;
         linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
        linearSolver->init();
 
@@ -715,7 +715,7 @@ void solve(
 
 //    std::cout << "Solving forg Qn+1 !" << std::endl;
 
-    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver2;
+    std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > linearSolver2;
     linearSolver2 =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
    linearSolver2->init();
 
@@ -746,7 +746,7 @@ void solve(
 void solveHeun(
         libMesh::EquationSystems & es)
 {
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
     // It is a good idea to make sure we are assembling
     // the proper system.
 
@@ -807,11 +807,11 @@ void solveHeun(
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::SECOND);
@@ -1062,7 +1062,7 @@ void solveHeun(
 
 //        std::cout << "Solving for Q2 !" << std::endl;
 
-        libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver;
+        std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > linearSolver;
         linearSolver =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
        linearSolver->init();
 
@@ -1132,7 +1132,7 @@ void solveHeun(
 	Qsystem.rhs->add(    1.0, Qsystem.get_vector("MQn") );
 	// mu ML
 
-    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > linearSolver2;
+    std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > linearSolver2;
     linearSolver2 =  libMesh::LinearSolver<libMesh::Number>::build( es.comm() );
    linearSolver2->init();
 
@@ -1309,7 +1309,7 @@ void eval_l2_err(double& l2_V_err,
 	wave_system.update();
     const libMesh::DofMap & dof_map_monodomain = monodomain_system.get_dof_map();
     libMesh::FEType fe_type = dof_map_monodomain.variable_type(0);
-    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
     libMesh::QGauss qrule(dim, libMesh::FOURTH);
     fe->attach_quadrature_rule(&qrule);
     const std::vector<libMesh::Real> & JxW = fe->get_JxW();

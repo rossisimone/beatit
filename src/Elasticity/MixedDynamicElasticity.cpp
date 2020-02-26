@@ -313,7 +313,7 @@ void MixedDynamicElasticity::assemble_residual(
 {
   std::cout << "* MIXED DYNAMIC ELASTICITY: assembling ... " << std::endl;
 
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
@@ -382,11 +382,11 @@ void MixedDynamicElasticity::assemble_residual(
     // Pressure FE Type
     libMesh::FEType fe_pressure(1, libMesh::LAGRANGE);
 
-    UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp));
-    UniquePtr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_pressure));
+    std::unique_ptr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp));
+    std::unique_ptr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_pressure));
 
-//    UniquePtr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_disp));
-//    UniquePtr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_disp));
+//    std::unique_ptr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_disp));
+//    std::unique_ptr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_disp));
 
 
     auto order = fe_u->get_order();
@@ -474,7 +474,7 @@ void MixedDynamicElasticity::assemble_residual(
     libMesh::VectorValue <libMesh::Number>  body_force;
 
     // On the boundary
-    libMesh::UniquePtr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_disp));
+    std::unique_ptr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_disp));
     libMesh::QGauss qface(dim - 1, libMesh::SECOND);
     fe_face->attach_quadrature_rule(&qface);
 

@@ -106,7 +106,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 
 	std::cout << "* MIXED ELASTICITY: assembling ... " << std::flush;
 
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
@@ -140,8 +140,8 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
     libMesh::FEType fe_disp= dof_map.variable_type(ux_var);
     libMesh::FEType fe_pr = dof_map.variable_type(p_var);
 
-    UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp) );
-    UniquePtr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_pr) );
+    std::unique_ptr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp) );
+    std::unique_ptr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_pr) );
 
     auto order_u = fe_u->get_order();
     auto order_p = fe_u->get_order();
@@ -221,7 +221,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 	libMesh::VectorValue <libMesh::Number>  body_force;
     const std::vector<libMesh::Point> & q_point = fe_u->get_xyz();
 	// On the boundary
-    libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_disp));
+    std::unique_ptr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_disp));
     libMesh::QGauss qface(dim-1,  libMesh::SECOND);
     fe_face->attach_quadrature_rule (&qface);
 

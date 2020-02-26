@@ -506,7 +506,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     // will only consider the active elements; hence we use a variant of
     // the active_elem_iterator.
     system_phi.update();
-    libMesh::UniquePtr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_pres_type));
+    std::unique_ptr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_pres_type));
     libMesh::QGauss qface(dim - 1, libMesh::FIRST);
     fe_face->attach_quadrature_rule(&qface);
 

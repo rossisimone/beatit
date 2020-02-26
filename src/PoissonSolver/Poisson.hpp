@@ -85,13 +85,13 @@ public:
     void save_exo(const std::string& output_filename = "poisson.exo");
 
 
-    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
     get_gradient();
 
-    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
     get_solution();
 
-    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
     get_P0_solution();
 
     void write_equation_system(const std::string& es = "poisson.dat");
@@ -111,7 +111,7 @@ public:
     std::set<std::string> M_parametersExporterNames;
     std::unique_ptr<EXOExporter> M_exporter;
     std::unique_ptr<libMesh::PetscLinearSolver<libMesh::Number> > M_linearSolver;
-//    libMesh::UniquePtr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
+//    std::unique_ptr<libMesh::LinearSolver<libMesh::Number> > M_linearSolver;
     std::string  M_outputFolder;
     SpiritFunction M_rhsFunction;
     std::string M_myName;
@@ -122,7 +122,7 @@ private:
     void apply_BC( const libMesh::Elem*& elem,
             libMesh::DenseMatrix<libMesh::Number>& Ke,
             libMesh::DenseVector<libMesh::Number>& Fe,
-            libMesh::UniquePtr<libMesh::FEBase>& fe_face,
+            std::unique_ptr<libMesh::FEBase>& fe_face,
             libMesh::QGauss& qface,
             const libMesh::MeshBase& mesh);
 

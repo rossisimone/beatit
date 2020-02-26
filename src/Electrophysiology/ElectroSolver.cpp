@@ -1036,7 +1036,7 @@ namespace BeatIt
         std::vector<double> at;
 
         libMesh::FEType fe_type = dof_map_at.variable_type(0);
-        libMesh::UniquePtr < libMesh::FEBase > fe_qp1(libMesh::FEBase::build(dim, fe_type));
+        std::unique_ptr < libMesh::FEBase > fe_qp1(libMesh::FEBase::build(dim, fe_type));
         // A 5th order Gauss quadrature rule for numerical integration.
         libMesh::QGauss qrule(dim, libMesh::FIRST);
         // Tell the finite element object to use our quadrature rule.
@@ -1248,21 +1248,21 @@ namespace BeatIt
         std::cout << "done" << std::endl;
     }
 
-    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
     ElectroSolver::get_fibers()
     {
         ParameterSystem& fiber_system = M_equationSystems.get_system < ParameterSystem > ("fibers");
         return fiber_system.solution;
     }
 
-    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
     ElectroSolver::get_sheets()
     {
         ParameterSystem& sheets_system = M_equationSystems.get_system < ParameterSystem > ("sheets");
         return sheets_system.solution;
     }
 
-    const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+    const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
     ElectroSolver::get_xfibers()
     {
         ParameterSystem& xfiber_system = M_equationSystems.get_system < ParameterSystem > ("xfibers");

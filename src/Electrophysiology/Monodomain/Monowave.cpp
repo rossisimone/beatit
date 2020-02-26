@@ -634,7 +634,7 @@ void Monowave::assemble_matrices(double dt)
 void Monowave::assemble_cg_matrices(double dt)
 {
     std::cout << "* MONODOMAIN: Assembling CG matrices ... " << std::endl;
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
@@ -673,12 +673,12 @@ void Monowave::assemble_cg_matrices(double dt)
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
-    UniquePtr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
+    std::unique_ptr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule_stiffness(dim, libMesh::SECOND);
@@ -758,11 +758,11 @@ void Monowave::assemble_cg_matrices(double dt)
     /* for coduction block */
     // Declare a special finite element object for
     // boundary integration.
-    UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type_qp2));
+    std::unique_ptr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type_qp2));
     libMesh::QGauss qface(dim-1, libMesh::FOURTH);
     fe_face->attach_quadrature_rule (&qface);
 
-    UniquePtr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
     fe_neighbor_face->attach_quadrature_rule(&qface);
     const std::vector<std::vector<libMesh::Real> > & phi_neighbor_face = fe_neighbor_face->get_phi();
     const std::vector<std::vector<libMesh::RealGradient> > & dphi_neighbor_face = fe_neighbor_face->get_dphi();
@@ -965,7 +965,7 @@ void Monowave::setup_local_conductivity(libMesh::TensorValue<double>& D0, double
 void Monowave::assemble_dg_matrices(double dt)
 {
     std::cout << "* MONODOMAIN: Assembling DG matrices ... " << std::endl;
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
@@ -1004,12 +1004,12 @@ void Monowave::assemble_dg_matrices(double dt)
 
 // Build a Finite Element object of the specified type.  Since the
 // FEBase::build() member dynamically creates memory we will
-// store the object as a UniquePtr<FEBase>.  This can be thought
+// store the object as a std::unique_ptr<FEBase>.  This can be thought
 // of as a pointer that will clean up after itself.  Introduction Example 4
-// describes some advantages of  UniquePtr's in the context of
+// describes some advantages of  std::unique_ptr's in the context of
 // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
-    UniquePtr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
+    std::unique_ptr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
 
 // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule_stiffness(dim, libMesh::SECOND);
@@ -1057,8 +1057,8 @@ void Monowave::assemble_dg_matrices(double dt)
     libMesh::DenseVector<libMesh::Number> Fe;
 
 // for interior penalty
-    UniquePtr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
-    UniquePtr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
 // Tell the finite element object to use our quadrature rule.
     libMesh::QGauss qface(dim - 1, fe_type_qp1.default_quadrature_order());
 
@@ -1221,7 +1221,7 @@ void Monowave::assemble_dg_matrices(double dt)
                 if (random >= 10)
                 {
                     // Pointer to the element side
-                    UniquePtr<const libMesh::Elem> elem_side(elem->build_side_ptr(side));
+                    std::unique_ptr<const libMesh::Elem> elem_side(elem->build_side_ptr(side));
 
                     // h dimension to compute the interior penalty penalty parameter
                     const unsigned int elem_b_order = static_cast<unsigned int>(fe_elem_face->get_order());
@@ -1392,7 +1392,7 @@ void Monowave::assemble_dg_matrices(double dt)
             else // we are on the boundary
             {
                 // Pointer to the element side
-                UniquePtr<const libMesh::Elem> elem_side(elem->build_side_ptr(side));
+                std::unique_ptr<const libMesh::Elem> elem_side(elem->build_side_ptr(side));
 
                 // h dimension to compute the interior penalty penalty parameter
                 const unsigned int elem_b_order = static_cast<unsigned int>(fe_elem_face->get_order());

@@ -128,7 +128,7 @@ int main(int argc, char ** argv)
 
    //Create linear solver
    typedef  libMesh::LinearSolver<libMesh::Number> LinearSolver;
-   libMesh::UniquePtr<LinearSolver> linear_solver(LinearSolver::build( es.comm() ) );
+   std::unique_ptr<LinearSolver> linear_solver(LinearSolver::build( es.comm() ) );
    linear_solver->init();
 
   // Starting the solver
@@ -165,7 +165,7 @@ int main(int argc, char ** argv)
 //         perf_log.pop("no amr rhs assembly");
 //		 perf_log.push("no amr linear solver");
 
-   libMesh::UniquePtr<LinearSolver> linear_solve_amr(LinearSolver::build( es.comm() ) );
+   std::unique_ptr<LinearSolver> linear_solve_amr(LinearSolver::build( es.comm() ) );
    linear_solve_amr->init();
 			linear_solve_amr->solve (*system.matrix, nullptr,
 															*system.solution,
@@ -266,7 +266,7 @@ void assemble_amr(
         libMesh::EquationSystems & es,
         const std::string & system_name)
 {
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
     // It is a good idea to make sure we are assembling
     // the proper system.
     libmesh_assert_equal_to(system_name, "bistable");
@@ -299,11 +299,11 @@ void assemble_amr(
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::SECOND);
@@ -463,7 +463,7 @@ void assemble_matrix(
         libMesh::EquationSystems & es,
         const std::string & system_name)
 {
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
     // It is a good idea to make sure we are assembling
     // the proper system.
     libmesh_assert_equal_to(system_name, "bistable");
@@ -496,11 +496,11 @@ void assemble_matrix(
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::SECOND);
@@ -615,7 +615,7 @@ void assemble_rhs(
 {
 
 
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
     // It is a good idea to make sure we are assembling
     // the proper system.
     libmesh_assert_equal_to(system_name, "bistable");
@@ -648,11 +648,11 @@ void assemble_rhs(
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::SECOND);

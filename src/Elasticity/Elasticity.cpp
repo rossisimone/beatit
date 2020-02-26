@@ -504,7 +504,7 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
 {
     std::cout << "* ELASTICITY: assembling ... " << std::endl;
 
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
@@ -532,7 +532,7 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
     libMesh::FEType fe_disp = dof_map.variable_type(ux_var);
     const libMesh::DofMap & dof_map_fibers = fiber_system.get_dof_map();
 
-    UniquePtr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp));
+    std::unique_ptr<libMesh::FEBase> fe_u(libMesh::FEBase::build(dim, fe_disp));
     auto order = fe_u->get_order();
 
     libMesh::QGauss qrule_1(dim, order);
@@ -588,7 +588,7 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
     libMesh::TensorValue<libMesh::Number> FA;
 
     // On the boundary
-    libMesh::UniquePtr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_disp));
+    std::unique_ptr<libMesh::FEBase> fe_face(libMesh::FEBase::build(dim, fe_disp));
     libMesh::QGauss qface(dim - 1, libMesh::FIRST);
     fe_face->attach_quadrature_rule(&qface);
 
@@ -793,7 +793,7 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
 }
 
 void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMesh::Number>& Ke, libMesh::DenseVector<libMesh::Number>& Fe,
-        libMesh::UniquePtr<libMesh::FEBase>& fe_face, libMesh::QGauss& qface, const libMesh::MeshBase& mesh, int n_ux_dofs, MaterialPtr /* mat */,
+        std::unique_ptr<libMesh::FEBase>& fe_face, libMesh::QGauss& qface, const libMesh::MeshBase& mesh, int n_ux_dofs, MaterialPtr /* mat */,
         double /* dt */, double time, std::vector<double>* solk)
 {
     const unsigned int dim = mesh.mesh_dimension();
@@ -1385,7 +1385,7 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMe
 //{
 //    std::cout << "* ELASTICITY: assembling ... " << std::endl;
 //
-//    using libMesh::UniquePtr;
+//    using std::unique_ptr;
 //
 //    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
 //    const libMesh::MeshBase & mesh_ext = es.get_mesh();
@@ -1478,13 +1478,13 @@ void Elasticity::project_pressure()
 
     const libMesh::DofMap & dof_map = system.get_dof_map();
     libMesh::FEType fe_type = dof_map.variable_type(0);
-    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
     libMesh::QGauss qrule(dim, fe->get_order());
     fe->attach_quadrature_rule(&qrule);
 
     const libMesh::DofMap & dof_map_p = system_p.get_dof_map();
     libMesh::FEType fe_type_p = dof_map_p.variable_type(0);
-    libMesh::UniquePtr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_type_p));
+    std::unique_ptr<libMesh::FEBase> fe_p(libMesh::FEBase::build(dim, fe_type_p));
     libMesh::QGauss qrule_p(dim, libMesh::SECOND);
     fe_p->attach_quadrature_rule(&qrule_p);
 
@@ -1701,7 +1701,7 @@ void Elasticity::evaluate_nodal_I4f()
     const libMesh::DofMap & dof_map_fibers = fiber_system.get_dof_map();
 
     libMesh::FEType fe_type = dof_map_I4f.variable_type(0);
-    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::FIRST);
@@ -1861,7 +1861,7 @@ void Elasticity::evaluate_L2_J_err()
     const libMesh::DofMap & dof_map = system.get_dof_map();
 
     libMesh::FEType fe_type = dof_map_I4f.variable_type(0);
-    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::FIRST);

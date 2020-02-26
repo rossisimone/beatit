@@ -241,7 +241,7 @@ Poisson::read_equation_system(const std::string& es)
 
 
 const
-libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_solution()
 {
     libMesh::ExplicitSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
@@ -249,7 +249,7 @@ Poisson::get_solution()
 }
 
 const
-libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_P0_solution()
 {
     libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameP0);
@@ -257,7 +257,7 @@ Poisson::get_P0_solution()
 }
 
 const
-libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 Poisson::get_gradient()
 {
     libMesh::ExplicitSystem& g_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameGradient);
@@ -267,7 +267,7 @@ Poisson::get_gradient()
 void
 Poisson::assemble_system()
 {
-     using libMesh::UniquePtr;
+     using std::unique_ptr;
 
      const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
      const unsigned int dim = mesh.mesh_dimension();
@@ -285,11 +285,11 @@ Poisson::assemble_system()
 
      // Build a Finite Element object of the specified type.  Since the
      // FEBase::build() member dynamically creates memory we will
-     // store the object as a UniquePtr<FEBase>.  This can be thought
+     // store the object as a std::unique_ptr<FEBase>.  This can be thought
      // of as a pointer that will clean up after itself.  Introduction Example 4
-     // describes some advantages of  UniquePtr's in the context of
+     // describes some advantages of  std::unique_ptr's in the context of
      // quadrature rules.
-     UniquePtr<libMesh::FEBase> fe_qp(libMesh::FEBase::build(dim, fe_type));
+     std::unique_ptr<libMesh::FEBase> fe_qp(libMesh::FEBase::build(dim, fe_type));
       // A 5th order Gauss quadrature rule for numerical integration.
      libMesh::QGauss qrule_stiffness(dim, libMesh::FOURTH);
       // Tell the finite element object to use our quadrature rule.
@@ -297,7 +297,7 @@ Poisson::assemble_system()
 
        // Declare a special finite element object for
   // boundary integration.
-  UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type));
+  std::unique_ptr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type));
 
   // Boundary integration requires one quadraure rule,
   // with dimensionality one less than the dimensionality
@@ -400,7 +400,7 @@ void
 Poisson::apply_BC( const libMesh::Elem*& elem,
                    libMesh::DenseMatrix<libMesh::Number>& Ke,
                    libMesh::DenseVector<libMesh::Number>& Fe,
-                   libMesh::UniquePtr<libMesh::FEBase>& fe_face,
+                   std::unique_ptr<libMesh::FEBase>& fe_face,
                    libMesh::QGauss& qface,
                    const libMesh::MeshBase& mesh)
 {
@@ -573,7 +573,7 @@ Poisson::compute_elemental_solution_gradient()
     libMesh::ExplicitSystem& s_system  =  M_equationSystems.get_system<libMesh::ExplicitSystem>(M_myNameP0);
     PoissonSystem& p_system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
     p_system.update();
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
@@ -583,7 +583,7 @@ Poisson::compute_elemental_solution_gradient()
     const libMesh::DofMap & s_dof_map = s_system.get_dof_map();
     libMesh::FEType g_fe_type = g_dof_map.variable_type(0);
     libMesh::FEType p_fe_type = p_dof_map.variable_type(0);
-    UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, p_fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, p_fe_type));
     libMesh::QGauss qrule(dim, libMesh::FIRST);
     if( qrule.get_order() != libMesh::FIRST )
     {

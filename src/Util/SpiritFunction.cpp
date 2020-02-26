@@ -137,17 +137,17 @@ SpiritFunction::operator()(  const double t,
 }
 
 
-libMesh::UniquePtr<libMesh::FunctionBase<double> >
+std::unique_ptr<libMesh::FunctionBase<double> >
 SpiritFunction::clone () const
 {
-//    libMesh::UniquePtr< SpiritFunction > pcopy;
+//    std::unique_ptr< SpiritFunction > pcopy;
 //    pcopy.reset(new SpiritFunction() );
 //    pcopy->_master = _master;
 //    pcopy->_is_time_dependent = true;
 //    pcopy->_initialized = true;
 //    for(int i = 0; i < M_expression.size(); ++i )
 //    pcopy->M_expression.push_back(M_expression[i]);
-//    return static_cast<libMesh::UniquePtr<libMesh::FunctionBase<double> > >(pcopy);
+//    return static_cast<std::unique_ptr<libMesh::FunctionBase<double> > >(pcopy);
     SpiritFunction* pcopy = new SpiritFunction();
     pcopy->_master = _master;
     pcopy->_is_time_dependent = true;
@@ -156,7 +156,7 @@ SpiritFunction::clone () const
     {
         pcopy->M_expression.push_back(M_expression[i]);
     }
-    return libMesh::UniquePtr<libMesh::FunctionBase<double> >(pcopy);
+    return std::unique_ptr<libMesh::FunctionBase<double> >(pcopy);
 }
 
 

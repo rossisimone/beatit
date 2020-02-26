@@ -343,7 +343,7 @@ void Bidomain::init_systems(double time)
 void Bidomain::assemble_matrices(double dt)
 {
 	std::cout << "* BIDOMAIN: Assembling System Matrix" << std::endl;
-    using libMesh::UniquePtr;
+    using std::unique_ptr;
 
     // Coefficient for matrix
     double cdt = dt;
@@ -400,11 +400,11 @@ void Bidomain::assemble_matrices(double dt)
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
-    // store the object as a UniquePtr<FEBase>.  This can be thought
+    // store the object as a std::unique_ptr<FEBase>.  This can be thought
     // of as a pointer that will clean up after itself.  Introduction Example 4
-    // describes some advantages of  UniquePtr's in the context of
+    // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule(dim, libMesh::THIRD);
@@ -447,8 +447,8 @@ void Bidomain::assemble_matrices(double dt)
     libMesh::DenseVector<libMesh::Number> Fe;
 
     // for interior penalty
-//     UniquePtr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
-//     UniquePtr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
+//     std::unique_ptr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
+//     std::unique_ptr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
     // Tell the finite element object to use our quadrature rule.
     libMesh::QGauss qface(dim - 1, fe_type_qp1.default_quadrature_order());
 

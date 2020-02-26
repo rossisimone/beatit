@@ -59,7 +59,7 @@ namespace BeatIt
 namespace Util
 {
 
-const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 generate_gradient_field( libMesh::MeshBase& mesh,
                          const GetPot& data,
                          const std::string& section)
@@ -72,7 +72,7 @@ generate_gradient_field( libMesh::MeshBase& mesh,
     p.solve_system();
     p.compute_elemental_solution_gradient();
 
-    libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >
+    std::unique_ptr<libMesh::NumericVector<libMesh::Number> >
     ptr( libMesh::NumericVector<libMesh::Number>::build( mesh.comm() ) );
     const auto& grad_ptr = p.get_gradient();
     return grad_ptr;

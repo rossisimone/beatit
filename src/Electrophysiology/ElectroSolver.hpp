@@ -148,11 +148,11 @@ public:
    std::string  get_ionic_model_name(unsigned int key) const;
 
 
-   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
    get_fibers();
-   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
    get_sheets();
-   const libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+   const std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
    get_xfibers();
     //protected:
 

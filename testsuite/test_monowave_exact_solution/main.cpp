@@ -377,7 +377,7 @@ void eval_l2_err(double& l2_V_err,
 	wave_system.update();
     const libMesh::DofMap & dof_map_monodomain = monodomain_system.get_dof_map();
     libMesh::FEType fe_type = dof_map_monodomain.variable_type(0);
-    libMesh::UniquePtr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
+    std::unique_ptr<libMesh::FEBase> fe(libMesh::FEBase::build(dim, fe_type));
     libMesh::QGauss qrule(dim, libMesh::FIRST);
     fe->attach_quadrature_rule(&qrule);
     const std::vector<libMesh::Real> & JxW = fe->get_JxW();

@@ -732,7 +732,7 @@ Monodomain::assemble_matrices()
 {
 
 //    std::cout << "* MONODOMAIN: Assembling matrices ... " << std::flush;
-     using libMesh::UniquePtr;
+     using std::unique_ptr;
 
      const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
      const unsigned int dim = mesh.mesh_dimension();
@@ -766,12 +766,12 @@ Monodomain::assemble_matrices()
 
      // Build a Finite Element object of the specified type.  Since the
      // FEBase::build() member dynamically creates memory we will
-     // store the object as a UniquePtr<FEBase>.  This can be thought
+     // store the object as a std::unique_ptr<FEBase>.  This can be thought
      // of as a pointer that will clean up after itself.  Introduction Example 4
-     // describes some advantages of  UniquePtr's in the context of
+     // describes some advantages of  std::unique_ptr's in the context of
      // quadrature rules.
-     UniquePtr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
-     UniquePtr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
+     std::unique_ptr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+     std::unique_ptr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
 
      // A 5th order Gauss quadrature rule for numerical integration.
      libMesh::QGauss qrule_stiffness(dim, libMesh::FIRST);
@@ -1200,7 +1200,7 @@ Monodomain::potential_norm()
 
 
 const
-libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 Monodomain::get_fibers()
 {
     ParameterSystem& fiber_system        = M_equationSystems.get_system<ParameterSystem>("fibers");
@@ -1208,7 +1208,7 @@ Monodomain::get_fibers()
 }
 
 const
-libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 Monodomain::get_sheets()
 {
     ParameterSystem& sheets_system       = M_equationSystems.get_system<ParameterSystem>("sheets");
@@ -1216,7 +1216,7 @@ Monodomain::get_sheets()
 }
 
 const
-libMesh::UniquePtr<libMesh::NumericVector<libMesh::Number> >&
+std::unique_ptr<libMesh::NumericVector<libMesh::Number> >&
 Monodomain::get_xfibers()
 {
     ParameterSystem& xfiber_system       = M_equationSystems.get_system<ParameterSystem>("xfibers");
@@ -1239,7 +1239,7 @@ std::cout << "* MONODOMAIN: WARNING:  set_potential_on_boundary works only for T
          libMesh::FEType fe_type = dof_map.variable_type(0);
            // Declare a special finite element object for
   // boundary integration.
-  libMesh::UniquePtr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type));
+  std::unique_ptr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type));
 
   // Boundary integration requires one quadraure rule,
   // with dimensionality one less than the dimensionality

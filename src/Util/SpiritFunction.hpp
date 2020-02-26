@@ -126,7 +126,7 @@ public:
      * ``deep'' as necessary to allow independent destruction and
      * simultaneous evaluations of the copies in different threads.
      */
-    libMesh::UniquePtr<libMesh::FunctionBase<double> > clone () const;
+    std::unique_ptr<libMesh::FunctionBase<double> > clone () const;
 
 
     double operator() (const Point & p,
