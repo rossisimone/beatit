@@ -913,6 +913,7 @@ void Monowave::assemble_cg_matrices(double dt)
     monodomain_system.get_matrix("high_order_mass").close();
     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("mass"));
     monodomain_system.get_matrix("high_order_mass").add(0.5, monodomain_system.get_matrix("lumped_mass"));
+    monodomain_system.get_matrix("high_order_mass").close();
 
     form_system_matrix(dt, false, "lumped_mass");
 }

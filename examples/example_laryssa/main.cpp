@@ -51,16 +51,26 @@ int main(int argc, char ** argv)
 
     // Create empty mesh
     Mesh mesh(init.comm());
+    mesh.allow_renumbering(false);
 
     // Read mesh filename from input file
     std::string mesh_name = data("mesh", "NONE");
+
+    // If we want to import the fiber from the meshfile we need to create
+    // I/O object we will use to import the data
+    // Before reading the fibers we need to create the correct
+    // FE spaces to store them
+    // This will be done after initializing the Electrophysiology solver
+    libMesh::ExodusII_IO importer(mesh);
 
     // Create mesh:
     // If we passed a specific filename for the mesh let'd read that
     if ("NONE" != mesh_name)
     {
-        // read mesh
-        mesh.read(&mesh_name[0]);
+        // Use the Importer to read
+        importer.read(mesh_name);
+        // If we did not use the importer we would have done
+        //mesh.read(mesh_name);
 
         // We may want to refine this mesh n times
         // if the original mesh is too coarse
@@ -169,7 +179,17 @@ int main(int argc, char ** argv)
     es.print_info();
     // Set up initial conditions at time
     solver->init(datatime.M_startTime);
+    // Now read the fibers if wanted
+    bool read_fibers = data("read_fibers", false);
+    if(read_fibers)
+    {
+        // First show the elemental vcariables that can be imported
+        auto elemental_variables = importer.get_elem_var_names();
+        for (auto && var : elemental_variables) std::cout << var << std::endl;
+        solver->read_fibers(importer,1);
+    }
     // Export simulation parameters
+    // This will also export the fiber field
     solver->save_parameters();
     // Assemble matrices
     std::cout << "Assembling matrices" << std::endl;
@@ -177,6 +197,7 @@ int main(int argc, char ** argv)
     // output file counter
     int save_iter = 0;
     // Export initial condition at time
+    solver->save_exo_timestep(save_iter, datatime.M_time);
     solver->save_potential(save_iter, datatime.M_startTime);
 
     // Parameters to save the activation times
@@ -219,6 +240,7 @@ int main(int argc, char ** argv)
             save_iter++;
             // export current solution
             solver->save_potential(save_iter, datatime.M_time);
+            solver->save_exo_timestep(save_iter, datatime.M_time);
         }
         // export the activation times if at the corresponding timestep
         if (0 == datatime.M_iter % (at_save_iter * datatime.M_saveIter))

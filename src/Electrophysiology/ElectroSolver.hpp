@@ -88,7 +88,7 @@ public:
     void setup_ODE_systems(GetPot& data, std::string section);
 
     void restart( EXOExporter& importer, int step = 0, bool restart = true );
-    void read_fibers( EXOExporter& importer, int step = 0);
+    void read_fibers( EXOExporter& importer, int step = 1);
 
     void init(double time);
     void init_systems(double time);
