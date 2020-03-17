@@ -190,15 +190,16 @@ int main(int argc, char ** argv)
     }
     // Export simulation parameters
     // This will also export the fiber field
-    solver->save_parameters();
+//    solver->save_parameters();
     // Assemble matrices
     std::cout << "Assembling matrices" << std::endl;
     solver->assemble_matrices(datatime.M_dt);
     // output file counter
     int save_iter = 0;
     // Export initial condition at time
-    solver->save_exo_timestep(save_iter, datatime.M_time);
+//    solver->save_exo_timestep(save_iter, datatime.M_time);
     solver->save_potential(save_iter, datatime.M_startTime);
+//    solver->save_parameters();
 
     // Parameters to save the activation times
     // A node is activated if the transmembrane potential > threshold
@@ -240,7 +241,7 @@ int main(int argc, char ** argv)
             save_iter++;
             // export current solution
             solver->save_potential(save_iter, datatime.M_time);
-            solver->save_exo_timestep(save_iter, datatime.M_time);
+//            solver->save_exo_timestep(save_iter, datatime.M_time);
         }
         // export the activation times if at the corresponding timestep
         if (0 == datatime.M_iter % (at_save_iter * datatime.M_saveIter))
