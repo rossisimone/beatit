@@ -1,0 +1,90 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[mesh]
+    # number of elements per side
+     input_mesh_name = LA_T4_m1.e
+    # input_mesh_name = LA_T4_m1_fibers.e
+    # input_mesh_name = LA_T4_m3_bis.e
+    #input_mesh_name = RA_test.e
+    
+[../]
+
+[poisson]
+    # Output Folder
+    output_folder = LA_Output
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+    # rhs = 'exp(-0.01*((x-94.3516)^2+(y-114.702)^2+(z-100.077)^2))'
+    rhs = 0.0
+    [./BC]
+        #list = epi,endo
+        #list = epi,endo,rv,septum
+        list = 'zero, one'
+        [./zero]
+        flag = 900,1200,1300,600
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./one]
+        flag = 100,1900,400,200
+        type = Dirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+        [./two]
+        flag = 312,322
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 2.0
+        [../]
+        [./endo1]
+        flag = 1300
+        type = Dirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./epi2]
+        flag = 1200
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./endo2]
+        flag = 1202
+        type = Dirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = x
+        [../]
+        [./rv]
+        flag = 1101
+        type = NitscheSymmetric
+        mode = Full
+        component  = All
+        function = x
+        [../]
+        [./septum]
+        flag = 1001
+        type = NitscheUnsymmetric
+        mode = Full
+        component  = All
+        function = x
+        [../]
+    [../]
+[../]
