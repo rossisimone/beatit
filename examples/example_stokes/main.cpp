@@ -137,17 +137,22 @@ int main(int argc, char **argv)
     LinearImplicitSystem &system_profile = equation_systems.add_system < LinearImplicitSystem > ("Poisson");
     system_profile.add_variable("phi", FIRST);
     system_profile.attach_assemble_function(assemble_poisson);
-    std::set < libMesh::boundary_id_type > dirichlet_poisson;
     // Set Dirichlet condition on lumen
     // HH16: sideset 14
-    std::cout << "Adding Dirichlet BC for parabolic velocity profile" << std::endl;
-    dirichlet_poisson.insert(14);
-    std::vector<unsigned int> vars_p(1);
-    vars_p[0] = 0;
-    AnalyticFunction<> bcz(zf);
-    libMesh::DirichletBoundary dirichlet_bc_poisson(dirichlet_poisson, vars_p, bcz);
-    system_profile.get_dof_map().add_dirichlet_boundary(dirichlet_bc_poisson);
-
+    std::string poisson_bc_list = data("poisson_bc", "NONE");
+    bool solve_poisson_system = false;
+    if(poisson_bc_list != "NONE") solve_poisson_system = true;
+    if(solve_poisson_system)
+    {
+        std::set<boundary_id_type> dirichlet_poisson;
+        BeatIt::readList(poisson_bc_list, dirichlet_poisson);
+        std::cout << "Adding Dirichlet BC for parabolic velocity profile" << std::endl;
+        std::vector<unsigned int> vars_p(1);
+        vars_p[0] = 0;
+        AnalyticFunction<> bcz(zf);
+        libMesh::DirichletBoundary dirichlet_bc_poisson(dirichlet_poisson, vars_p, bcz);
+        system_profile.get_dof_map().add_dirichlet_boundary(dirichlet_bc_poisson);
+    }
     // Declare the system and its variables.
     // Create a transient system named "Stokes"
     std::cout << "Creating Stokes system" << std::endl;
@@ -200,13 +205,17 @@ int main(int argc, char **argv)
 
     // Assemble & solve the linear system,
     // then write the solution.
-    std::cout << "Solve Poisson system" << std::endl;
-    typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
-    PetscSolver * linear_solver = dynamic_cast<PetscSolver*>(system_profile.get_linear_solver());
-    KSPSetOptionsPrefix(linear_solver->ksp(),"poisson_");
-    PCSetOptionsPrefix(linear_solver->pc(),"poisson_");
-    KSPSetFromOptions(linear_solver->ksp());
-    equation_systems.get_system("Poisson").solve();
+    
+    if(solve_poisson_system)
+    {
+        std::cout << "Solve Poisson system" << std::endl;
+        typedef libMesh::PetscLinearSolver<libMesh::Number> PetscSolver;
+        PetscSolver * linear_solver = dynamic_cast<PetscSolver*>(system_profile.get_linear_solver());
+        KSPSetOptionsPrefix(linear_solver->ksp(),"poisson_");
+        PCSetOptionsPrefix(linear_solver->pc(),"poisson_");
+        KSPSetFromOptions(linear_solver->ksp());
+        equation_systems.get_system("Poisson").solve();
+    }
     std::cout << "Solve Stokes system" << std::endl;
     equation_systems.get_system("Stokes").solve();
 
