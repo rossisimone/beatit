@@ -82,6 +82,7 @@ add_library( beatit  ${HEADERS} ${SOURCES})
 #message("BOOSTLIBSYSTEM: ${BOOSTLIBSYSTEM}" )
 #target_link_libraries (beatit ${BOOSTLIBSYSTEM})
 target_link_libraries (beatit ${LIBMESH_LIB})
+target_link_libraries (beatit ${LIBTIMPILIB})
 target_link_libraries (beatit ${PETSC_LIBRARIES})
 target_link_libraries (beatit ${VTK_LIBRARIES})
 

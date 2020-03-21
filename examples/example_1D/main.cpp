@@ -71,6 +71,7 @@
 #include "Util/CTestUtil.hpp"
 #include <iomanip>
 //#include "libmesh/vtk_io.h"
+#include "libmesh/parallel.h"
 #include "libmesh/exodusII_io.h"
 enum class TestCase
 {

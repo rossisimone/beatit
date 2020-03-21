@@ -10,9 +10,6 @@ include_directories ("${LIBMESH_DIR}/include")
 
 
 target_link_libraries(${TESTNAMEV} beatit)
-target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
-#link_directories(${LIBMESH_DIR}/lib)
-
 
 SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
 

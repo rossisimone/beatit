@@ -48,6 +48,7 @@
 #ifndef SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONODOMAIN_HPP_
 #define SRC_ELECTROPHYSIOLOGY_MONODOMAIN_MONODOMAIN_HPP_
 
+#include "libmesh/parallel.h"
 
 #include "Util/TimeData.hpp"
 // Include file that defines (possibly multiple) systems of equations.

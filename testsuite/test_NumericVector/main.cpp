@@ -49,6 +49,7 @@
 
 
 // Basic include files needed for the mesh functionality.
+#include "libmesh/parallel.h"
 #include "libmesh/libmesh.h"
 #include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"

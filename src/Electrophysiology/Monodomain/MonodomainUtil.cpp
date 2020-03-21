@@ -47,6 +47,7 @@
 
 
 
+#include "libmesh/parallel.h"
 #include "Electrophysiology/Monodomain/MonodomainUtil.hpp"
 #include "libmesh/numeric_vector.h"
 #include "libmesh/explicit_system.h"
@@ -75,7 +76,7 @@ bool isFullyActivated(libMesh::System& system, double initValue )
     	}
     }
 
-    system.get_mesh().comm().min(local);
+    system.get_mesh().comm().min<int>(local);
     if( 0 == local ) return false;
     else return true;
 }
