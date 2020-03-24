@@ -65,6 +65,10 @@ using namespace libMesh;
 
 std::set<boundary_id_type> inflows;
 std::set<boundary_id_type> outflows;
+std::map<boundary_id_type, double> pressure_bc;
+double tau;
+double mu;
+Order elOrder;
 
 // Function prototype.  This function will assemble the system
 // matrix and right-hand-side.
@@ -108,17 +112,27 @@ int main(int argc, char **argv)
     // to build a mesh of 8x8 Quad9 elements.  Building these
     // higher-order elements allows us to use higher-order
     // approximation, as in example 3.
-//  MeshTools::Generation::build_square (mesh,
-//                                       15, 15,
-//                                       0., 1.,
-//                                       0., 1.,
-//                                       TRI3);
 
     std::string input_mesh = data("input", "NONE");
-    std::cout << "Reading mesh" << std::endl;
-    int n_refinements = data("nrefs", 0);
-    BeatIt::serial_mesh_partition(init.comm(), input_mesh, &mesh, n_refinements);
-
+    if("NONE" == input_mesh)
+    {
+        std::cout << "Creating mesh" << std::endl;
+        double maxx = data("maxx", 1.0);
+        double maxy = data("maxy", 1.0);
+        int nelx = data("nelx", 0);
+        int nely = data("nely", 0);
+        MeshTools::Generation::build_square (mesh,
+                                           nelx, nely,
+                                           0., maxx,
+                                           0., maxy,
+                                           TRI3);
+    }
+    else
+    {
+        std::cout << "Reading mesh" << std::endl;
+        int n_refinements = data("nrefs", 0);
+        BeatIt::serial_mesh_partition(init.comm(), input_mesh, &mesh, n_refinements);
+    }
 //	mesh.read(input_mesh);
     std::cout << "Scaling mesh" << std::endl;
     double scale = data("scale", 1.0);
@@ -158,11 +172,25 @@ int main(int argc, char **argv)
     std::cout << "Creating Stokes system" << std::endl;
     LinearImplicitSystem &system = equation_systems.add_system < LinearImplicitSystem > ("Stokes");
 
+    //Get parameters for stokes
+    // viscosity
+    mu = data("mu", 1.0);
+    // Stabilization parameter
+    tau = data("tau", -1.0);
+
     // Add the variables "u" & "v" to "Stokes".  They
     // will be approximated using second-order approximation.
-    unsigned int ux = system.add_variable("ux", FIRST);
-    unsigned int uy = system.add_variable("uy", FIRST);
-    unsigned int uz = system.add_variable("uz", FIRST);
+    elOrder = FIRST;
+    if(tau <= 0.0)
+    {
+        elOrder = SECOND;
+        mesh.all_second_order();
+    }
+    unsigned int ux = system.add_variable("ux", elOrder);
+    unsigned int uy = system.add_variable("uy", elOrder);
+    unsigned int uz = 100;
+    auto dim = mesh.spatial_dimension();
+    if(dim == 3) uz = system.add_variable("uz", elOrder);
 
     // Add the variable "p" to "Stokes". This will
     // be approximated with a first-order basis,
@@ -178,7 +206,29 @@ int main(int argc, char **argv)
     BeatIt::readList(in_bc, inflows);
     std::string out_bc = data("out_bc", "NONE");
     BeatIt::readList(out_bc, outflows);
-
+    // Read pressure boundary conditions
+    std::string p_bc_id = data("p_bc_id", "NONE");
+    std::string p_bc = data("p_bc", "NONE");
+    std::vector<libMesh::boundary_id_type> p_bc_id_vec;
+    BeatIt::readList(p_bc_id, p_bc_id_vec);
+    std::vector<double> p_bc_vec;
+    BeatIt::readList(p_bc, p_bc_vec);
+    if(p_bc_vec.size() != p_bc_id_vec.size() )
+    {
+        std::cout << "Pressure boundary conditions are not set up correctly in the input file: " << std::endl;
+        std::cout << "Specify the list of sidesets IDs in 'p_bc_id', e.g. p_bc_id = '1, 3, 6' " << std::endl;
+        std::cout << "Specify the list of corresponding pressures in 'p_bc', e.g. p_bc_id = '10.0, 12.0, 11.0' " << std::endl;
+        std::cout << "The lists p_bc_id and p_pc must have the same number of entries. " << std::endl;
+        std::cout << "Aborting. " << std::endl;
+        throw std::runtime_error("Pressure Boundary conditions: wrong input file");
+    }
+    else
+    {
+        for(unsigned int k = 0; k< p_bc_vec.size(); ++k)
+        {
+            pressure_bc[p_bc_id_vec[k]] = p_bc_vec[k];
+        }
+    }
     std::set < libMesh::boundary_id_type > dirichlet_stokes;
 
     std::string bcs = data("Dbc", "NONE");
@@ -187,7 +237,7 @@ int main(int argc, char **argv)
     std::vector<unsigned int> vars_vel_stokes(3);
     vars_vel_stokes[0] = ux;
     vars_vel_stokes[1] = uy;
-    vars_vel_stokes[2] = uz;
+    if(dim == 3) vars_vel_stokes[2] = uz;
     AnalyticFunction<> bczv(zfv);
     libMesh::ZeroFunction < Number > zero;
     libMesh::DirichletBoundary dirichlet_bc_stokes(dirichlet_stokes, vars_vel_stokes, &zero);
@@ -234,8 +284,9 @@ int main(int argc, char **argv)
 void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(system_name))
 {
     std::cout << "Start Stokes Assembly" << std::endl;
+    auto dim = mesh.spatial_dimension();
 
-    double scale = 1.0e-4;
+    // double scale = 1.0e-4;
     // It is a good idea to make sure we are assembling
     // the proper system.
     libmesh_assert_equal_to(system_name, "Stokes");
@@ -253,7 +304,8 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
     // Numeric ids corresponding to each variable in the system
     const unsigned int u_var = system.variable_number("ux");
     const unsigned int v_var = system.variable_number("uy");
-    const unsigned int w_var = system.variable_number("uz");
+    unsigned int w_var = 100;
+    if(dim == 3) w_var = system.variable_number("uz");
     const unsigned int p_var = system.variable_number("p");
 
     // Get the Finite Element type for "u".  Note this will be
@@ -292,6 +344,7 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
     // The element shape functions for the pressure variable
     // evaluated at the quadrature points.
     const std::vector<std::vector<Real>> &psi = fe_pres->get_phi();
+    const std::vector<std::vector<RealGradient>> &dpsi = fe_pres->get_dphi();
 
     // A reference to the DofMap object for this system.  The DofMap
     // object handles the index translation from node and element numbers
@@ -325,7 +378,7 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
 
     // BC stuff
     libMesh::UniquePtr < libMesh::FEBase > fe_face(libMesh::FEBase::build(dim, fe_vel_type));
-    libMesh::QGauss qface(dim - 1, libMesh::FIRST);
+    libMesh::QGauss qface(dim - 1, libMesh::SECOND);
     fe_face->attach_quadrature_rule(&qface);
     const std::vector<libMesh::Real> &JxW_face = fe_face->get_JxW();
     const std::vector<std::vector<libMesh::Real> > &phi_face = fe_face->get_phi();
@@ -349,14 +402,15 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
         dof_map.dof_indices(elem, dof_indices);
         dof_map.dof_indices(elem, dof_indices_u, u_var);
         dof_map.dof_indices(elem, dof_indices_v, v_var);
-        dof_map.dof_indices(elem, dof_indices_w, w_var);
+        if(dim == 3) dof_map.dof_indices(elem, dof_indices_w, w_var);
         dof_map.dof_indices(elem, dof_indices_p, p_var);
         dof_map_phi.dof_indices(elem, dof_indices_phi);
 
         const unsigned int n_dofs = dof_indices.size();
         const unsigned int n_u_dofs = dof_indices_u.size();
         const unsigned int n_v_dofs = dof_indices_v.size();
-        const unsigned int n_w_dofs = dof_indices_w.size();
+        unsigned int n_w_dofs = 0
+        if(dim == 3) n_w_dofs = dof_indices_w.size();
         const unsigned int n_p_dofs = dof_indices_p.size();
 
         // Compute the element-specific data for the current
@@ -395,17 +449,17 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
         Kvv.reposition(v_var * n_v_dofs, v_var * n_v_dofs, n_v_dofs, n_v_dofs);
         Kvp.reposition(v_var * n_v_dofs, p_var * n_v_dofs, n_v_dofs, n_p_dofs);
 
-        Kww.reposition(w_var * n_w_dofs, w_var * n_w_dofs, n_w_dofs, n_w_dofs);
-        Kwp.reposition(w_var * n_w_dofs, p_var * n_w_dofs, n_w_dofs, n_p_dofs);
+        if(dim == 3)Kww.reposition(w_var * n_w_dofs, w_var * n_w_dofs, n_w_dofs, n_w_dofs);
+        if(dim == 3)Kwp.reposition(w_var * n_w_dofs, p_var * n_w_dofs, n_w_dofs, n_p_dofs);
 
         Kpu.reposition(p_var * n_u_dofs, u_var * n_u_dofs, n_p_dofs, n_u_dofs);
         Kpv.reposition(p_var * n_u_dofs, v_var * n_u_dofs, n_p_dofs, n_v_dofs);
-        Kpw.reposition(p_var * n_u_dofs, w_var * n_u_dofs, n_p_dofs, n_w_dofs);
+        if(dim == 3)Kpw.reposition(p_var * n_u_dofs, w_var * n_u_dofs, n_p_dofs, n_w_dofs);
         Kpp.reposition(p_var * n_u_dofs, p_var * n_u_dofs, n_p_dofs, n_p_dofs);
 
         Fu.reposition(u_var * n_u_dofs, n_u_dofs);
         Fv.reposition(v_var * n_u_dofs, n_v_dofs);
-        Fw.reposition(w_var * n_u_dofs, n_w_dofs);
+        if(dim == 3) Fw.reposition(w_var * n_u_dofs, n_w_dofs);
         Fp.reposition(p_var * n_u_dofs, n_p_dofs);
 
         // Now we will build the element matrix.
@@ -417,9 +471,9 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
             {
                 for (unsigned int j = 0; j < n_u_dofs; j++)
                 {
-                    Kuu(i, j) += JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
-                    Kvv(i, j) += JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
-                    Kww(i, j) += JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+                    Kuu(i, j) += JxW[qp] * mu * (dphi[i][qp] * dphi[j][qp]);
+                    Kvv(i, j) += JxW[qp] * mu * (dphi[i][qp] * dphi[j][qp]);
+                    if(dim == 3) Kww(i, j) += JxW[qp] * mu * (dphi[i][qp] * dphi[j][qp]);
                 }
             }
 
@@ -428,9 +482,9 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
             {
                 for (unsigned int j = 0; j < n_p_dofs; j++)
                 {
-                    Kup(i, j) += -JxW[qp] * psi[j][qp] * dphi[i][qp](0);
-                    Kvp(i, j) += -JxW[qp] * psi[j][qp] * dphi[i][qp](1);
-                    Kwp(i, j) += -JxW[qp] * psi[j][qp] * dphi[i][qp](2);
+                    Kup(i, j) -= JxW[qp] * psi[j][qp] * dphi[i][qp](0);
+                    Kvp(i, j) -= JxW[qp] * psi[j][qp] * dphi[i][qp](1);
+                    if(dim == 3) Kwp(i, j) -= JxW[qp] * psi[j][qp] * dphi[i][qp](2);
                 }
             }
 
@@ -440,20 +494,34 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
             {
                 for (unsigned int j = 0; j < n_u_dofs; j++)
                 {
-                    Kpu(i, j) += JxW[qp] * psi[i][qp] * dphi[j][qp](0);
-                    Kpv(i, j) += JxW[qp] * psi[i][qp] * dphi[j][qp](1);
-                    Kpw(i, j) += JxW[qp] * psi[i][qp] * dphi[j][qp](2);
+                    Kpu(i, j) -= JxW[qp] * psi[i][qp] * dphi[j][qp](0);
+                    Kpv(i, j) -= JxW[qp] * psi[i][qp] * dphi[j][qp](1);
+                    if(dim == 3) Kpw(i, j) -= JxW[qp] * psi[i][qp] * dphi[j][qp](2);
                 }
             }
 
             // pp coupling
-            double h = elem->hmax();
-
-            for (unsigned int i = 0; i < n_p_dofs; i++)
+            if(FIRST == elOrder)
             {
-                for (unsigned int j = 0; j < n_p_dofs; j++)
+                double h = elem->hmax();
+
+                for (unsigned int i = 0; i < n_p_dofs; i++)
                 {
-                    Kpp(i, j) += 0.5 * h * h * JxW[qp] * dphi[i][qp] * dphi[j][qp];
+                    for (unsigned int j = 0; j < n_p_dofs; j++)
+                    {
+                        Kpp(i, j) -= tau * 0.5 * h * h * JxW[qp] * dpsi[i][qp] * dpsi[j][qp];
+                        //Kpp(i, j) += 1e-6 * JxW[qp] * psi[i][qp] * psi[j][qp];
+                    }
+                }
+            }
+            else
+            {
+                for (unsigned int i = 0; i < n_p_dofs; i++)
+                {
+                    for (unsigned int j = 0; j < n_p_dofs; j++)
+                    {
+                        Kpp(i, j) -= 1e-6 * JxW[qp] * psi[i][qp] * psi[j][qp];
+                    }
                 }
             }
 
@@ -481,6 +549,40 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
 //                    std::unique_ptr<const Elem> side_elem_ptr(elem->build_side_ptr(s));
                 const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
 
+
+                // Pressure boundary condition
+                if(pressure_bc.find(boundary_id) != pressure_bc.end() )
+                {
+                    double pressure = pressure_bc.find(boundary_id)->second;
+                    fe_face->reinit(elem, side);
+                    // Loop over face qp
+                    for (unsigned int qp = 0; qp < qface.n_points(); qp++)
+                    {
+                        const double xq = qface_point[qp](0);
+                        const double yq = qface_point[qp](1);
+                        const double zq = qface_point[qp](2);
+                        // Assemble Matrix BC
+                        for (unsigned int l = 0; l < phi_face.size(); l++)
+                        {
+                            for (unsigned int k = 0; k < phi_face.size(); k++)
+                            {
+                                Kuu(l, k) -= JxW_face[qp] * mu * (dphi_face[l][qp] * normals[qp]) * phi_face[k][qp];
+                                Kvv(l, k) -= JxW_face[qp] * mu * (dphi_face[l][qp] * normals[qp]) * phi_face[k][qp];
+                                if(dim == 3) Kww(l, k) -= JxW_face[qp] * mu * (dphi_face[l][qp] * normals[qp]) * phi_face[k][qp];
+                            }
+                        } // Assemble Matrix BC
+                        // Assemble
+                        for (unsigned int l = 0; l < phi_face.size(); l++)
+                        {
+                            Fu(l) -= JxW_face[qp] * pressure * normals[qp](0) * phi_face[l][qp];
+                            Fv(l) -= JxW_face[qp] * pressure * normals[qp](1) * phi_face[l][qp];
+                            if(dim == 3) Fw(l) -= JxW_face[qp] * pressure * normals[qp](2) * phi_face[l][qp];
+                        } // Assemble RHS BC
+
+                    }
+
+                }
+
                 // if on inflow or lumen
                 //if (boundary_id == 1 || boundary_id == 2 || boundary_id == 3 || boundary_id == 4 || boundary_id == 14)
                 int sign = -1;
@@ -488,7 +590,8 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
                 if (outflows.find(boundary_id) != outflows.end())
                     sign *= -1;
 
-                if (inflows.find(boundary_id) != inflows.end() || outflows.find(boundary_id) != outflows.end())
+//                if (inflows.find(boundary_id) != inflows.end() || outflows.find(boundary_id) != outflows.end())
+                if (inflows.find(boundary_id) != inflows.end())
                 //if ( boundary_id == 5 )
 //				if ( boundary_id < 14 )
                 {
@@ -518,7 +621,7 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
                         {
                             Fu(l) += JxW_face[qp] * penalty * ux * phi_face[l][qp];
                             Fv(l) += JxW_face[qp] * penalty * uy * phi_face[l][qp];
-                            Fw(l) += JxW_face[qp] * penalty * uz * phi_face[l][qp];
+                            if(dim == 3) Fw(l) += JxW_face[qp] * penalty * uz * phi_face[l][qp];
                         } // Assemble RHS BC
 
                         // Assemble Matrix BC
@@ -528,7 +631,7 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
                             {
                                 Kuu(l, k) += JxW_face[qp] * penalty * phi_face[l][qp] * phi_face[k][qp];
                                 Kvv(l, k) += JxW_face[qp] * penalty * phi_face[l][qp] * phi_face[k][qp];
-                                Kww(l, k) += JxW_face[qp] * penalty * phi_face[l][qp] * phi_face[k][qp];
+                                if(dim == 3) Kww(l, k) += JxW_face[qp] * penalty * phi_face[l][qp] * phi_face[k][qp];
                             }
                         } // Assemble Matrix BC
 
@@ -579,6 +682,8 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
         system.rhs->add_vector(Fe, dof_indices);
     } // end of element loop
     std::cout << "End Stokes Assembly" << std::endl;
+    system.matrix->close();
+    system.matrix->print();
 
 }
 
