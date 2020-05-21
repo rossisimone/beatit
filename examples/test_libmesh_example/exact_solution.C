@@ -29,25 +29,21 @@ using namespace libMesh;
 
 
 
-
 /**
+ * This is the exact solution that
+ * we are trying to obtain.  We will solve
  *
+ * - (u_xx + u_yy) = f
+ *
+ * and take a finite difference approximation using this
+ * function to get f.  This is the well-known "method of
+ * manufactured solutions".
  */
 Real exact_solution (const Real x,
                      const Real y,
-                     const Real t)
+                     const Real z = 0.)
 {
-  const Real xo = 0.2;
-  const Real yo = 0.2;
-  const Real u  = 0.8;
-  const Real v  = 0.8;
+  static const Real pi = acos(-1.);
 
-  const Real num =
-    pow(x - u*t - xo, 2.) +
-    pow(y - v*t - yo, 2.);
-
-  const Real den =
-    0.01*(4.*t + 1.);
-
-  return exp(-num/den)/(4.*t + 1.);
+  return cos(.5*pi*x)*sin(.5*pi*y)*cos(.5*pi*z);
 }
