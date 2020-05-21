@@ -1,0 +1,34 @@
+# FILE: "em.beat" PURPOSE: Example EM (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+electrophysiology = electrophysiology.beat 
+elasticity = elasticity.beat 
+activation = activation.beat
+
+output_folder = Output
+
+mesh = NONE
+# if mesh = NONE create a cube (BlockID = 0)
+# number of elements
+nelx  = 50
+nely  = 25
+nelz  = 0
+# Cube dimensions
+minx = 0.
+miny = 0.
+minz = 0.
+maxx = 1.0
+maxy = 0.5
+maxz = 0.0
+# scale geometry
+scale = 1.0
+
+[time] # milli seconds
+    dt = 0.03125      # Default: 1.0
+    emdt = 0.03125 
+    init_time = 0.0 # Default: 0.0
+    final_time = 60  # Default: 1.0
+    max_iter =  20000000   # Default: 99999999
+    save_iter = 32   # Default: 1
+[../]

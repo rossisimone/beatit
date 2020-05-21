@@ -1,34 +1,8 @@
-# FILE:    "data.beat"
-# PURPOSE: Example Laryssa
+# FILE:    "electrophysiology.beat"
+# PURPOSE: Example Josue
 #
 # License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
 #####################################################################
-
-
-
-mesh = NONE
-# if mesh = NONE create a cube (BlockID = 0)
-# number of elements
-nelx  = 50
-nely  = 25
-nelz  = 0
-# Cube dimensions
-minx = 0.
-miny = 0.
-minz = 0.
-maxx = 1.0
-maxy = 0.5
-maxz = 0.0
-# scale geometry
-scale = 1.0
-
-[time] # milli seconds
-    dt = 0.03125      # Default: 1.0
-    init_time = 0.0 # Default: 0.0
-    final_time = 30  # Default: 1.0
-    max_iter =  20000000   # Default: 99999999
-    save_iter = 32   # Default: 1 
-[../]
 
 # Models available 
 # bidomainbath, bidomain, monodomain, monowave
@@ -42,7 +16,7 @@ section= monowave
      # tissue_blockIDs = '0'
      ground_ve = false
      symmetric_operator = true
-     ionic_models_list = 'Courtemanche'
+     ionic_models_list = 'NashPanfilov'
      ionic_models_IDs_list = '0'
 
      # Initial Condition
@@ -99,7 +73,7 @@ section= monowave
           # S1: S1 stimulation protocol
           # S1S2: S1S2 stimulation protocol
           type = 'function' # Default: NONE
-          function = '-100.0*(x<= 0.1)*(t>=0)*(t<=2)'          
+          function = '-1.0*(x<= 0.1)*(y<=0.1)*(t>=0)*(t<=1.0)'          
           # Check the pacing protocol classes for more info
      [../]
 
