@@ -268,7 +268,7 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
 
     // A Gauss quadrature rule for numerical integration.
     // Let the FEType object decide what order rule is appropriate.
-    QGauss qrule(dim, libMesh::SECOND);
+    QGauss qrule(dim, libMesh::FIFTH);
 
     // Tell the finite element objects to use our quadrature rule.
     fe_vel->attach_quadrature_rule(&qrule);
@@ -318,7 +318,7 @@ void assemble_stokes(EquationSystems &es, const std::string& libmesh_dbg_var(sys
 
     // BC stuff
     libMesh::UniquePtr < libMesh::FEBase > fe_face(libMesh::FEBase::build(dim, fe_vel_type));
-    libMesh::QGauss qface(dim - 1, libMesh::SECOND);
+    libMesh::QGauss qface(dim - 1, libMesh::FIFTH);
     fe_face->attach_quadrature_rule(&qface);
     const std::vector<libMesh::Real> &JxW_face = fe_face->get_JxW();
     const std::vector<std::vector<libMesh::Real> > &phi_face = fe_face->get_phi();

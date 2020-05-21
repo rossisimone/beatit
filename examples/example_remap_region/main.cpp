@@ -43,6 +43,8 @@ int main(int argc, char ** argv)
     }
 
     std::string subregion_meshes = data("subregions", "NONE");
+    bool remap_volume = true;
+    if("NONE" == subregion_meshes) remap_volume = false;
     std::vector < std::string > mesh_files_vec;
     BeatIt::readList(subregion_meshes, mesh_files_vec);
 
@@ -55,152 +57,155 @@ int main(int argc, char ** argv)
 
     int default_id = data("default_id", 666);
 
-    std::cout << "Reading meshes and creating point locator ...  " << std::endl;
-    std::vector < std::unique_ptr<libMesh::Mesh> > region_meshes_ptr(num_subregions);
-    std::vector < std::unique_ptr<libMesh::PointLocatorTree> > locator_ptr(num_subregions);
-    for (int i = 0; i < num_subregions; ++i)
-    {
-        std::cout << "Reading mesh " << mesh_files_vec[i] << ", " << i << std::endl;
-        region_meshes_ptr[i].reset(new libMesh::Mesh(init.comm()));
-        region_meshes_ptr[i]->read(mesh_files_vec[i]);
-        region_meshes_ptr[i]->print_info();
-        locator_ptr[i].reset(new libMesh::PointLocatorTree(*region_meshes_ptr[i]));
-        locator_ptr[i]->set_close_to_point_tol(tolerance);
-    }
-
     libMesh::MeshBase::const_element_iterator el = mesh.active_local_elements_begin();
     const libMesh::MeshBase::const_element_iterator end_el = mesh.active_local_elements_end();
 
-    int missing_elements = 0;
-    std::set<int> missing_elem;
-
-    // Loop over each element of the mesh to remap
-    // and look for the centroid of the element in one
-    // of the subregion meshes
-    // By default, the blockID is set to:  default_id (666)
-    // In the meantime, count the number of missed elements
-    // storing the corresponding ID in: missing_elem
-    std::cout << "Looping over elements: " << std::endl;
-    int c = 0;
-    for (; el != end_el; ++el)
+    if(remap_volume)
     {
-        c++;
-        Elem * elem = *el;
-
-        auto centroid = elem->centroid();
-        // Set element ID to the number of the beast
-        elem->subdomain_id() = default_id;
-        // Let's see if we can find the centroid in one of the meshes
-        // Otherwise the ID will stay the number of the beast
-        bool found = false;
-
-        // Let's loop over the number of subregion meshes and look for the centroid
-        // As soon as we find it, we can pass to the next element
+        std::cout << "Reading meshes and creating point locator ...  " << std::endl;
+        std::vector < std::unique_ptr<libMesh::Mesh> > region_meshes_ptr(num_subregions);
+        std::vector < std::unique_ptr<libMesh::PointLocatorTree> > locator_ptr(num_subregions);
         for (int i = 0; i < num_subregions; ++i)
         {
-
-            const Elem* subregion_element = (*locator_ptr[i])(centroid);
-            if (subregion_element)
-            {
-                elem->subdomain_id() = i + 1;
-                found = true;
-                break;
-            }
+            std::cout << "Reading mesh " << mesh_files_vec[i] << ", " << i << std::endl;
+            region_meshes_ptr[i].reset(new libMesh::Mesh(init.comm()));
+            region_meshes_ptr[i]->read(mesh_files_vec[i]);
+            region_meshes_ptr[i]->print_info();
+            locator_ptr[i].reset(new libMesh::PointLocatorTree(*region_meshes_ptr[i]));
+            locator_ptr[i]->set_close_to_point_tol(tolerance);
         }
 
-        if (!found)
-        {
-            int elID = elem->id();
-            missing_elements++;
-            missing_elem.insert(elID);
-        }
+        int missing_elements = 0;
+        std::set<int> missing_elem;
 
-    }
-
-    std::cout << "Missed " << missing_elem.size() << " elements." << std::endl;
-
-    std::cout << "Export first remapped mesh" << std::endl;
-    ExodusII_IO(mesh).write("remapped_step_1.e");
-
-    int num_missed_els = 10;
-    int loop = 0;
-    while (num_missed_els >= 1)
-    {
-        loop++;
-        el = mesh.active_local_elements_begin();
-
-        num_missed_els = 0;
+        // Loop over each element of the mesh to remap
+        // and look for the centroid of the element in one
+        // of the subregion meshes
+        // By default, the blockID is set to:  default_id (666)
+        // In the meantime, count the number of missed elements
+        // storing the corresponding ID in: missing_elem
+        std::cout << "Looping over elements: " << std::endl;
+        int c = 0;
         for (; el != end_el; ++el)
         {
-            Elem * elem = *el;
-            auto subID = elem->subdomain_id();
-            if (default_id == subID)
+            c++;
+            Elem *elem = *el;
+
+            auto centroid = elem->centroid();
+            // Set element ID to the number of the beast
+            elem->subdomain_id() = default_id;
+            // Let's see if we can find the centroid in one of the meshes
+            // Otherwise the ID will stay the number of the beast
+            bool found = false;
+
+            // Let's loop over the number of subregion meshes and look for the centroid
+            // As soon as we find it, we can pass to the next element
+            for (int i = 0; i < num_subregions; ++i)
             {
-                std::vector<int> ids;
-                for (unsigned int side = 0; side < elem->n_sides(); side++)
+
+                const Elem *subregion_element = (*locator_ptr[i])(centroid);
+                if (subregion_element)
                 {
-                    Elem * neighbor = elem->neighbor_ptr(side);
-                    if (neighbor)
-                        ids.push_back(neighbor->subdomain_id());
+                    elem->subdomain_id() = i + 1;
+                    found = true;
+                    break;
                 }
-                int min = *std::min_element(ids.begin(), ids.end());
-
-                elem->subdomain_id() = min;
-                if (default_id == elem->subdomain_id() || 0 == elem->subdomain_id())
-                    num_missed_els++;
             }
-        }
-        std::cout << "Missed: " << c << " elements, still missing " << num_missed_els << std::endl;
-        if (loop >= 10)
-            break;
-    }
 
-    std::cout << "Export first remapped mesh" << std::endl;
-    ExodusII_IO(mesh).write("remapped_step_2.e");
-
-    // Fix boundary mesh for embryo meshes
-    bool fix_boundary = data("fix", false);
-    if (fix_boundary)
-    {
-        std::set < libMesh::dof_id_type > boundary_node_set;
-
-        el = mesh.active_local_elements_begin();
-        for (; el != end_el; ++el)
-        {
-            Elem * elem = *el;
-            auto subID = elem->subdomain_id();
-            if (1 == subID)
+            if (!found)
             {
-                for (int s = 0; s < elem->n_sides(); ++s)
+                int elID = elem->id();
+                missing_elements++;
+                missing_elem.insert(elID);
+            }
+
+        }
+
+        std::cout << "Missed " << missing_elem.size() << " elements." << std::endl;
+
+        std::cout << "Export first remapped mesh" << std::endl;
+        ExodusII_IO(mesh).write("remapped_step_1.e");
+
+        int num_missed_els = 10;
+        int loop = 0;
+        while (num_missed_els >= 1)
+        {
+            loop++;
+            el = mesh.active_local_elements_begin();
+
+            num_missed_els = 0;
+            for (; el != end_el; ++el)
+            {
+                Elem *elem = *el;
+                auto subID = elem->subdomain_id();
+                if (default_id == subID)
                 {
-                    if (nullptr == elem->neighbor_ptr(s))
+                    std::vector<int> ids;
+                    for (unsigned int side = 0; side < elem->n_sides(); side++)
                     {
-                        auto side_elem_ptr = elem->build_side_ptr(s);
-                        for (int n = 0; n < side_elem_ptr->n_nodes(); ++n)
+                        Elem *neighbor = elem->neighbor_ptr(side);
+                        if (neighbor)
+                            ids.push_back(neighbor->subdomain_id());
+                    }
+                    int min = *std::min_element(ids.begin(), ids.end());
+
+                    elem->subdomain_id() = min;
+                    if (default_id == elem->subdomain_id() || 0 == elem->subdomain_id())
+                        num_missed_els++;
+                }
+            }
+            std::cout << "Missed: " << c << " elements, still missing " << num_missed_els << std::endl;
+            if (loop >= 10)
+                break;
+        }
+
+        std::cout << "Export first remapped mesh" << std::endl;
+        ExodusII_IO(mesh).write("remapped_step_2.e");
+
+        // Fix boundary mesh for embryo meshes
+        bool fix_boundary = data("fix", false);
+        if (fix_boundary)
+        {
+            std::set < libMesh::dof_id_type > boundary_node_set;
+
+            el = mesh.active_local_elements_begin();
+            for (; el != end_el; ++el)
+            {
+                Elem *elem = *el;
+                auto subID = elem->subdomain_id();
+                if (1 == subID)
+                {
+                    for (int s = 0; s < elem->n_sides(); ++s)
+                    {
+                        if (nullptr == elem->neighbor_ptr(s))
                         {
-                            boundary_node_set.insert(side_elem_ptr->node_ptr(n)->id());
+                            auto side_elem_ptr = elem->build_side_ptr(s);
+                            for (int n = 0; n < side_elem_ptr->n_nodes(); ++n)
+                            {
+                                boundary_node_set.insert(side_elem_ptr->node_ptr(n)->id());
+                            }
                         }
                     }
                 }
             }
-        }
-        std::cout << "Boundary nodes on 1: " << boundary_node_set.size() << std::endl;
+            std::cout << "Boundary nodes on 1: " << boundary_node_set.size() << std::endl;
 
-        el = mesh.active_local_elements_begin();
-        for (; el != end_el; ++el)
-        {
-            Elem * elem = *el;
-            auto subID = elem->subdomain_id();
-            if (2 == subID)
+            el = mesh.active_local_elements_begin();
+            for (; el != end_el; ++el)
             {
-                for (int n = 0; n < elem->n_nodes(); ++n)
+                Elem *elem = *el;
+                auto subID = elem->subdomain_id();
+                if (2 == subID)
                 {
-                    auto it = boundary_node_set.find(elem->node_ptr(n)->id());
-                    if (it != boundary_node_set.end())
+                    for (int n = 0; n < elem->n_nodes(); ++n)
                     {
-                        std::cout << "changing element id on boundary" << std::endl;
-                        elem->subdomain_id() = 1;
-                        break;
+                        auto it = boundary_node_set.find(elem->node_ptr(n)->id());
+                        if (it != boundary_node_set.end())
+                        {
+                            std::cout << "changing element id on boundary" << std::endl;
+                            elem->subdomain_id() = 1;
+                            break;
+                        }
                     }
                 }
             }
@@ -212,9 +217,13 @@ int main(int argc, char ** argv)
     if(set_bc_flags)
     {
         std::string bc_meshes = data("bcs", "NONE");
+        std::string bcs_ids = data("bcs_ids", "");
         std::vector < std::string > bc_files_vec;
         BeatIt::readList(bc_meshes, bc_files_vec);
+        std::vector < unsigned int > bc_ids_vec;
+        BeatIt::readList(bcs_ids, bc_ids_vec);
         int num_bc_subregions = bc_files_vec.size();
+        int num_ids = bc_ids_vec.size();
         double bc_tolerance = data("bc_tolerance", 1e-2);
 
         std::cout << "Reading bc meshes and creating point locator ...  " << std::endl;
@@ -255,8 +264,9 @@ int main(int argc, char ** argv)
                         const Elem* subregion_element = (*bc_locator_ptr[i])(centroid);
                         if (subregion_element)
                         {
-
-                            mesh.boundary_info->add_side (elem, s, i + 1);
+                            unsigned int sideset_id = i+1;
+                            if(num_ids == num_bc_subregions) sideset_id = bc_ids_vec[i];
+                            mesh.boundary_info->add_side (elem, s, sideset_id);
                             found = true;
                             break;
                         }

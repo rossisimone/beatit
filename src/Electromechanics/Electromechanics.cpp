@@ -159,16 +159,18 @@ Electromechanics::init(double time)
 void
 Electromechanics::compute_activation(double dt)
 {
-//			std::cout << "\n Solving activation: "  <<  std::endl;
-    throw std::runtime_error("Electromechanics CODE is broken");
+//	std::cout << "\n Solving activation with " << ionic_model_name <<  std::endl;
+//    throw std::runtime_error("Electromechanics CODE is broken");
 //    std::string ionic_model_name = M_monowave->M_ionicModelPtr->ionicModelName();
     // TO DO: move ionic model ptr to map
-    std::string ionic_model_name = ""; //M_monowave->M_ionicModelPtr->ionicModelName();
+    //std::string ionic_model_name = M_monowave->M_ionicModelPtr->ionicModelName();
         ActivationSystem& activation_system = M_equationSystems.get_system<ActivationSystem>("activation");
     typedef libMesh::ExplicitSystem                     ParameterSystem;
     ParameterSystem& dummy_system       = M_equationSystems.get_system<ParameterSystem>("dumb");
     typedef libMesh::TransientExplicitSystem           IonicModelSystem;
 	IonicModelSystem& ionic_model_system =  M_equationSystems.add_system<IonicModelSystem>("ionic_model");
+    IonicModelSystem& iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
+
     typedef libMesh::ExplicitSystem                     ParameterSystem;
     ParameterSystem& I4f_system        = M_equationSystems.get_system<ParameterSystem>("I4f");
 
@@ -177,15 +179,17 @@ Electromechanics::compute_activation(double dt)
     //       d gammaf
     //  mu_a --------  = -0.1 * V - gammaf;
     //          d t
-    if(ionic_model_name == "NashPanfilov" || ionic_model_name == "FentonKarma")
+    //if(ionic_model_name == "NashPanfilov" || ionic_model_name == "FentonKarma")
     {
-        if(ionic_model_name == "FentonKarma") mu_a =25.0;
+        //if(ionic_model_name == "FentonKarma") mu_a =25.0;
 
         typedef libMesh::TransientExplicitSystem           WaveSystem;
         WaveSystem& wave_system =  M_equationSystems.get_system<WaveSystem>("wave");
 
         *dummy_system.solution *= 0.0;
         *dummy_system.solution += *wave_system.solution;
+        auto Vnorm = wave_system.solution->linfty_norm ();
+        auto dummynorm = dummy_system.solution->linfty_norm ();
         auto first_local_index = dummy_system.solution->first_local_index();
         auto last_local_index = dummy_system.solution->last_local_index();
         auto i = first_local_index;
@@ -200,14 +204,18 @@ Electromechanics::compute_activation(double dt)
 
          }
          dummy_system.solution->close();
+         dummynorm = dummy_system.solution->linfty_norm ();
+
         *dummy_system.solution *= -0.1;
         *dummy_system.solution -= *activation_system.solution;
         *dummy_system.solution *= dt / mu_a;
 
         *activation_system.solution += *dummy_system.solution;
     }
-    else if (ionic_model_name == "Grandi11")
+    return;
+//    else if (ionic_model_name == "Grandi11")
     {
+        throw std::runtime_error("Electromechanics CODE is broken");
 		ActivationSystem& NL06_system = M_equationSystems.add_system<ActivationSystem>("NL06");
 
 		int num_nl06_vars = 5;

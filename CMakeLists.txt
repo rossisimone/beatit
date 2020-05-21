@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 2.8.9)
 project(BeatIt)
 set (BeatIt_VERSION_MAJOR 0)
 set (BeatIt_VERSION_MINOR 0)
+set(BeatIt_VERSION ${BeatIt_VERSION_MAJOR}.${BeatIt_VERSION_MINOR})
 
 # REQUIRES C++11
 set(CMAKE_CXX_STANDARD 14)
@@ -86,8 +87,21 @@ target_link_libraries (beatit ${LIBTIMPILIB})
 target_link_libraries (beatit ${PETSC_LIBRARIES})
 target_link_libraries (beatit ${VTK_LIBRARIES})
 
-add_subdirectory(examples)
+#set (BEATIT_BUILD_EXAMPLES TRUE)
+option(BEATIT_BUILD_EXAMPLES "This is settable from the command line" ON)
+message("-- BUILDING EXAMPLES? ${BEATIT_BUILD_EXAMPLES}")
+if(${BEATIT_BUILD_EXAMPLES})
+message("-- BUILDING EXAMPLES")
+add_subdirectory(examples)  
+endif(${BEATIT_BUILD_EXAMPLES})
+
+#set (BEATIT_BUILD_TESTS TRUE)
+option(BEATIT_BUILD_TESTS "This is settable from the command line" ON)
+message("-- BUILDING TESTS? ${BEATIT_BUILD_TESTS}")
+if(${BEATIT_BUILD_TESTS})
+message("-- BUILDING TESTSUITE")
 add_subdirectory(testsuite)
+endif(${BEATIT_BUILD_TESTS})
 
 # set flags
 #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -109,7 +123,24 @@ message(STATUS "CXX DEBUG flags: ${CMAKE_CXX_FLAGS} \n")
 
 install(TARGETS beatit 
         LIBRARY  DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include)
-
+install(DIRECTORY  src/ DESTINATION include/beatit FILES_MATCHING PATTERN  "*.hpp" )
 
 message(STATUS "INSTALL PREFIX: ${CMAKE_INSTALL_PREFIX} \n")
+
+# We configure our template. The template is described later.
+include(CMakePackageConfigHelpers)
+set(BEATIT_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include/beatit/")
+message(STATUS "PACKAGE: ${BEATIT_INCLUDE_DIRS} \n")
+
+configure_package_config_file (                         
+        BeatItConfig.cmake.in
+        # Important to write in CMAKE_BINARY_DIR if you want the registry
+        # mechanism to work:
+        "${CMAKE_INSTALL_PREFIX}/cmake/BeatIt-config.cmake"  
+        INSTALL_DESTINATION "${CMAKE_INSTALL_PREFIX}/cmake"
+        PATH_VARS BEATIT_INCLUDE_DIRS )
+        
+#	         This file is included in our template:
+#export ( TARGETS BeatIt FILE "${CMAKE_INSTALL_PREFIX}/cmake/BeatItTargets.cmake" )
+#
+#export ( PACKAGE BeatIt )

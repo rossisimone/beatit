@@ -1,18 +1,20 @@
-# - Config file for the FooBar package
+# - Config file for the BeatIt package
 # It defines the following variables
-#  BeatIt_INCLUDE_DIRS - include directories for FooBar
-#  BeatIt_LIBRARIES    - libraries to link against
-#  BeatIt_EXECUTABLE   - the bar executable
- 
+#  BEATIT_INCLUDE_DIRS - include directories for FooBar
+#  BEATIT_LIBRARIES    - libraries to link against
+#  BEATIT_LIBRARIES    - libraries to link against
+
+
+
+set(PACKAGE_VERSION "@BeatIt_VERSION@")
+...
+@PACKAGE_INIT@
+
 # Compute paths
 get_filename_component(BeatIt_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-set(BeatIt_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
- 
-# Our library dependencies (contains definitions for IMPORTED targets)
-#if(NOT TARGET foo AND NOT FooBar_BINARY_DIR)
-#  include("${FOOBAR_CMAKE_DIR}/FooBarTargets.cmake")
-#endif()
- 
+set(BEATIT_INCLUDE_DIRS "@CMAKE_INSTALL_FULL_INCLUDEDIR@")
+
 # These are IMPORTED targets created by BeatItTargets.cmake
-set(BeatIt_LIBRARIES src)
+set(BEATIT_LIBRARIES beatit)
+
 
