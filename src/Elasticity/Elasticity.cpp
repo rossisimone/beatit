@@ -423,21 +423,24 @@ void Elasticity::setupParameters(std::string section)
     I4f_system.add_vector("nodal_fibersz");
 
     /// Init system
-    std::cout << "* ELASTICITY: Init Systems ... " << std::endl;
+    std::cout << "* ELASTICITY: Init Systems ... " << std::flush;
     dummy_system.init();
-    std::cout << "* ELASTICITY: I4f Systems ... " << std::endl;
+    std::cout << " done. " << std::endl;
+    std::cout << "* ELASTICITY: I4f Systems ... " << std::flush;
     I4f_system.init();
+    std::cout << " done. " << std::endl;
     std::cout << "* ELASTICITY: print info Systems ... " << std::endl;
     M_equationSystems.print_info();
     /// Setting up BC
-
-    std::cout << "* ELASTICITY: Setup body forces ... " << std::endl;
+    std::cout << " done. " << std::endl;
+    std::cout << "* ELASTICITY: Setup body forces ... " << std::flush;
 
     std::string rhs = M_datafile(section + "/rhs", "no_rhs");
     M_rhsFunction.read(rhs);
     M_rhsFunction.showMe();
+    std::cout << " done. " << std::endl;
 
-    std::cout << "* ELASTICITY: Setup linear solvers ... " << std::endl;
+    std::cout << "* ELASTICITY: Setup linear solvers ... " << std::flush;
 
 //    M_linearSolver = libMesh::LinearSolver<libMesh::Number>::build(M_equationSystems.comm());
     M_linearSolver.reset(new PetscSolver(M_equationSystems.comm()));
@@ -448,26 +451,48 @@ void Elasticity::setupParameters(std::string section)
     M_projectionsLinearSolver->set_solver_type(libMesh::GMRES);
     M_projectionsLinearSolver->set_preconditioner_type(libMesh::SOR_PRECOND);
     M_projectionsLinearSolver->init();
+    std::cout << " done. " << std::endl;
 
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
     // Setup Exporters
+    std::cout << "* ELASTICITY: Setup exporters ... " << std::flush;
     M_exporter.reset(new EXOExporter(M_equationSystems.get_mesh()));
     M_GMVexporter.reset(new Exporter(M_equationSystems.get_mesh()));
     M_VTKexporter.reset(new VTKExporter(M_equationSystems.get_mesh()));
+    std::cout << " done. " << std::endl;
+    std::cout << "* ELASTICITY: Setup materials ... " << std::flush;
+    std::cout << "* ELASTICITY: Setup materials ... " << std::flush;
+    std::cout << "* ELASTICITY: Setup materials ... " << std::flush;
+
     std::string mats = M_datafile(section + "/materials", "NO_MATERIAL");
+    std::cout << "Materials: " << mats << std::endl;
     std::vector<std::string> materials;
     BeatIt::readList(mats, materials);
     std::string base_path = section + "/materials/";
     for (auto&& material : materials)
     {
         std::string path = base_path + material;
-        unsigned int materialID = M_datafile(path + "/matID", 0);
+        std::cout << "Material PATH: " << path  << std::endl;
+          unsigned int materialID = M_datafile(path + "/matID", 0);
+        std::string material_model = M_datafile(path + "/model", "NONE");
+        std::cout << "Material MODEL: " << path+ "/"+material_model << std::endl;
+        if(material_model == "NONE")
+        {
+            std::cout << "Material model " << material_model << " does not exist. Attempting to use " << material << std::endl;
+            material_model = material;
+        }
+        else
+        {
+            std::cout << "Using material model " << material_model << " in blockID " << materialID << std::endl;
+        }
         // Setup material
-        M_materialMap[materialID].reset(Material::MaterialFactory::Create(material));
+        M_materialMap[materialID].reset(Material::MaterialFactory::Create(material_model));
 
         M_materialMap[materialID]->setup(M_datafile, path, dimension);
     }
+
+    std::cout << "* ELASTICITY: Setup newton ... " << std::flush;
 
     M_newtonData.tol = M_datafile(section + "/newton/tolerance", 1e-9);
     M_newtonData.max_iter = M_datafile(section + "/newton/max_iter", 20);
@@ -605,7 +630,8 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
     for (; el != end_el; ++el)
     {
         const libMesh::Elem * elem = *el;
-        rho = M_materialMap[0]->M_density;
+        auto blockID = elem->subdomain_id();
+        rho = M_materialMap[blockID]->M_density;
         auto elID = elem->id();
 
         dof_map.dof_indices(elem, dof_indices);
@@ -711,14 +737,14 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
                 }
             }
 
-            M_materialMap[0]->M_f0 = f0;
-            M_materialMap[0]->M_s0 = s0;
+            M_materialMap[blockID]->M_f0 = f0;
+            M_materialMap[blockID]->M_s0 = s0;
 
-            M_materialMap[0]->M_gradU = dUk;
-            M_materialMap[0]->M_FA = FA;
-            M_materialMap[0]->updateVariables();
-            M_materialMap[0]->evaluateStress(ElasticSolverType::Primal);
-            Sk = M_materialMap[0]->M_PK1;
+            M_materialMap[blockID]->M_gradU = dUk;
+            M_materialMap[blockID]->M_FA = FA;
+            M_materialMap[blockID]->updateVariables();
+            M_materialMap[blockID]->evaluateStress(ElasticSolverType::Primal);
+            Sk = M_materialMap[blockID]->M_PK1;
             // Residual
             const double x = q_point[qp](0);
             const double y = q_point[qp](1);
@@ -767,8 +793,8 @@ void Elasticity::assemble_residual(double /* dt */, libMesh::NumericVector<libMe
                             dU(idim, 1) = dphi_u[m][qp](1);
                             dU(idim, 2) = dphi_u[m][qp](2);
 
-                            M_materialMap[0]->evaluateJacobian(dU, 0.0);
-                            S = M_materialMap[0]->M_total_jacobian;
+                            M_materialMap[blockID]->evaluateJacobian(dU, 0.0);
+                            S = M_materialMap[blockID]->M_total_jacobian;
                             auto int_1 = n + jdim * n_ux_dofs;
                             auto int_2 = m + idim * n_ux_dofs;
 //	                            std::cout << int_1 << ", " << int_2 << ", SdW: " << S.contract(dW) << std::endl;
@@ -1514,6 +1540,7 @@ void Elasticity::project_pressure()
     for (; el != end_el; ++el)
     {
         const libMesh::Elem * elem = *el;
+        auto blockID = elem->subdomain_id();
 
         dof_map.dof_indices(elem, dof_indices);
         dof_map.dof_indices(elem, dof_indices_ux, ux_var);
@@ -1563,8 +1590,8 @@ void Elasticity::project_pressure()
             }
 //               std::cout << "* ELASTICITY: evaluate p ... " << std::endl;
 
-            M_materialMap[0]->M_gradU = dUk;
-            double p = M_materialMap[0]->evaluatePressure();
+            M_materialMap[blockID]->M_gradU = dUk;
+            double p = M_materialMap[blockID]->evaluatePressure();
 
             for (unsigned int i = 0; i < phi.size(); i++)
             {

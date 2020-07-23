@@ -252,9 +252,10 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
     {
         const libMesh::Elem * elem = *el;
         auto elID = elem->id();
+        auto blockID = elem->subdomain_id();
         double h = elem->hmin();
-        rho = M_materialMap[0]->M_density;
-        tau = M_materialMap[0]->M_tau;
+        rho = M_materialMap[blockID]->M_density;
+        tau = M_materialMap[blockID]->M_tau;
         auto h2 = h*h;
 
         dof_map.dof_indices (elem, dof_indices);
@@ -329,7 +330,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 
         // Block K
         int index = 0;
-        assemble_pressure_mass = M_materialMap[0]->isIncompressible() ? 0 : 1;
+        assemble_pressure_mass = M_materialMap[blockID]->isIncompressible() ? 0 : 1;
 
         for (unsigned int qp=0; qp<qrule_1.n_points(); qp++)
         {
@@ -351,9 +352,9 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                 }
             } // end grad Uk on qp
 
-            M_materialMap[0]->M_gradU = dUk;
-            M_materialMap[0]->M_f0 = f0;
-            M_materialMap[0]->M_s0 = s0;
+            M_materialMap[blockID]->M_gradU = dUk;
+            M_materialMap[blockID]->M_f0 = f0;
+            M_materialMap[blockID]->M_s0 = s0;
 
             const unsigned int n_phi_p = phi_p.size();
             for(unsigned int l = 0; l < n_phi_p; ++l )
@@ -362,7 +363,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                 grad_pk += dphi_p[l][qp] * solution_k[l+dim*n_phi];
             }// end grad pk on qp
 
-            M_materialMap[0]->M_pressure = pk;
+            M_materialMap[blockID]->M_pressure = pk;
 
             // Residual
             const double x = q_point[qp](0);
@@ -404,14 +405,14 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                                         + gamma_n * n0(idim) * n0(jdim);
                     }
                 }
-                M_materialMap[0]->M_FA = FA;
-                M_materialMap[0]->M_FAinv = FA.inverse();
-                M_materialMap[0]->M_CAinv = M_materialMap[0]->M_FAinv  * M_materialMap[0]->M_FAinv;
+                M_materialMap[blockID]->M_FA = FA;
+                M_materialMap[blockID]->M_FAinv = FA.inverse();
+                M_materialMap[blockID]->M_CAinv = M_materialMap[blockID]->M_FAinv  * M_materialMap[blockID]->M_FAinv;
             }
 
-            M_materialMap[0]->updateVariables();
-            M_materialMap[0]->evaluateStress( ElasticSolverType::Mixed);
-            Sk = M_materialMap[0]->M_PK1;
+            M_materialMap[blockID]->updateVariables();
+            M_materialMap[blockID]->evaluateStress( ElasticSolverType::Mixed);
+            Sk = M_materialMap[blockID]->M_PK1;
 
 
 
@@ -420,7 +421,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
             // for linear elements and nonlinear material div \sigma = H grad p
             // for linear elements and linear material div \sigma = grad p
             // for linear materials we set H = I
-            Hk = M_materialMap[0]->H();
+            Hk = M_materialMap[blockID]->H();
             res_k = - Hk *  grad_pk - rho * body_force;
 
             for(unsigned int n = 0; n < phi_u.size(); ++n )
@@ -438,7 +439,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                 }
             }
 
-            p =  M_materialMap[0]->evaluatePressureResidual();
+            p =  M_materialMap[blockID]->evaluatePressureResidual();
             for(unsigned int n = 0; n < phi_p.size(); ++n )
             {
                 // In this way we can do the compressible and the incopressible case together
@@ -479,7 +480,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                     //Fe(n+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U() * res_k * ( Hk * dphi_p[n][qp] );
 
                     //Fe(n+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk) * h2 * res_k * ( Hk * dphi_p[n][qp] );
-                    Fe(n+dim*n_ux_dofs) -= JxW_p[qp] * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk) * h2 * res_k * ( Hk * dphi_p[n][qp] );
+                    Fe(n+dim*n_ux_dofs) -= JxW_p[qp] * tau * M_materialMap[blockID]->d2U( M_materialMap[blockID]->M_Jk) * h2 * res_k * ( Hk * dphi_p[n][qp] );
                 }
             }
 
@@ -510,8 +511,8 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                             dU(idim, 1) =  dphi_u[m][qp](1);
                             dU(idim, 2) =  dphi_u[m][qp](2);
 
-                            M_materialMap[0]->evaluateDeviatoricJacobian(dU, 0.0);
-                            S = M_materialMap[0]->M_deviatoric_jacobian;
+                            M_materialMap[blockID]->evaluateDeviatoricJacobian(dU, 0.0);
+                            S = M_materialMap[blockID]->M_deviatoric_jacobian;
                             //dU.print(std::cout);
                             Ke(n+jdim*n_ux_dofs,m+idim*n_ux_dofs) += S.contract(dW);
                         }
@@ -520,8 +521,8 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                     for(unsigned int m = 0; m < phi_p.size(); ++m )
                     {
                         q = phi_p[m][qp];
-                        M_materialMap[0]->evaluateVolumetricJacobian(dU, q);
-                        S = M_materialMap[0]->M_volumetric_jacobian;
+                        M_materialMap[blockID]->evaluateVolumetricJacobian(dU, q);
+                        S = M_materialMap[blockID]->M_volumetric_jacobian;
                         Ke(n+jdim*n_ux_dofs,m+dim*n_ux_dofs) += S.contract(dW);
                     }
                 }
@@ -547,12 +548,12 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                         dU(idim, 1) =  dphi_u[m][qp](1);
                         dU(idim, 2) =  dphi_u[m][qp](2);
 
-                        dp = M_materialMap[0]->dpdF(dU);
+                        dp = M_materialMap[blockID]->dpdF(dU);
                         Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= dp * q;
 
                         if(stabilize)
                         {
-                            M_materialMap[0]->dH(dU, dH);
+                            M_materialMap[blockID]->dH(dU, dH);
                             // the stabilized version is
                             // q * pk - q * U' - q * U'' * ( H : grad u' )
                             // q * pk - q * U' + U'' * ( H * grad q ) * u'
@@ -571,11 +572,11 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                             // The linearization is composed of 4 terms
                             //  1) U''' * (H: dF ) * tau * ( H  grad pk ) * ( H * grad q )
 
-                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[0]->d3U( M_materialMap[0]->M_Jk ) * Hk.contract(dU) * ( Hk *  grad_pk ) * ( Hk * grad_q );
+                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[blockID]->d3U( M_materialMap[blockID]->M_Jk ) * Hk.contract(dU) * ( Hk *  grad_pk ) * ( Hk * grad_q );
                             //  2) U'' * tau * ( dH  grad pk ) * ( H * grad q )
-                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk ) * ( dH *  grad_pk ) * ( Hk * grad_q );
+                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[blockID]->d2U( M_materialMap[blockID]->M_Jk ) * ( dH *  grad_pk ) * ( Hk * grad_q );
                             //  3) U'' * tau * ( H  grad pk ) * ( dH * grad q )
-                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk ) * ( Hk *  grad_pk ) * ( dH * grad_q );
+                            Ke(n+dim*n_ux_dofs,m+idim*n_ux_dofs) -= tau * M_materialMap[blockID]->d2U( M_materialMap[blockID]->M_Jk ) * ( Hk *  grad_pk ) * ( dH * grad_q );
                             // The last term is assembled afterwards
 
                         }
@@ -620,7 +621,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 //                        Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) += JxW_p[qp] * tau * M_materialMap[0]->d2U()
 //                                                                         * (Hk * dphi_p[n][qp])
 //                                                                         * (Hk * dphi_p[m][qp]);
-                        Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) -= h2 * tau * M_materialMap[0]->d2U( M_materialMap[0]->M_Jk)
+                        Ke(n+dim*n_ux_dofs,m+dim*n_ux_dofs) -= h2 * tau * M_materialMap[blockID]->d2U( M_materialMap[blockID]->M_Jk)
                                                                          * (Hk * dphi_p[m][qp])
                                                                          * (Hk * grad_q);
                     }
