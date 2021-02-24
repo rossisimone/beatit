@@ -245,10 +245,14 @@ IsotropicMaterial::evaluateVolumetricStress()
      *  P = F * S
      *  Svol =  J p C^-1
      */
-	double kappa = M_kappa;
+//	double kappa = M_kappa;
+//
+//	double p = kappa * ( M_Jk - 1);
+//	M_volumetric_stress = M_Jk * p * M_Cinvk;
 
-	double p = kappa * ( M_Jk - 1);
-	M_volumetric_stress = M_Jk * p * M_Cinvk;
+    double p = evaluatePressure();
+    M_volumetric_stress = M_Jk * p * M_Cinvk;
+
 }
 
 void
@@ -423,7 +427,16 @@ IsotropicMaterial::evaluatePressure()
     double kappa = M_kappa;
     M_Fk = M_identity + M_gradU;
     M_Jk = M_Fk.det();
-    return kappa * ( M_Jk - 1);
+    double dU = 0.0;
+    if(M_isIncompressible)
+    {
+        dU = ( M_Jk - 1);
+    }
+    else
+    {
+        dU = std::log(M_Jk);
+    }
+    return kappa * dU;
 }
 
 
@@ -432,12 +445,31 @@ IsotropicMaterial::d2U( double J)
 {
     // For the time being this material is only incompressible
     // we return 1 to be compatible with the code
-    return M_kappa;
+    double d2U = 0.0;
+    if(M_isIncompressible)
+    {
+        d2U = 1.0;
+    }
+    else
+    {
+        d2U = 1.0 / M_Jk;
+    }
+    return M_kappa * d2U;
 }
+
 double
 IsotropicMaterial::d3U( double J)
 {
-    return 0.0;
+    double d3U = 0.0;
+    if(M_isIncompressible)
+    {
+        d3U = .0;
+    }
+    else
+    {
+        d3U =-1.0 / M_Jk  / M_Jk;
+    }
+    return M_kappa * d3U;
 }
 
 

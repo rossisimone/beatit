@@ -158,18 +158,21 @@ void Elasticity::setup(const GetPot& data, std::string section)
 {
     // ///////////////////////////////////////////////////////////////////////
     // ///////////////////////////////////////////////////////////////////////
+    std::cout << "* ELASTICITY: setup " << std::endl;
     // Read Input File
     M_datafile = data;
     //Read output folder from datafile
     std::string output_folder = M_datafile(section + "/output_folder", "Output");
     M_outputFolder = "./" + output_folder + "/";
+    std::cout << "* ELASTICITY: Creating output folder: " << M_outputFolder << std::endl;
     // Create folder to save output
     BeatIt::createOutputFolder(M_equationSystems.get_mesh().comm(), M_outputFolder);
 
-    std::cout << "Setting up system " << std::endl;
+    std::cout << "* ELASTICITY: Calling SetupSystem " << std::endl;
     setupSystem(section);
+    std::cout << "* ELASTICITY: Calling setupPositionVector " << std::endl;
     setupPositionVector();
-    std::cout << "Setting up parameters " << std::endl;
+    std::cout << "* ELASTICITY: Calling setupParameters " << std::endl;
     setupParameters(section);
 }
 
@@ -440,6 +443,7 @@ void Elasticity::setupParameters(std::string section)
     M_rhsFunction.showMe();
     std::cout << " done. " << std::endl;
 
+    std::cout << "* ELASTICITY: Setup linear solvers ... " << std::flush;
     std::cout << "* ELASTICITY: Setup linear solvers ... " << std::flush;
 
 //    M_linearSolver = libMesh::LinearSolver<libMesh::Number>::build(M_equationSystems.comm());
@@ -1653,11 +1657,13 @@ void Elasticity::newton(double dt, libMesh::NumericVector<libMesh::Number>* acti
         M_currentNewtonIter++;
 
         //solve_system();
-        //system.matrix->print(std::cout);
+//        system.matrix->print(std::cout);
+//        system.matrix->print_matlab("Jk_"+std::to_string(M_currentNewtonIter)+".m");
         std::pair<unsigned int, double> rval = std::make_pair(0, 0.0);
         rval = M_linearSolver->solve(*system.matrix, system.get_vector("step"), *system.rhs, linear_tol, linear_max_iter);
 //          std::cout << "RHS!\n" << std::endl;
 //          system.rhs->print(std::cout);
+//          system.rhs->print_matlab("Rk_"+std::to_string(M_currentNewtonIter)+".m");
 //          std::cout << "Step!\n" << std::endl;
 // 	     system.get_vector("step").print(std::cout);
 //

@@ -97,129 +97,71 @@ int main(int argc, char ** argv)
     // Initialize libMesh.
     LibMeshInit init(argc, argv);
 
-    // This example requires a linear solver package.
-//    libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE, "--enable-petsc, --enable-trilinos, or --enable-eigen");
-
-    // Skip this 2D example if libMesh was compiled as 1D-only.
-    libmesh_example_requires(2 <= LIBMESH_DIM, "2D support");
-
-    // This example NaNs with the Eigen sparse linear solvers and
-    // Trilinos solvers, but should work OK with either PETSc or
-    // Laspack.
-//    libmesh_example_requires(libMesh::default_solver_package() != EIGEN_SOLVERS, "--enable-petsc or --enable-laspack");
-//    libmesh_example_requires(libMesh::default_solver_package() != TRILINOS_SOLVERS, "--enable-petsc or --enable-laspack");
-
-    // Create a mesh, with dimension to be overridden later, distributed
     // across the default MPI communicator.
     Mesh mesh(init.comm());
 
-    GetPot commandLine(argc, argv);
-    std::string datafile_name = commandLine.follow("data.beat", 2, "-i", "--input");
-    GetPot data(datafile_name);
-    std::string meshname = data("mesh", "NONE");
+    MeshTools::Generation::build_square (mesh,
+                                       2, 1,
+                                       -1., 1.,
+                                       -1., 1.,
+                                       QUAD4);
 
-    // Use the MeshTools::Generation mesh generator to create a uniform
-    // 2D grid on the square [-1,1]^2.  We instruct the mesh generator
-    // to build a mesh of 8x8 Quad9 elements.  Building these
-    // higher-order elements allows us to use higher-order
-    // approximation, as in example 3.
-    std::cout << "Reading Mesh" << std::endl;
 
-    mesh.read(meshname);
-    double scale = 1e-3;
-    MeshTools::Modification::scale(mesh,scale,scale,scale);
-
-    //    for(auto & elem : mesh.active_element_ptr_range() )
-//    {
-//        int n_sides = elem->n_sides();
-//        for(int side = 0; side < n_sides; ++side)
-//        {
-//            if(elem->neighbor(side) == nullptr)
-//            {
-//                auto s = elem->side_ptr(side);
-//                Point c = s->centroid();
-//                if( c(0) < 250.5*scale || c(1) > 1074.5*scale)
-//                {
-//                    // do nothing
-//                }
-//                else
-//                {
-//                    mesh.boundary_info->add_side(elem, side, 7);
-//                }
-//            }
-//        }
-//    }
-    //mesh.all_second_order ();
-    // Print information about the mesh to the screen.
+    for (const auto & elem : mesh.active_local_element_ptr_range())
+    {
+         auto p = elem->centroid();
+         if(p(0) < 0) elem->subdomain_id() = 1;
+         else elem->subdomain_id() = 2;
+    }
+    mesh.prepare_for_use();
     mesh.print_info();
-    //mesh.boundary_info->print_info(std::cout);
 
-    AnalyticFunction<> bcz(zf);
-    AnalyticFunction<> bco(of);
-    AnalyticFunction<> bcin(inflow);
-
-    // Create an equation systems object.
     EquationSystems equation_systems(mesh);
-
     LinearImplicitSystem & system_profile = equation_systems.add_system<LinearImplicitSystem>("Poisson");
-    system_profile.add_variable("phi", FIRST);
-    system_profile.attach_assemble_function(assemble_poisson);
-    std::set<libMesh::boundary_id_type> dirichlet_poisson;
-    dirichlet_poisson.insert(7);
-    std::vector<unsigned int> vars_p(1);
-    vars_p[0] = 0;
-    libMesh::DirichletBoundary dirichlet_bc_poisson(dirichlet_poisson, vars_p, bcz);
-    system_profile.get_dof_map().add_dirichlet_boundary(dirichlet_bc_poisson);
+    std::set< libMesh::subdomain_id_type > left_subdomain;
+    std::set< libMesh::subdomain_id_type > right_subdomain;
+    left_subdomain.insert(1);
+    right_subdomain.insert(2);
+    system_profile.add_variable("L", FIRST, LAGRANGE, &left_subdomain);
+    system_profile.add_variable("R", FIRST, LAGRANGE, &right_subdomain);
 
 
-    // Declare the system and its variables.
-    // Create a transient system named "Stokes"
-    LinearImplicitSystem & system = equation_systems.add_system<LinearImplicitSystem>("Stokes");
+    LinearImplicitSystem & system_profile2 = equation_systems.add_system<LinearImplicitSystem>("Poisson2");
+    system_profile2.add_variable("U", FIRST, LAGRANGE);
 
-    // Add the variables "u" & "v" to "Stokes".  They
-    // will be approximated using second-order approximation.
-    unsigned int ux = system.add_variable("ux", FIRST);
-    unsigned int uy = system.add_variable("uy", FIRST);
-    unsigned int uz =system.add_variable("uz", FIRST);
-
-    // Add the variable "p" to "Stokes". This will
-    // be approximated with a first-order basis,
-    // providing an LBB-stable pressure-velocity pair.
-    unsigned int p =system.add_variable("p", FIRST);
-
-    // Give the system a pointer to the matrix assembly
-    // function.
-    system.attach_assemble_function(assemble_stokes);
-
-    // Initialize the data structures for the equation system.
     std::cout << "Init System" << std::endl;
-
     equation_systems.init();
-
-    equation_systems.parameters.set<unsigned int>("linear solver maximum iterations") = 250;
-    equation_systems.parameters.set<Real>("linear solver tolerance") = TOLERANCE;
 
     // Prints information about the system to the screen.
     equation_systems.print_info();
-    std::cout << "Solve Poisson System" << std::endl;
 
-    equation_systems.get_system("Poisson").solve();
+    DofMap & dof_map = system_profile.get_dof_map();
+    DofMap & dof_map2 = system_profile2.get_dof_map();
+    std::vector<libMesh::dof_id_type> l_dofs;
+    std::vector<libMesh::dof_id_type> r_dofs;
+    std::vector<libMesh::dof_id_type> u_dofs;
+    std::vector<libMesh::dof_id_type> dofs;
+    for (const auto & elem : mesh.active_local_element_ptr_range())
+    {
+        dof_map.dof_indices(elem, dofs);  
+        dof_map.dof_indices(elem, l_dofs, 0);  
+        dof_map.dof_indices(elem, r_dofs, 1) ; 
+        dof_map.dof_indices(elem, u_dofs) ;
 
-#ifdef LIBMESH_HAVE_EXODUS_API
-    ExodusII_IO(mesh).write_equation_systems ("poisson.e",
+       auto id = elem->id();
+
+       std::cout << "On elem " << id << "\n"
+                 << "#   dofs: " << dofs.size() << "\n"  
+                 << "# l_dofs: " << l_dofs.size() << "\n"  
+                 << "# r_dofs: " << r_dofs.size() << "\n"  
+                 << "# u_dofs: " << u_dofs.size() << std::endl;  
+    }
+
+
+    libMesh::ExodusII_IO(mesh).write_equation_systems ("poisson.e",
             equation_systems);
-#endif // #ifdef LIBMESH_HAVE_EXODUS_API
 
-    // Assemble & solve the linear system,
-    // then write the solution.
-    std::cout << "Solve System" << std::endl;
 
-    equation_systems.get_system("Stokes").solve();
-
-#ifdef LIBMESH_HAVE_EXODUS_API
-    ExodusII_IO(mesh).write_equation_systems ("out.e",
-            equation_systems);
-#endif // #ifdef LIBMESH_HAVE_EXODUS_API
 
     // All done.
     return 0;

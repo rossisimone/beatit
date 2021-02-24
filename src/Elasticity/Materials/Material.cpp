@@ -193,7 +193,7 @@ Material::evaluatePressureResidual()
     double RHS;
     if(M_isIncompressible)
     {
-        RHS = ( M_Jk - 1);
+        RHS = ( M_Jk - 1.0);
     }
     else
     {

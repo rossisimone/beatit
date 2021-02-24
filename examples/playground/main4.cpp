@@ -1,5 +1,5 @@
 // The libMesh Finite Element Library.
-// Copyright (C) 2002-2020 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
+// Copyright (C) 2002-2019 Benjamin S. Kirk, John W. Peterson, Roy H. Stogner
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -32,18 +32,19 @@
 #include <iostream>
 #include <algorithm>
 #include <math.h>
-#include <random>
 
+// Use input file
+#include "libmesh/getpot.h"
 
 // Basic include files needed for the mesh functionality.
 #include "libmesh/libmesh.h"
 #include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"
 #include "libmesh/vtk_io.h"
+#include "libmesh/nemesis_io.h"
 #include "libmesh/linear_implicit_system.h"
-#include "libmesh/equation_systems.h"
-#include "libmesh/exodusII_io.h"
 #include "libmesh/explicit_system.h"
+#include "libmesh/equation_systems.h"
 
 // Define the Finite Element object.
 #include "libmesh/fe.h"
@@ -63,11 +64,16 @@
 // Define the DofMap, which handles degree of freedom
 // indexing.
 #include "libmesh/dof_map.h"
-#include "libmesh/getpot.h"
-#include <libmesh/point_locator_tree.h>
+
+// Include headerfile to detect boundary id
+#include "libmesh/boundary_info.h"
+
+// To read the IDs from the input file
+#include "Util/IO/io.hpp"
 
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
+
 
 // Function prototype.  This is the function that will assemble
 // the linear system for our Poisson problem.  Note that the
@@ -83,44 +89,45 @@ Real exact_solution (const Real x,
                      const Real y,
                      const Real z = 0.)
 {
-    return 0;
+  static const Real pi = acos(-1.);
+
+//  return (16/9)*cos(.25*pi*(3*x-5))*sin(pi*y)*cos(.5*pi*z);
+//  return cos(.5*pi*x)*sin(.5*pi*y)*cos(.5*pi*z); //original
+  return sin(.5*pi*x)*cos(.5*pi*y)*cos(.5*pi*z); // reversed - test
 }
 
-namespace Parameters
-{
-static double sigma = 1.0;
-static double gamma = 1.0;
-static double beta = 0.0;
-static double kappa = 1.0;
-static double L = 4.0;
-static double Ly = 4.0;
-static libMesh::ExplicitSystem * g_system = nullptr;
-static libMesh::ExplicitSystem * f_system = nullptr;
-static libMesh::PointLocatorTree *  locator = nullptr;
+// Global variable Dirichlet BC list - can use inside poisson_assemble
+std::vector<int> dirichlet_id_list0;
+std::vector<int> dirichlet_id_list1;
 
-static double grid_min_x = 0;
-static double grid_min_y = 0;
-static double grid_min_z = 0;
-static double grid_max_x = 1;
-static double grid_max_y = 1;
-static double grid_max_z = 1;
-static int grid_el_x = 4;
-static int grid_el_y = 4;
-static int grid_el_z = 0;
+// Global variables to indicate the name of problems we are solving
+std::vector<std::string> input_list;
 
-bool use_white_noise = false;
+// Pointer to a vector of points
+std::vector<libMesh::Point> dirichlet_id0_points;
+std::vector<libMesh::Point> dirichlet_id1_points;
 
-}
-
-// NOISE
-static std::random_device rd;
-static std::mt19937 mt(rd());
-static std::uniform_real_distribution<double> uniform_dist(0.0, 2*M_PI);
-static std::normal_distribution<double> gauss_dist(0.0, 1.0);
+std::vector<double> dirichlet_id0_radius;
+std::vector<double> dirichlet_id1_radius;
 
 
+// MAIN
 int main (int argc, char ** argv)
 {
+    // Read input file
+    GetPot commandLine ( argc, argv );
+    std::string datafile_name = commandLine.follow ( "data.beat", 2, "-i", "--input" );
+    GetPot data(datafile_name);
+
+
+    // Modifying code to solve all problems at once
+    int N=data("number_of_problems", 0);
+
+    // Read name of the input files corresponding to each problem
+    std::string input_list_aux=data("inputs", "");
+    BeatIt::readList(input_list_aux, input_list);
+
+
   // Initialize libraries, like in example 2.
   LibMeshInit init (argc, argv);
 
@@ -128,32 +135,6 @@ int main (int argc, char ** argv)
   libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE,
                            "--enable-petsc, --enable-trilinos, or --enable-eigen");
 
-  GetPot commandLine ( argc, argv );
-  std::string datafile_name = commandLine.follow ( "data.beat", 2, "-i", "--input" );
-  GetPot data(datafile_name);
-
-
-  Parameters::grid_min_x = data("grid_min_x",0.0);
-  Parameters::grid_min_y = data("grid_min_y",0.0);
-  Parameters::grid_min_z = data("grid_min_z",0.0);
-  Parameters::grid_max_x = data("grid_max_x",1.0);
-  Parameters::grid_max_y = data("grid_max_y",1.0);
-  Parameters::grid_max_z = data("grid_max_z",1.0);
-  Parameters::grid_el_x = data("grid_el_x",4);
-  Parameters::grid_el_y = data("grid_el_y",4);
-  Parameters::grid_el_z = data("grid_el_z",4);
-  Parameters::use_white_noise = data("use_white_noise",false);
-
-
-  Parameters::sigma = data("sigma",1.0);
-  Parameters::gamma = data("gamma",1.0);
-  Parameters::beta = data("beta",0.0);
-  Parameters::kappa = data("kappa",1.0);
-  int N  = data("nel",15);
-  Parameters::L  = data("L", 4.0);
-
-  Parameters::Ly  = data("Ly", -1.0);
-  if(Parameters::Ly < 0) Parameters::Ly = Parameters::L;
   // Brief message to the user regarding the program name
   // and command line arguments.
   libMesh::out << "Running " << argv[0];
@@ -161,154 +142,206 @@ int main (int argc, char ** argv)
   for (int i=1; i<argc; i++)
     libMesh::out << " " << argv[i];
 
-  libMesh::out << "L: " << Parameters::L << ", Ly: " << Parameters::Ly << std::endl << std::endl;
+  libMesh::out << std::endl << std::endl;
 
   // Skip this 2D example if libMesh was compiled as 1D-only.
   libmesh_example_requires(2 <= LIBMESH_DIM, "2D support");
 
   // Create a mesh, with dimension to be overridden later, distributed
   // across the default MPI communicator.
-  Mesh lattice(init.comm());
-  double L_lattice =ceil(Parameters::L);
+  Mesh mesh(init.comm());
 
-  if(Parameters::grid_el_z <= 0)
-  {
-      MeshTools::Generation::build_square (lattice,
-              Parameters::grid_el_x, Parameters::grid_el_y,
-              Parameters::grid_min_x, Parameters::grid_max_x,
-              Parameters::grid_min_y, Parameters::grid_max_y,
-                                           QUAD4);
-  }
-  else
-  {
-      MeshTools::Generation::build_cube (lattice,
-              Parameters::grid_el_x, Parameters::grid_el_y, Parameters::grid_el_z ,
-              Parameters::grid_min_x, Parameters::grid_max_x,
-              Parameters::grid_min_y, Parameters::grid_max_y,
-              Parameters::grid_min_z, Parameters::grid_max_z,
-                                           HEX8);
+  // read from input
+  // Get the ids where Dirichlet BC are imposed
+   std::string ids_dirichlet_test = data("dirichletbc", "");  //> did not work
+   std::cout<< ids_dirichlet_test << " ";
+   //ids_dirichlet_bcs=ids_dirichlet_bcs*2;
+  int size_dirichlet_bcs = data.vector_variable_size("dirichletbc");
+  std::vector<int> ids_dirichlet_bcs; //(size_dirichlet_bcs);
+  for(int i=0; i<size_dirichlet_bcs; i++){
+      //ids_dirichlet_bcs[i]=data("dirichletbc", i, -1);
+      //std::cout << data("dirichletbc", i, -1)<< " ";
+      ids_dirichlet_bcs.push_back(data("dirichletbc", i, -1));
   }
 
-  Parameters::locator = new libMesh::PointLocatorTree(lattice);
-
-  EquationSystems lattice_equation_systems(lattice);
-  ExplicitSystem & g_system = lattice_equation_systems.add_system<ExplicitSystem>("Perlin");
-  Parameters::g_system = &g_system;
-  // Add the variables "u" & "v" to "Stokes".  They
-  // will be approximated using FIRST-order approximation.
-  g_system.add_variable("ux", FIRST);
-  g_system.add_variable("uy", FIRST);
-  g_system.add_variable("uz", FIRST);
-  lattice_equation_systems.init();
-  std::vector<dof_id_type> dof_indices;
-  // define lattice gradients;
-  for (auto & node : lattice.local_node_ptr_range())
-  {
-      g_system.get_dof_map().dof_indices(node, dof_indices);
-      double angle1 = uniform_dist(mt);
-      double angle2 = 0.0;
-      if(Parameters::grid_el_z > 0 ) angle2 = uniform_dist(mt);
-
-
-      double ux = std::cos(angle1) * std::cos(angle2);
-      double uy = std::sin(angle1) * std::cos(angle2);
-      double uz = std::sin(angle2);
-
-      libMesh::Point u(ux,uy, uz);
-      double unorm = u.norm();
-      u = u / u.norm();
-
-      g_system.solution->set(dof_indices[0], u(0));
-      g_system.solution->set(dof_indices[1], u(1));
-      g_system.solution->set(dof_indices[2], u(2));
+ // BeatIt::readList(ids_dirichlet_test, ids_dirichlet_bcs);               // IMPORTANT LINE HERE
+  //std::cout <<"ids dirichlet:"<< ids_dirichlet_bcs << "\n";
+  for(int i=0; i<size_dirichlet_bcs; i++){
+      std::cout << ids_dirichlet_bcs[i] << " ";
   }
 
-  libMesh::ExodusII_IO exporter(lattice);
-  exporter.write_equation_systems("lattice.e",
-          lattice_equation_systems);
-  exporter.write_element_data(lattice_equation_systems);
+  //Mesh as input?
+  bool ifmesh = data("mesh_input", false);
 
+  if(ifmesh==true){
+  // read mesh
+  std::string name_mesh=data("mesh", "");
+  //mesh.read("F65_m1.e"); // give the full path here if not in the same folder
+  mesh.read(name_mesh); // give the full path here if not in the same folder
+  }
+  else{
   // Use the MeshTools::Generation mesh generator to create a uniform
   // 2D grid on the square [-1,1]^2.  We instruct the mesh generator
   // to build a mesh of 15x15 QUAD9 elements.  Building QUAD9
   // elements instead of the default QUAD4's we used in example 2
   // allow us to use higher-order approximation.
-  double mesh_min_x = data("mesh_min_x",-1.0);
-  double mesh_min_y = data("mesh_min_y",-1.0);
-  double mesh_min_z = data("mesh_min_z",-1.0);
-  double mesh_max_x = data("grid_max_x",1.0);
-  double mesh_max_y = data("grid_max_y",1.0);
-  double mesh_max_z = data("grid_max_z",1.0);
-  int mesh_el_x = data("mesh_el_x",64);
-  int mesh_el_y = data("mesh_el_y",64);
-  int mesh_el_z = data("mesh_el_z",0);
-
-
-  Mesh mesh(init.comm());
-  if(mesh_el_z <= 0)
-  {
-      MeshTools::Generation::build_square (mesh,
-              mesh_el_x, mesh_el_y,
-              mesh_min_x, mesh_max_x,
-              mesh_min_y, mesh_max_y,
-               TRI3);
+  MeshTools::Generation::build_square (mesh,
+                                       15, 15,
+                                       -1., 1.,
+                                       -1., 1.,
+                                       QUAD9);
   }
-  else
-  {
-      MeshTools::Generation::build_cube (mesh,
-              mesh_el_x, mesh_el_y, mesh_el_z,
-              mesh_min_x, mesh_max_x,
-              mesh_min_y, mesh_max_y,
-              mesh_min_z, mesh_max_z,
-               TET4);
-  }
-
-
-
   // Print information about the mesh to the screen.
   // Note that 5x5 QUAD9 elements actually has 11x11 nodes,
   // so this mesh is significantly larger than the one in example 2.
   mesh.print_info();
 
+
   // Create an equation systems object.
   EquationSystems equation_systems (mesh);
 
+  // Define fiber systems:
+  //EquationSystems es(mesh);
+  typedef libMesh::ExplicitSystem  FiberSystem;
+  FiberSystem& fiber_system = equation_systems.add_system<FiberSystem>("fibers");
+  fiber_system.add_variable( "fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+  fiber_system.add_variable( "fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+  fiber_system.add_variable( "fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+  fiber_system.init();
+  auto& f_v = fiber_system.solution;
+  FiberSystem& sheet_system = equation_systems.add_system<FiberSystem>("sheets");
+  sheet_system.add_variable( "sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
+  sheet_system.add_variable( "sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
+  sheet_system.add_variable( "sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
+  sheet_system.init();
+  auto& s_v = sheet_system.solution;
+  FiberSystem& xfiber_system = equation_systems.add_system<FiberSystem>("xfibers");
+  xfiber_system.add_variable( "fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+  xfiber_system.add_variable( "fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+  xfiber_system.add_variable( "fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+  xfiber_system.init();
+  auto& n_v = xfiber_system.solution;
+
   // Declare the Poisson system and its variables.
   // The Poisson system is another example of a steady system.
-  equation_systems.add_system<LinearImplicitSystem> ("Poisson");
+  LinearImplicitSystem& system = equation_systems.add_system<LinearImplicitSystem> ("Poisson");
 
   // Adds the variable "u" to "Poisson".  "u"
   // will be approximated using second-order approximation.
-  equation_systems.get_system("Poisson").add_variable("u", FIRST);
+  if(ifmesh==true){
+      equation_systems.get_system("Poisson").add_variable("u", FIRST); //TET4 ELEMENTS
+  }
+  else{
+     equation_systems.get_system("Poisson").add_variable("u", SECOND); // QUAD9 ELEMENTS FOR SQUARE
+  }
+
 
   // Give the system a pointer to the matrix assembly
   // function.  This will be called when needed by the
   // library.
   equation_systems.get_system("Poisson").attach_assemble_function (assemble_poisson);
 
-
-  // Declare the Poisson system and its variables.
-  // The Poisson system is another example of a steady system.
-  equation_systems.add_system<LinearImplicitSystem> ("Noise");
-  // Adds the variable "u" to "Poisson".  "u"
-  // will be approximated using second-order approximation.
-  equation_systems.get_system("Noise").add_variable("w", CONSTANT, MONOMIAL);
-  equation_systems.get_system("Noise").add_variable("p", CONSTANT, MONOMIAL);
-
-
-  ExplicitSystem & f_system = equation_systems.add_system<ExplicitSystem>("fibers");
-  Parameters::f_system = &f_system;
-  // Add the variables "u" & "v" to "Stokes".  They
-  // will be approximated using FIRST-order approximation.
-  f_system.add_variable("fx", CONSTANT, MONOMIAL);
-  f_system.add_variable("fy", CONSTANT, MONOMIAL);
-  f_system.add_variable("fz", CONSTANT, MONOMIAL);
-
   // Initialize the data structures for the equation system.
   equation_systems.init();
 
   // Prints information about the system to the screen.
   equation_systems.print_info();
+
+    // Reading the input for each of the problems
+    for (int i=0; i<N; i++){
+        std::string ui="u"+std::to_string(i);    //how cool! to use i in the name here!!!
+        ExplicitSystem & si=equation_systems.add_system<ExplicitSystem>(ui);
+        si.add_variable(ui, FIRST);
+        si.init();
+
+        //name of the problem
+        GetPot data_i(input_list[i]);
+
+
+        // Read Dirichlet BC ID list from input file
+        std::string dirichlet_id_list_aux0=data_i("dirichletbc0", "");
+        std::string dirichlet_id_list_aux1=data_i("dirichletbc1", "");
+
+        //erase what was stored in global variables
+        dirichlet_id_list0.clear();
+        dirichlet_id_list1.clear();
+        dirichlet_id0_points.clear();
+        dirichlet_id1_points.clear();
+        dirichlet_id0_radius.clear();
+        dirichlet_id1_radius.clear();
+
+        //Read the BC list for the current problem
+        BeatIt::readList(dirichlet_id_list_aux0, dirichlet_id_list0);
+        BeatIt::readList(dirichlet_id_list_aux1, dirichlet_id_list1);
+        std::cout << "Dirichlet BCs ID list 0 \n";
+        for (auto&& p : dirichlet_id_list0 ) std::cout <<  p << " ";
+        std::cout << "\n";
+        std::cout << "Dirichlet BCs ID list 1 \n";
+        for (auto&& p : dirichlet_id_list1 ) std::cout <<  p << " ";
+        std::cout << "\n";
+
+        // Read Dirichlet BC ID list for septum and laa points
+        std::string dirichlet_x0_list=data_i("x0", " ");
+        std::string dirichlet_y0_list=data_i("y0", " ");
+        std::string dirichlet_z0_list=data_i("z0", " ");
+        std::string dirichlet_r0_list=data_i("r0", " ");
+
+        std::vector<double> x0, y0, z0, r0;
+        BeatIt::readList(dirichlet_x0_list, x0);
+        BeatIt::readList(dirichlet_y0_list, y0);
+        BeatIt::readList(dirichlet_z0_list, z0);
+        BeatIt::readList(dirichlet_r0_list, r0);
+
+
+        for(int jj=0; jj<r0.size(); jj++ ){
+            dirichlet_id0_points.emplace_back(x0[jj], y0[jj], z0[jj]);
+            dirichlet_id0_radius.push_back(r0[jj]);
+        }
+
+        // Read Dirichlet BC ID list for septum and laa points
+        std::string dirichlet_x1_list=data_i("x1", " ");
+        std::string dirichlet_y1_list=data_i("y1", " ");
+        std::string dirichlet_z1_list=data_i("z1", " ");
+        std::string dirichlet_r1_list=data_i("r1", " ");
+
+        std::vector<double> x1, y1, z1, r1;
+        BeatIt::readList(dirichlet_x1_list, x1);
+        BeatIt::readList(dirichlet_y1_list, y1);
+        BeatIt::readList(dirichlet_z1_list, z1);
+        BeatIt::readList(dirichlet_r1_list, r1);
+
+        for(int jj=0; jj<r1.size(); jj++ ){
+            dirichlet_id1_points.emplace_back(x1[jj], y1[jj], z1[jj]);
+            dirichlet_id1_radius.push_back(r1[jj]);
+        }
+
+        std::cout << "Setting Dirichlet homogeneous BCs on " << dirichlet_id0_radius.size() << " points"<< std::endl;
+        std::cout << "Setting Dirichlet 1 BCs on " << dirichlet_id1_radius.size() << " points" << std::endl;
+
+        equation_systems.get_system("Poisson").solve();
+
+        // Copy the content of "u" (solution to Poisson problem) to "ui"
+        * si.solution = * equation_systems.get_system("Poisson").solution;
+        si.update();
+  }
+
+    // Read output folder name from input file
+    std::string output_folder_name=data("output_name", "Output_default");
+    std::string output_number=data("output_number", "");
+    std::string test=output_folder_name+output_number;
+    BeatIt::createOutputFolder(test);
+
+    // Output file name
+    std::string output_file_name=data("output_file", "/out");
+
+
+  // case 1 -
+  //equation_systems.get_system("Poisson").assemble_before_solve = false;
+  // assemble_poisson(parameters);
+   // --------------------------
+
+
+
 
   // Solve the system "Poisson".  Note that calling this
   // member will assemble the linear system and invoke
@@ -325,21 +358,93 @@ int main (int argc, char ** argv)
   //
   // if you linked against the appropriate X libraries when you
   // built PETSc.
-  equation_systems.get_system("Poisson").solve();
 
-#if defined(LIBMESH_HAVE_VTK) && !defined(LIBMESH_ENABLE_PARMESH)
+
+   const DofMap & dofmap = system.get_dof_map(); // replicating assembly function
+
+   for (const auto & elem : mesh.active_local_element_ptr_range()){
+       int blockid = elem->subdomain_id();
+       libMesh::Point centroid=elem->centroid();
+       std::vector<double> u(N);
+       std::vector<libMesh::Gradient> du(N);
+
+       for (int i=0; i<N; i++)
+       {
+            std::string ui="u"+std::to_string(i);    //how cool! to use i in the name here!!!
+            ExplicitSystem & si = equation_systems.get_system<ExplicitSystem>(ui);
+            u[i] = si.point_value(si.variable_number(ui),centroid,* elem);
+            du[i]= si.point_gradient(si.variable_number(ui),centroid,* elem);   //may ask for pointers - maybe error
+       }
+
+       // setup subregion
+       if(u[2]<0.2){ //threshold1
+           blockid = 10;
+       }
+       else{
+           blockid=666;
+       }
+
+       elem->subdomain_id() = blockid;
+
+
+       // setup fibers
+       libMesh::Gradient f0, s0, n0;
+       // SR -> LA
+       // Solve the transmural problem as the first one, such that
+       // the next line is always true
+       s0 = du[0].unit();
+
+       switch(blockid)
+       {
+           // Floor
+           case 10:
+           {
+               // Let's say that u[1] can be use for defining the floor region,
+               // then you can define the fibers as
+               n0 = du[1].unit();
+               f0 = s0.cross(n0);
+               break;
+           }
+           default:
+           {
+               f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
+               s0(0) = 0.0; s0(1) = 1.0; s0(2) = 0.0;
+               n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;
+               break;
+           }
+       }
+
+       std::vector<dof_id_type> fibers_dof_indices;
+       fiber_system.get_dof_map().dof_indices(elem, fibers_dof_indices);
+       for(int idim = 0; idim < 3; ++idim)
+       {
+           fiber_system.solution->set(fibers_dof_indices[idim], f0(idim));
+           sheet_system.solution->set(fibers_dof_indices[idim], s0(idim));
+           xfiber_system.solution->set(fibers_dof_indices[idim], n0(idim));
+       }
+   }
+
 
   // After solving the system write the solution
   // to a VTK-formatted plot file.
-//  VTKIO (mesh).write_equation_systems ("out.pvtu", equation_systems);
-  ExodusII_IO exporter_lattice(mesh);
-  exporter_lattice.write_equation_systems("out.e",
-          equation_systems);
-  exporter_lattice.write_element_data(equation_systems);
+  std::string output_path=test+output_file_name+output_number+".pvtu";
+  VTKIO (mesh).write_equation_systems (output_path, equation_systems);
 
-#endif // #ifdef LIBMESH_HAVE_VTK
-
-  delete Parameters::locator;
+  // Export fibers in nemesis format
+  Nemesis_IO nemesis_exporter(mesh);
+  std::vector<std::string> output_variables(9);
+  output_variables[0] = "fibersx";
+  output_variables[1] = "fibersy";
+  output_variables[2] = "fibersz";
+  output_variables[3] = "sheetsx";
+  output_variables[4] = "sheetsy";
+  output_variables[5] = "sheetsz";
+  output_variables[6] = "xfibersx";
+  output_variables[7] = "xfibersy";
+  output_variables[8] = "xfibersz";
+  nemesis_exporter.set_output_variables(output_variables);
+  nemesis_exporter.write_equation_systems (test+output_file_name+output_number+".nem", equation_systems);
+  nemesis_exporter.write_element_data(equation_systems);
   // All done.
   return 0;
 }
@@ -354,6 +459,7 @@ int main (int argc, char ** argv)
 void assemble_poisson(EquationSystems & es,
                       const std::string & libmesh_dbg_var(system_name))
 {
+
   // It is a good idea to make sure we are assembling
   // the proper system.
   libmesh_assert_equal_to (system_name, "Poisson");
@@ -366,19 +472,25 @@ void assemble_poisson(EquationSystems & es,
 
   // Get a reference to the LinearImplicitSystem we are solving
   LinearImplicitSystem & system = es.get_system<LinearImplicitSystem> ("Poisson");
-  LinearImplicitSystem & w_system = es.get_system<LinearImplicitSystem> ("Noise");
+
+  //Zero out the solution
+  system.solution->zero();
+
+  //Zero out the rhs
+  system.rhs->zero();
+
+  //Zero out the solution
+  system.matrix->zero();
 
   // A reference to the  DofMap object for this system.  The  DofMap
   // object handles the index translation from node and element numbers
   // to degree of freedom numbers.  We will talk more about the  DofMap
   // in future examples.
   const DofMap & dof_map = system.get_dof_map();
-  const DofMap & w_dof_map = w_system.get_dof_map();
-  const DofMap & f_dof_map = Parameters::f_system->get_dof_map();
 
   // Get a constant reference to the Finite Element type
   // for the first (and only) variable in the system.
-  FEType fe_type = dof_map.variable_type(0);
+  FEType fe_type = dof_map.variable_type(0);                        //??????
 
   // Build a Finite Element object of the specified type.  Since the
   // FEBase::build() member dynamically creates memory we will
@@ -389,7 +501,7 @@ void assemble_poisson(EquationSystems & es,
   std::unique_ptr<FEBase> fe (FEBase::build(dim, fe_type));
 
   // A 5th order Gauss quadrature rule for numerical integration.
-  QGauss qrule (dim, SECOND);
+  QGauss qrule (dim, FIFTH);
 
   // Tell the finite element object to use our quadrature rule.
   fe->attach_quadrature_rule (&qrule);
@@ -438,14 +550,7 @@ void assemble_poisson(EquationSystems & es,
   // the element.  These define where in the global system
   // the element degrees of freedom get mapped.
   std::vector<dof_id_type> dof_indices;
-  std::vector<dof_id_type> w_dof_indices;
-  std::vector<dof_id_type> g_dof_indices;
-  std::vector<dof_id_type> f_dof_indices;
 
-  // find size
-  double hx = (Parameters::grid_max_x - Parameters::grid_min_x) / Parameters::grid_el_x;
-  double hy = (Parameters::grid_max_y - Parameters::grid_min_y) / Parameters::grid_el_y;
-  double hz = (Parameters::grid_max_z - Parameters::grid_min_z) / Parameters::grid_el_z;
   // Now we will loop over all the elements in the mesh.
   // We will compute the element matrix and right-hand-side
   // contribution.
@@ -465,63 +570,6 @@ void assemble_poisson(EquationSystems & es,
       // matrix and right-hand-side this element will
       // contribute to.
       dof_map.dof_indices (elem, dof_indices);
-      w_dof_map.dof_indices (elem, w_dof_indices);
-      f_dof_map.dof_indices (elem, f_dof_indices);
-
-      // white noise
-      double W =  gauss_dist(mt);
-      w_system.solution->set(w_dof_indices[0], W);
-      // Perlin noise
-      double P = 0.;
-      libMesh::VectorValue<double> f0;
-
-      {
-          libMesh::Point x = elem->centroid();
-
-
-          const Elem* mapped_element = (*Parameters::locator)(x);
-
-
-          P = 0.5;
-          for( auto & node : mapped_element->node_ref_range())
-          {
-              Parameters::g_system->get_dof_map().dof_indices(&node, g_dof_indices);
-              libMesh::Point xi(node);
-              libMesh::Point gi( (*Parameters::g_system->solution)(g_dof_indices[0]),
-                                (*Parameters::g_system->solution)(g_dof_indices[1]),
-                                (*Parameters::g_system->solution)(g_dof_indices[2]) );
-              libMesh::Point ri(x-xi);
-              double dX = 1-std::abs(ri(0)) / hx;
-              double dY = 1-std::abs(ri(1)) / hy;
-              double dZ = 1-std::abs(ri(2)) / hz;
-
-              double aX = ((6*dX - 15)*dX + 10)*dX*dX*dX;
-              double aY = ((6*dY - 15)*dY + 10)*dY*dY*dY;
-              double aZ = ((6*dZ - 15)*dZ + 10)*dZ*dZ*dZ;
-
-
-              if(Parameters::grid_el_z <= 0) P += std::sqrt(2.0) * 0.5 * aX * aY * gi.contract(ri);
-              else P += 1.0 / std::sqrt(3.0) * aX * aY * aZ* gi.contract(ri);
-          }
-          w_system.solution->set(w_dof_indices[1], P);
-
-          // fibers
-          x = elem->centroid();
-          f0(0) = -x(1);
-          f0(1) = x(0);
-          f0(2) = 0.0;
-          if(f0.norm() > 0) f0 /= f0.norm();
-          else
-          {
-              f0(0) = 1.0;
-              f0(1) = 0.0;
-              f0(2) = 0.0;
-          }
-          Parameters::f_system->solution->set(f_dof_indices[0], f0(0));
-          Parameters::f_system->solution->set(f_dof_indices[1], f0(1));
-          Parameters::f_system->solution->set(f_dof_indices[2], f0(2));
-
-      }
 
       // Cache the number of degrees of freedom on this element, for
       // use as a loop bound later.  We use cast_int to explicitly
@@ -559,34 +607,13 @@ void assemble_poisson(EquationSystems & es,
       for (unsigned int qp=0; qp<qrule.n_points(); qp++)
         {
 
-          const Real x = q_point[qp](0);
-          const Real y = q_point[qp](1);
-
-          libMesh::TensorValue<double> H;
-          libMesh::TensorValue<double> I;
-//          libMesh::VectorValue<double> f0;
-
-//          f0(0) = -y;
-//          f0(1) = x;
-//          f0(2) = 0.0;
-//          f0 /= f0.norm();
-          for(int i = 0; i < 3; ++i)
-          {
-              I(i,i) = 1.0;
-              for(int j = 0; j < 3; ++j)
-              {
-                  H(i,j) = Parameters::gamma * I(i,j) + Parameters::beta * f0(i) * f0(j);
-              }
-          }
-
           // Now we will build the element matrix.  This involves
           // a double loop to integrate the test functions (i) against
           // the trial functions (j).
           for (unsigned int i=0; i != n_dofs; i++)
             for (unsigned int j=0; j != n_dofs; j++)
               {
-                Ke(i,j) += JxW[qp]*(phi[i][qp]*phi[j][qp]);
-                Ke(i,j) += JxW[qp]*( dphi[i][qp] * ( H * dphi[j][qp] ) );
+                Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp]);
               }
 
           // This is the end of the matrix summation loop
@@ -594,12 +621,35 @@ void assemble_poisson(EquationSystems & es,
           // This involves a single loop in which we integrate the
           // "forcing function" in the PDE against the test functions.
           {
+            const Real x = q_point[qp](0);
+            const Real y = q_point[qp](1);
+            const Real eps = 1.e-3;
 
 
-            Real fxy = Parameters::sigma * P;
-            if(Parameters::use_white_noise) fxy = Parameters::sigma * W;
+            // "fxy" is the forcing function for the Poisson equation.
+            // In this case we set fxy to be a finite difference
+            // Laplacian approximation to the (known) exact solution.
+            //
+            // We will use the second-order accurate FD Laplacian
+            // approximation, which in 2D is
+            //
+            // u_xx + u_yy = (u(i,j-1) + u(i,j+1) +
+            //                u(i-1,j) + u(i+1,j) +
+            //                -4*u(i,j))/h^2
+            //
+            // Since the value of the forcing function depends only
+            // on the location of the quadrature point (q_point[qp])
+            // we will compute it here, outside of the i-loop
+            const Real fxy = 0;//-(exact_solution(x, y-eps) +
+                             //  exact_solution(x, y+eps) +
+                             //  exact_solution(x-eps, y) +
+                             //  exact_solution(x+eps, y) -
+                             //  4.*exact_solution(x, y))/eps/eps;
+
             for (unsigned int i=0; i != n_dofs; i++)
+            {
               Fe(i) += JxW[qp]*fxy*phi[i][qp];
+            }
           }
         }
 
@@ -633,7 +683,9 @@ void assemble_poisson(EquationSystems & es,
       // where
       //
       // \frac{1}{\epsilon} is the penalty parameter, defined such that \epsilon << 1
+
       {
+
 
         // The following loop is over the sides of the element.
         // If the element has no neighbor on a side then that
@@ -641,6 +693,14 @@ void assemble_poisson(EquationSystems & es,
         for (auto side : elem->side_index_range())
           if (elem->neighbor_ptr(side) == nullptr)
             {
+              // get boundary info
+              auto boundaryid = mesh.get_boundary_info().boundary_id(elem, side);
+              //std::cout << boundaryid << "\n";
+
+              //check if boundaryid is in the Dirichlet BC ID list
+              bool found0 = (std::find(dirichlet_id_list0.begin(), dirichlet_id_list0.end(), boundaryid) != dirichlet_id_list0.end());
+              bool found1 = (std::find(dirichlet_id_list1.begin(), dirichlet_id_list1.end(), boundaryid) != dirichlet_id_list1.end());
+
               // The value of the shape functions at the quadrature
               // points.
               const std::vector<std::vector<Real>> & phi_face = fe_face->get_phi();
@@ -670,23 +730,47 @@ void assemble_poisson(EquationSystems & es,
                   // face quadrature point.
                   const Real xf = qface_point[qp](0);
                   const Real yf = qface_point[qp](1);
+                  bool is_on_id0_list=0;
+                  bool is_on_id1_list=0;
+
+                  // Verify if the quadrature points are within the neighborhood of one of the id0 list points
+                  for (int jj=0; jj<dirichlet_id0_radius.size(); jj++){
+                      libMesh::Point p_id0(qface_point[qp]-dirichlet_id0_points[jj]);
+                      is_on_id0_list = (p_id0.norm()<=dirichlet_id0_radius[jj]) ? 1:0;
+                      if(is_on_id0_list==1) break;
+                  }
+
+                  // Verify if the quadrature points are within the neighborhood of one of the id1 list points
+                  for (int jj=0; jj<dirichlet_id1_radius.size(); jj++){
+                      libMesh::Point p_id1(qface_point[qp]-dirichlet_id1_points[jj]);
+                      is_on_id1_list = (p_id1.norm()<=dirichlet_id1_radius[jj]) ? 1:0;
+                      if(is_on_id1_list==1) break;
+                  }
 
                   // The penalty value.  \frac{1}{\epsilon}
                   // in the discussion above.
-                  const Real penalty = 0.e10;
+                  const Real penalty = 1.e10;
 
                   // The boundary value.
                   const Real value = exact_solution(xf, yf);
 
                   // Matrix contribution of the L2 projection.
+                if((found0==1 && dirichlet_id0_radius.size()==0) || (found1==1 && dirichlet_id1_radius.size()==0) || (is_on_id0_list && found0) || (is_on_id1_list && found1)){
                   for (unsigned int i=0; i != n_dofs; i++)
                     for (unsigned int j=0; j != n_dofs; j++)
-                      Ke(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
-
+                          Ke(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
+                }
                   // Right-hand-side contribution of the L2
                   // projection.
-                  for (unsigned int i=0; i != n_dofs; i++)
-                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp];
+                  for (unsigned int i=0; i != n_dofs; i++){
+//                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp];
+                    if(found0==0 && found1==0)
+                        Fe(i) += JxW_face[qp]*(0)*phi_face[i][qp]; // neumann=0 here
+                    else if((found0==1 && dirichlet_id0_radius.size()==0) ||  (is_on_id0_list && found0) )      // dirichlet =0
+                        Fe(i) += 0;         //JxW_face[qp]*penalty*phi_face[i][qp]
+                    else if( (found1==1 && dirichlet_id1_radius.size()==0) || (is_on_id1_list && found1))    // dirichlet =1
+                        Fe(i) += JxW_face[qp]*penalty*1*phi_face[i][qp];
+                  }
                 }
             }
       }

@@ -37,6 +37,7 @@
 #include "libmesh/mesh_base.h"
 #include "libmesh/linear_implicit_system.h"
 #include "libmesh/transient_system.h"
+#include "libmesh/numeric_vector.h"
 
 #include "libmesh/wrapped_functor.h"
 #include "libmesh/mesh.h"
@@ -49,6 +50,9 @@
 #include "libmesh/dof_map.h"
 #include <iomanip>
 #include "Util/CTestUtil.hpp"
+#include <libmesh/vtk_io.h>
+#include <libmesh/exodusII_io.h>
+
 
 enum Formulation { Primal,  Mixed, Incompressible };
 enum CL { Linear,  NH };
@@ -79,6 +83,7 @@ int main (int argc, char ** argv)
 
     std::string mesh_filename = data("mesh", "NONE");
     mesh.read(mesh_filename);
+    mesh.all_second_order();
     libMesh::EquationSystems es(mesh);
 
     Formulation f;
@@ -86,15 +91,15 @@ int main (int argc, char ** argv)
     std::cout << "Creating " << formulation << std::endl;
 
     std::cout << "Forming pointer" << std::endl;
-    BeatIt::Elasticity* elas = new BeatIt::MixedElasticity(es, "Elasticity");
-    std::cout << "Done " << formulation << std::endl;
-    std::cout << "Setting up ... " << std::endl;
-    std::cout << "Forming pointer" << std::endl;
+    BeatIt::Elasticity* elas = new BeatIt::Elasticity(es, "Elasticity");
+    std::cout << "Calling Elasticity Setup" << std::endl;
     elas->setup(data,"elasticity");
     std::cout << "Forming pointer" << std::endl;
     std::cout << "Initializing output ... " << std::endl;
     elas->init_exo_output("solution.exo");
     int save_iter = 1;
+    elas->save_exo("solution.exo", save_iter, 0.0);
+    save_iter++;
     double ramp_dt = data("ramp/dt", 0.1);
     double ramp_end_time = data("ramp/end_time", 0.9);
     double time = 0.0;
@@ -106,28 +111,46 @@ int main (int argc, char ** argv)
         std::cout << "Solving ... " << std::endl;
         time+=ramp_dt;
         elas->setTime(time);
-        std::cout << "Time: " << time << std::endl;
+        std::cout << "\n ====== Time: " << time << std::endl;
 		elas->newton();
 		bd_iter = 0;
 		std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
 		error = checkConfiguration(elas);
+        //        elas->save("solution.gmv", save_iter);
+//        {
+//            std::ostringstream ss;
+//            ss << std::setw(8) << std::setfill('0') << save_iter;
+//            std::string step_str = ss.str();
+//            libMesh::VTKIO(mesh).write_equation_systems("solution_" + step_str + ".pvtu", es);
+//        }
         elas->save_exo("solution.exo", save_iter, time);
-        elas->save("solution.gmv", save_iter);
         save_iter++;
 
-        double tol = 1e-8;
-        while(error > tol)
-        {
-        	bd_iter++;
-    		moveMesh(elas);
-			elas->newton();
-			std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
-			error = checkConfiguration(elas);
-	        elas->save_exo("solution.exo", save_iter, time);
-	        elas->save("solution.gmv", save_iter);
-	        save_iter++;
-        }
+//        double tol = 5e-2;
+//        while(error > tol)
+//        {
+//        	bd_iter++;
+//    		moveMesh(elas);
+//			elas->newton();
+//			std::cout << "Backward Displacement iteration: " << bd_iter << std::endl;
+//			error = checkConfiguration(elas);
+////	        elas->save_exo("solution.exo", save_iter, time);
+////	        elas->save("solution.gmv", save_iter);
+////	        {
+////	            std::ostringstream ss;
+////	            ss << std::setw(8) << std::setfill('0') << save_iter;
+////	            std::string step_str = ss.str();
+////	            libMesh::VTKIO(mesh).write_equation_systems("solution_" + step_str + ".pvtu", es);
+////	        }
+//	        save_iter++;
+//        }
+
     }
+
+//    typedef libMesh::TransientLinearImplicitSystem LinearSystem;
+//    auto& system = elas->M_equationSystems.get_system < LinearSystem
+//            > ("Elasticity");
+//    system.solution->print(std::cout);
 
     delete elas;
     std::cout << std::setprecision(20) << "error: " << error << std::endl;

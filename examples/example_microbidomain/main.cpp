@@ -150,7 +150,7 @@ int main(int argc, char ** argv) {
         {
             if (elem->neighbor_ptr(side) != libmesh_nullptr)
             {
-                Elem *neighbor = elem->neighbor(side);
+                Elem *neighbor = elem->neighbor_ptr(side);
                 unsigned int neighborID = neighbor->subdomain_id();
                 // If we are at the interface let's add a sideset
                 if (1 == blockID && 2 <= neighborID)

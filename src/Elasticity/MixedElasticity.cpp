@@ -534,7 +534,7 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
                 q =  JxW_p[qp]*phi_p[n][qp];
             	grad_q = JxW_p[qp]*dphi_p[n][qp];
 
-                // For each pressure trial function
+                // For each displacement trial function
                 for(unsigned int m = 0; m < phi_u.size(); ++m )
                 {
                     // for each dimension of the trial function
@@ -644,41 +644,40 @@ MixedElasticity::assemble_residual(double dt , libMesh::NumericVector<libMesh::N
 
     system.rhs->close();
     std::cout << " done. " << std::endl;
-
-    {
-            std::cout << "* MIXED ELASTICITY: Assigning field split information ... " << std::flush;
-
-            IS is_u_local;
-            IS is_p_global;
-            IS is_p_local;
-            std::vector<libMesh::dof_id_type> p_indices;
-            int var_num = dim;
-            dof_map.local_variable_indices(p_indices, mesh, var_num);
-
-            ISCreateGeneral(PETSC_COMM_SELF, p_indices.size(), reinterpret_cast<int*>(&p_indices[0]),PETSC_COPY_VALUES,&is_p_local);
-            ISAllGather(is_p_local, &is_p_global);
-            int nmin =  dof_map.first_dof();
-            int nmax = dof_map.end_dof();
-            ISComplement(is_p_local, nmin, nmax, &is_u_local);
-            typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
-            M_linearSolver->init(dynamic_cast<PetscMatrix *>(system.matrix));
-
-           PCFieldSplitSetIS(M_linearSolver->pc(),"p",is_p_local);
-           PCFieldSplitSetIS(M_linearSolver->pc(),"u",is_u_local);
-           std::cout << "  done" << std::endl;
-
-    //       PetscBool isMatSymm;
-    //       MatIsSymmetric(dynamic_cast<PetscMatrix *>(bidomain_system.matrix)->mat(), 1e-8,&isMatSymm);
-    //       std::cout << "PETSC, is the system matrix symmetric? " << isMatSymm << std::endl;
-           int size;
-           ISGetSize(is_u_local, &size);
-           std::cout << "is_u_local size: " << size << std::endl;
-           ISGetSize(is_p_local, &size);
-           std::cout << "is_p_local size: " << size << std::endl;
-           ISGetSize(is_p_global, &size);
-           std::cout << "is_p_global size: " << size << std::endl;
-
-        }
+//    {
+//            std::cout << "* MIXED ELASTICITY: Assigning field split information ... " << std::flush;
+//
+//            IS is_u_local;
+//            IS is_p_global;
+//            IS is_p_local;
+//            std::vector<libMesh::dof_id_type> p_indices;
+//            int var_num = dim;
+//            dof_map.local_variable_indices(p_indices, mesh, var_num);
+//
+//            ISCreateGeneral(PETSC_COMM_SELF, p_indices.size(), reinterpret_cast<int*>(&p_indices[0]),PETSC_COPY_VALUES,&is_p_local);
+//            ISAllGather(is_p_local, &is_p_global);
+//            int nmin =  dof_map.first_dof();
+//            int nmax = dof_map.end_dof();
+//            ISComplement(is_p_local, nmin, nmax, &is_u_local);
+//            typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
+//            M_linearSolver->init(dynamic_cast<PetscMatrix *>(system.matrix));
+//
+//           PCFieldSplitSetIS(M_linearSolver->pc(),"p",is_p_local);
+//           PCFieldSplitSetIS(M_linearSolver->pc(),"u",is_u_local);
+//           std::cout << "  done" << std::endl;
+//
+//    //       PetscBool isMatSymm;
+//    //       MatIsSymmetric(dynamic_cast<PetscMatrix *>(bidomain_system.matrix)->mat(), 1e-8,&isMatSymm);
+//    //       std::cout << "PETSC, is the system matrix symmetric? " << isMatSymm << std::endl;
+//           int size;
+//           ISGetSize(is_u_local, &size);
+//           std::cout << "is_u_local size: " << size << std::endl;
+//           ISGetSize(is_p_local, &size);
+//           std::cout << "is_p_local size: " << size << std::endl;
+//           ISGetSize(is_p_global, &size);
+//           std::cout << "is_p_global size: " << size << std::endl;
+//
+//        }
 
 }
 

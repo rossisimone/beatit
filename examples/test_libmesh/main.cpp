@@ -71,14 +71,18 @@
 #include "libmesh/dense_matrix.h"
 #include "libmesh/dense_vector.h"
 #include "libmesh/elem.h"
+#include "libmesh/mesh_generation.h"
 
 // Define the DofMap, which handles degree of freedom
 // indexing.
 #include "libmesh/dof_map.h"
+#include "libmesh/mesh_refinement.h"
 
 
 #include "libmesh/zero_function.h"
 #include "libmesh/dirichlet_boundaries.h"
+#include "libmesh/petsc_matrix.h"
+#include "libmesh/petsc_linear_solver.h"
 
 // Function prototype.  This is the function that will assemble
 // the linear system for our Poisson problem.  Note that the
@@ -86,15 +90,34 @@
 // name of the system we are assembling as input.  From the
 //  EquationSystems object we have access to the  Mesh and
 // other objects we might need.
-void assemble_poisson(libMesh::EquationSystems & es,
+void advance(libMesh::EquationSystems & es,
                       const std::string & system_name);
 
 
-
-int main (int argc, char ** argv)
+namespace Parameters
 {
+    double E = 250.0;
+    double nu = 0.3;
+    double mu = E / (2* (1+nu));
+    double lambda = E*nu / (1+nu) / (1-2*nu);
+    double dt = 0.0;
+    double time = 0.0;
+    double rho = 1.0;
+    double alpha = 0;
+    double gamma = 0;
+    double t0 = 0.0;
+    double t1 = 6.26;
+
+    int bottom = 0;
+    int right = 1;
+    int top = 2;
+    int left = 3;
+}
+    int main (int argc, char ** argv)
+{
+        using namespace libMesh;
 	BeatIt::printBanner(std::cout);
-	GetPot data("data.pot");
+	GetPot data("input.beat");
 
 	// Initialize the library.  This is necessary because the library
 	// may depend on a number of other libraries (i.e. MPI and PETSc)
@@ -116,96 +139,111 @@ int main (int argc, char ** argv)
 //	}
 
 	// Get the dimensionality of the mesh from argv[2]
-	const unsigned int dim = data("DIM", 3);
+	const unsigned int dim = data("DIM", 2);
 
 	// Create a mesh, with dimension to be overridden later, on the
 	// default MPI communicator.
 	libMesh::Mesh mesh(init.comm());
 
 	// We may need XDR support compiled in to read binary .xdr files
-	std::string meshfile = data("input_mesh_name", "Pippo.e");
+	int nx = data("nx", 2);
+	int ny = data("ny",1);
+	double maxx = data("maxx", 2.0);
+	double maxy = data("maxy", 1.0);
 
 	// Read the input mesh.
-	mesh.read (&meshfile[0]);
-
+	if(ny > 0)
+	{
+	  MeshTools::Generation::build_square (mesh,
+	                                       nx, ny,
+	                                       0., maxx,
+	                                       0., maxy,
+	                                       TRI3);
+	}
+	else
+	{
+	    std::string meshfile = data("mesh","NONE");
+	    mesh.read(meshfile);
+	    MeshRefinement refinement(mesh);
+	    int nrefs = data("nrefs",0);
+	    refinement.uniformly_refine(nrefs);
+	}
 	// Print information about the mesh to the screen.
 	mesh.print_info();
 
 	libMesh::EquationSystems systems(mesh);
 
-	systems.parameters.set<bool>("test") = true;
-	typedef libMesh::Real Real;
-	systems.parameters.set<Real>("dummy") = 42.0;
-	systems.parameters.set<Real>("nobody") = 0.0;
+	libMesh::TransientLinearImplicitSystem& primal_momentum_system = systems.add_system<libMesh::TransientLinearImplicitSystem>("primal_momentum");
+	unsigned int primal_v1_var = primal_momentum_system.add_variable("v1", libMesh::FIRST);
+	unsigned int primal_v2_var = primal_momentum_system.add_variable("v2", libMesh::FIRST);
+	primal_momentum_system.add_vector("force");
+	libMesh::TransientLinearImplicitSystem& primal_disp_system = systems.add_system<libMesh::TransientLinearImplicitSystem>("primal_disp");
+	unsigned int primal_u1_var = primal_disp_system.add_variable("u1", libMesh::FIRST);
+	unsigned int primal_u2_var = primal_disp_system.add_variable("u2", libMesh::FIRST);
 
-	systems.add_system<libMesh::LinearImplicitSystem>("SimpleSystem");
-	 unsigned int V_var = systems.get_system("SimpleSystem").add_variable("V", libMesh::FIRST);
-
-
-
-	    // Construct a Dirichlet boundary condition object
-	     // We impose a "clamped" boundary condition on the
-	     // "left" boundary, i.e. bc_id = 3
-	     std::set<libMesh::boundary_id_type> boundary_ids;
-	     boundary_ids.insert(1);
-	     boundary_ids.insert(2);
-	     boundary_ids.insert(3);
-	     boundary_ids.insert(4);
-	     std::vector<unsigned int> variables(1);
-	     variables[0] = V_var;
-
-	     // Create a ZeroFunction to initialize dirichlet_bc
-	     libMesh::ZeroFunction< > zf;
-	     libMesh::DirichletBoundary dirichlet_bc(boundary_ids, variables, &zf);
-
-
-	  // Give the system a pointer to the matrix assembly
-	  // function.  This will be called when needed by the
-	  // library.
-	systems.get_system("SimpleSystem").attach_assemble_function (assemble_poisson);
-
-	systems.add_system<libMesh::ExplicitSystem>("ComplexSystem");
-    systems.get_system("ComplexSystem").add_variable("r", libMesh::CONSTANT, libMesh::MONOMIAL);
-
-
-
-     // We must add the Dirichlet boundary condition _before_
-     // we call equation_systems.init()
-     systems.get_system("SimpleSystem").get_dof_map().add_dirichlet_boundary(dirichlet_bc);
+    libMesh::TransientLinearImplicitSystem& mixed_momentum_system = systems.add_system<libMesh::TransientLinearImplicitSystem>("mixed_momentum");
+    unsigned int mixed_v1_var = mixed_momentum_system.add_variable("mv1", libMesh::FIRST);
+    unsigned int mixed_v2_var = mixed_momentum_system.add_variable("mv2", libMesh::FIRST);
+    mixed_momentum_system.add_vector("force");
+    libMesh::TransientLinearImplicitSystem& pressure_system = systems.add_system<libMesh::TransientLinearImplicitSystem>("pressure");
+    unsigned int p_var = pressure_system.add_variable("p", libMesh::FIRST);
+    libMesh::TransientLinearImplicitSystem& mixed_disp_system = systems.add_system<libMesh::TransientLinearImplicitSystem>("mixed_disp");
+    unsigned int mixed_u1_var = mixed_disp_system.add_variable("mu1", libMesh::FIRST);
+    unsigned int mixed_u2_var = mixed_disp_system.add_variable("mu2", libMesh::FIRST);
 
     // Initialize the data structures for the equation system.
     systems.init();
     // Prints information about the system to the screen.
     systems.print_info();
-    // Write the system.
-	std::string output_system = data("output_systems", "");
-	if( "" != output_system) systems.write( &output_system[0]);
-	// Write the output mesh if the user specified an
-	// output file name.
-	std::string output_file = data("output_mesh", "");
-	if( "" != output_file)  mesh.write (&output_file[0]);
 
+    Parameters::dt = data("dt", 0.01);
+    Parameters::time = 0.0;
+    int num_iter = data("num_iter",10);
+    int save_iter = data("save_iter", 1);
+    int save_iter2 = data("save_iter", 1);
 
+    //BC
+    Parameters::bottom = data("bottom", 0);
+    Parameters::right = data("right", 1);
+    Parameters::top = data("top", 2);
+    Parameters::left = data("left", 3);
 
-	  // Solve the system "Poisson".  Note that calling this
-	  // member will assemble the linear system and invoke
-	  // the default numerical solver.  With PETSc the solver can be
-	  // controlled from the command line.  For example,
-	  // you can invoke conjugate gradient with:
-	  //
-	  // ./introduction_ex3 -ksp_type cg
-	  //
-	  // You can also get a nice X-window that monitors the solver
-	  // convergence with:
-	  //
-	  // ./introduction-ex3 -ksp_xmonitor
-	  //
-	  // if you linked against the appropriate X libraries when you
-	  // built PETSc.
-	systems.get_system("SimpleSystem").solve();
+    std::cout << "BCs: " << Parameters::bottom << ", " << Parameters::right << ", "
+                         << Parameters::top    << ", " << Parameters::left << std::endl;
+    std::string output_file = data("output_file", "out.exo");
+    libMesh::ExodusII_IO exo(mesh);
+    libMesh::ExodusII_IO exo2(mesh);
+    exo.write_equation_systems ("nonsense.exo", systems);
+    exo2.write_equation_systems (output_file, systems);
 
-//	  libMesh::VTKIO (mesh).write_equation_systems ("out.pvtu", systems);
-	  libMesh::ExodusII_IO (mesh).write_equation_systems ("out.e", systems);
+    int iter = 0;
+    exo.write_timestep("nonsense.exo", systems, save_iter, Parameters::time);
+    int export_iter = 1;
+    exo2.write_timestep(output_file, systems, export_iter, Parameters::time);
+
+    std::cout << "TIME LOOP" << std::endl;
+    for( ; iter < num_iter; )
+    {
+        Parameters::time += Parameters::dt;
+        iter++;
+
+        //advance
+        advance(systems,"");
+
+        if(iter % save_iter == 0)
+        {
+            save_iter ++;
+            exo.write_timestep("nonsense.exo", systems, save_iter, Parameters::time);
+        }
+        if(iter % save_iter2 == 0)
+        {
+            std::cout << "TIME: " << Parameters::time << ", iter: " << iter << std::endl;
+            std::cout << "saving" << std::endl;
+            export_iter ++;
+            exo2.write_timestep(output_file, systems, export_iter, Parameters::time);
+        }
+    }
+
 	// LibMeshInit object was created first, its destruction occurs
 	// last, and it's destructor finalizes any external libraries and
 	// checks for leaked memory.
@@ -220,9 +258,10 @@ int main (int argc, char ** argv)
 // matrices and right-hand sides, and then take into
 // account the boundary conditions, which will be handled
 // via a penalty method.
-void assemble_poisson( libMesh::EquationSystems & es,
+void advance( libMesh::EquationSystems & es,
                       const std::string & system_name)
 {
+    using namespace libMesh;
 	using std::unique_ptr;
   // It is a good idea to make sure we are assembling
   // the proper system.
@@ -236,17 +275,28 @@ void assemble_poisson( libMesh::EquationSystems & es,
   const unsigned int dim = mesh.mesh_dimension();
 
   // Get a reference to the LinearImplicitSystem we are solving
-  libMesh::LinearImplicitSystem & system = es.get_system<libMesh::LinearImplicitSystem> ("SimpleSystem");
+  libMesh::TransientLinearImplicitSystem& primal_momentum_system = es.get_system<libMesh::TransientLinearImplicitSystem> ("primal_momentum");
+  libMesh::TransientLinearImplicitSystem& primal_disp_system = es.get_system<libMesh::TransientLinearImplicitSystem>("primal_disp");
+  libMesh::TransientLinearImplicitSystem& mixed_momentum_system = es.add_system<libMesh::TransientLinearImplicitSystem>("mixed_momentum");
+  libMesh::TransientLinearImplicitSystem& mixed_disp_system = es.get_system<libMesh::TransientLinearImplicitSystem>("mixed_disp");
+  libMesh::TransientLinearImplicitSystem& pressure_system = es.get_system<libMesh::TransientLinearImplicitSystem>("pressure");
+
+
+  const unsigned int u1_var = primal_momentum_system.variable_number ("v1");
+  const unsigned int u2_var = primal_momentum_system.variable_number ("v2");
 
   // A reference to the  DofMap object for this system.  The  DofMap
   // object handles the index translation from node and element numbers
   // to degree of freedom numbers.  We will talk more about the  DofMap
   // in future examples.
-  const libMesh::DofMap & dof_map = system.get_dof_map();
+  const libMesh::DofMap & primal_dof_map = primal_momentum_system.get_dof_map();
+  const libMesh::DofMap & mixed_dof_map = mixed_momentum_system.get_dof_map();
+  const libMesh::DofMap & disp_dof_map = primal_disp_system.get_dof_map();
+  const libMesh::DofMap & pressure_dof_map = pressure_system.get_dof_map();
 
   // Get a constant reference to the Finite Element type
   // for the first (and only) variable in the system.
-  libMesh::FEType fe_type = dof_map.variable_type(0);
+  libMesh::FEType fe_type = primal_dof_map.variable_type(0);
 
   // Build a Finite Element object of the specified type.  Since the
   // FEBase::build() member dynamically creates memory we will
@@ -257,7 +307,7 @@ void assemble_poisson( libMesh::EquationSystems & es,
   std::unique_ptr<libMesh::FEBase> fe (libMesh::FEBase::build(dim, fe_type));
 
   // A 5th order Gauss quadrature rule for numerical integration.
-  libMesh::QGauss qrule (dim, libMesh::FIRST);
+  libMesh::QGauss qrule (dim, libMesh::THIRD);
 
   // Tell the finite element object to use our quadrature rule.
   fe->attach_quadrature_rule (&qrule);
@@ -269,8 +319,7 @@ void assemble_poisson( libMesh::EquationSystems & es,
   // Boundary integration requires one quadraure rule,
   // with dimensionality one less than the dimensionality
   // of the element.
-  libMesh::QGauss qface(dim-1, libMesh::FIRST);
-
+  libMesh::QGauss qface(dim-1, libMesh::THIRD);
   // Tell the finite element object to use our
   // quadrature rule.
   fe_face->attach_quadrature_rule (&qface);
@@ -280,15 +329,12 @@ void assemble_poisson( libMesh::EquationSystems & es,
   //
   // The element Jacobian * quadrature weight at each integration point.
   const std::vector< libMesh::Real> & JxW = fe->get_JxW();
-
   // The physical XY locations of the quadrature points on the element.
   // These might be useful for evaluating spatially varying material
   // properties at the quadrature points.
   const std::vector< libMesh::Point> & q_point = fe->get_xyz();
-
   // The element shape functions evaluated at the quadrature points.
   const std::vector<std::vector< libMesh::Real> > & phi = fe->get_phi();
-
   // The element shape function gradients evaluated at the quadrature
   // points.
   const std::vector<std::vector< libMesh::RealGradient> > & dphi = fe->get_dphi();
@@ -299,13 +345,27 @@ void assemble_poisson( libMesh::EquationSystems & es,
   // "Ke" and "Fe".  These datatypes are templated on
   //  Number, which allows the same code to work for real
   // or complex numbers.
-  libMesh::DenseMatrix< libMesh::Number> Ke;
-  libMesh::DenseVector< libMesh::Number> Fe;
+  libMesh::DenseMatrix< libMesh::Number> Me;
+  libMesh::DenseVector< libMesh::Number> Fe; // primal
+  libMesh::DenseVector< libMesh::Number> Fme;// mixed
+  libMesh::DenseVector< libMesh::Number> Fp;//  pressure
+  libMesh::DenseMatrix< libMesh::Number> Mpp;
+
+  libMesh::DenseSubVector<Number>
+    Fu1(Fe),
+    Fu2(Fe);
+  libMesh::DenseSubVector<Number>
+    Fmu1(Fme),
+    Fmu2(Fme);
+  libMesh::DenseSubMatrix<Number> Mu1u1(Me), Mu2u2(Me);
 
   // This vector will hold the degree of freedom indices for
   // the element.  These define where in the global system
   // the element degrees of freedom get mapped.
-  std::vector< libMesh::dof_id_type> dof_indices;
+  std::vector< libMesh::dof_id_type> primal_dof_indices;
+  std::vector< libMesh::dof_id_type> mixed_dof_indices;
+  std::vector< libMesh::dof_id_type> disp_dof_indices;
+  std::vector< libMesh::dof_id_type> pressure_dof_indices;
 
   // Now we will loop over all the elements in the mesh.
   // We will compute the element matrix and right-hand-side
@@ -335,7 +395,8 @@ void assemble_poisson( libMesh::EquationSystems & es,
       // current element.  These define where in the global
       // matrix and right-hand-side this element will
       // contribute to.
-      dof_map.dof_indices (elem, dof_indices);
+      primal_dof_map.dof_indices (elem, primal_dof_indices);
+      pressure_dof_map.dof_indices (elem, pressure_dof_indices);
 
       // Compute the element-specific data for the current
       // element.  This involves computing the location of the
@@ -352,10 +413,22 @@ void assemble_poisson( libMesh::EquationSystems & es,
 
       // The  DenseMatrix::resize() and the  DenseVector::resize()
       // members will automatically zero out the matrix  and vector.
-      Ke.resize (dof_indices.size(),
-                 dof_indices.size());
 
-      Fe.resize (dof_indices.size());
+      auto n_primal_dofs = primal_dof_indices.size();
+      auto n_pressure_dofs = pressure_dof_indices.size();
+      Me.resize (n_primal_dofs,n_primal_dofs);
+      Mpp.resize (n_pressure_dofs,n_pressure_dofs);
+      Fe.resize (n_primal_dofs);
+      Fme.resize(n_primal_dofs);
+      Fp.resize (n_pressure_dofs);
+
+      Mu1u1.reposition (u1_var*n_pressure_dofs, u1_var*n_pressure_dofs, n_pressure_dofs, n_pressure_dofs);
+      Mu2u2.reposition (u2_var*n_pressure_dofs, u2_var*n_pressure_dofs, n_pressure_dofs, n_pressure_dofs);
+      Fu1.reposition (u1_var*n_pressure_dofs, n_pressure_dofs);
+      Fu2.reposition (u2_var*n_pressure_dofs, n_pressure_dofs);
+      Fmu1.reposition (u1_var*n_pressure_dofs, n_pressure_dofs);
+      Fmu2.reposition (u2_var*n_pressure_dofs, n_pressure_dofs);
+
 
       // Now loop over the quadrature points.  This handles
       // the numeric integration.
@@ -366,21 +439,40 @@ void assemble_poisson( libMesh::EquationSystems & es,
           // a double loop to integrate the test funcions (i) against
           // the trial functions (j).
           for (unsigned int i=0; i<phi.size(); i++)
+          {
             for (unsigned int j=0; j<phi.size(); j++)
               {
-                Ke(i,j) += JxW[qp]*(dphi[i][qp]*dphi[j][qp]);
+                Mu1u1(i,j) += JxW[qp]*(phi[i][qp]*phi[j][qp]);
+                Mu2u2(i,j) += JxW[qp]*(phi[i][qp]*phi[j][qp]);
+                Mpp(i,j) += JxW[qp]*(phi[i][qp]*phi[j][qp]);
               }
-
+          }
           // This is the end of the matrix summation loop
           // Now we build the element right-hand-side contribution.
           // This involves a single loop in which we integrate the
           // "forcing function" in the PDE against the test functions.
+
+          // stress component
           {
-            const  libMesh::Real x = q_point[qp](0);
-            const  libMesh::Real y = q_point[qp](1);
-            const  libMesh::Real eps = 1.e-3;
+            libMesh::Gradient grad_u1 = primal_momentum_system.point_gradient(0, q_point[qp], elem);
+            libMesh::Gradient grad_u2 = primal_momentum_system.point_gradient(1, q_point[qp], elem);
+            libMesh::Tensor E, grad_u, sigma, eye;
+            eye(0,0) = 1; eye(1,1) = 1; eye(2,2) = 1;
+            grad_u(0,0) = grad_u1(0); grad_u(0,1) = grad_u1(1);
+            grad_u(1,0) = grad_u2(0); grad_u(1,1) = grad_u2(1);
+            E = 0.5 * ( grad_u + grad_u.transpose() );
+            sigma = 2.0 * Parameters::mu * E + Parameters::lambda * E.tr() * eye;
 
+            libMesh::Gradient grad_mu1= mixed_momentum_system.point_gradient(0, q_point[qp], elem);
+            libMesh::Gradient grad_mu2= mixed_momentum_system.point_gradient(1, q_point[qp], elem);
+            double pressure = pressure_system.point_value(0, q_point[qp], elem);
 
+            libMesh::Tensor Em, grad_mu, sigma_m;
+            grad_mu(0,0) = grad_mu1(0); grad_mu(0,1) = grad_mu1(1);
+            grad_mu(1,0) = grad_mu2(0); grad_mu(1,1) = grad_mu2(1);
+            Em = 0.5 * ( grad_mu + grad_mu.transpose() );
+            sigma_m = 2 * Parameters::mu * ( Em - 1 / 3.0 * Em.tr() * eye) + pressure * eye;
+            double p_rhs = ( 2.0 / 3.0 * Parameters::mu + Parameters::lambda ) * Em.tr();
             // "fxy" is the forcing function for the Poisson equation.
             // In this case we set fxy to be a finite difference
             // Laplacian approximation to the (known) exact solution.
@@ -395,10 +487,35 @@ void assemble_poisson( libMesh::EquationSystems & es,
             // Since the value of the forcing function depends only
             // on the location of the quadrature point (q_point[qp])
             // we will compute it here, outside of the i-loop
-            const  libMesh::Real fxy = 1.0;
 
             for (unsigned int i=0; i<phi.size(); i++)
-              Fe(i) += JxW[qp]*fxy*phi[i][qp];
+            {
+              auto F_qp = - sigma * dphi[i][qp] * JxW[qp];
+              auto Fm_qp= - sigma_m* dphi[i][qp] * JxW[qp];
+              Fu1(i) += F_qp(0);
+              Fu2(i) += F_qp(1);
+              Fmu1(i)+= Fm_qp(0);
+              Fmu2(i)+= Fm_qp(1);
+              Fp(i)  += JxW[qp]*phi[i][qp] * p_rhs;
+            }
+          }
+
+          // FORCE
+          {
+            const  libMesh::Real x = q_point[qp](0);
+            const  libMesh::Real y = q_point[qp](1);
+            const  libMesh::Real eps = 1.e-3;
+
+            double fx =  2.0 * Parameters::alpha * x;
+            double fy =  2.0 * Parameters::gamma * x;
+
+            for (unsigned int i=0; i<phi.size(); i++)
+            {
+              Fu1(i) += JxW[qp] * fx * phi[i][qp];
+              Fu2(i) += JxW[qp] * fy * phi[i][qp];
+              Fmu1(i) += JxW[qp] * fx * phi[i][qp];
+              Fmu2(i) += JxW[qp] * fy * phi[i][qp];
+            }
           }
         }
 
@@ -440,6 +557,31 @@ void assemble_poisson( libMesh::EquationSystems & es,
         for (unsigned int side=0; side<elem->n_sides(); side++)
           if (elem->neighbor_ptr(side) == libmesh_nullptr)
             {
+              auto boundary_id = mesh.get_boundary_info().boundary_id(elem, side);
+              //  0 bottom
+              //  1 right
+              //  2 top
+              //  3 left
+              libMesh::Gradient traction;
+              bool dirichlet = true;
+              if(boundary_id == Parameters::bottom)
+              {
+                  traction(0) = 0.0;
+                  traction(1) = 0.0;
+                  dirichlet = false;
+              }
+              else if (boundary_id == Parameters::right)
+              {
+                  traction(0) = Parameters::t0;
+                  traction(1) = Parameters::t1;
+                  dirichlet = false;
+              }
+              else if (boundary_id == Parameters::top)
+              {
+                  traction(0) = 0.0;
+                  traction(1) = 0.0;
+                  dirichlet = false;
+              }
               // The value of the shape functions at the quadrature
               // points.
               const std::vector<std::vector< libMesh::Real> > & phi_face = fe_face->get_phi();
@@ -467,39 +609,96 @@ void assemble_poisson( libMesh::EquationSystems & es,
 
                   // The penalty value.  \frac{1}{\epsilon}
                   // in the discussion above.
-                  const   libMesh::Real penalty = 1.e10;
-
-                  // The boundary value.
-                  const  libMesh::Real value = 0.0;
-
-//                  // Matrix contribution of the L2 projection.
-//                  for (unsigned int i=0; i<phi_face.size(); i++)
-//                    for (unsigned int j=0; j<phi_face.size(); j++)
-//                      Ke(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
-//
-//                  // Right-hand-side contribution of the L2
-//                  // projection.
-//                  for (unsigned int i=0; i<phi_face.size(); i++)
-//                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp];
-                }
+                  if(dirichlet)
+                  {
+                      const   libMesh::Real penalty = 1.e10;
+                      const  libMesh::Real value = 0.0;
+                      for (unsigned int i=0; i<phi_face.size(); i++)
+                      {
+                        for (unsigned int j=0; j<phi_face.size(); j++)
+                        {
+                              Mu1u1(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
+                              Mu2u2(i,j) += JxW_face[qp]*penalty*phi_face[i][qp]*phi_face[j][qp];
+                        }
+                      }
+                  }
+                  else
+                  {
+                      for (unsigned int i=0; i<phi.size(); i++)
+                      {
+                        auto F_qp = traction  * phi_face[i][qp] * JxW_face[qp];
+                        auto Fm_qp= traction* phi_face[i][qp] * JxW_face[qp];
+                        Fu1(i) += F_qp(0);
+                        Fu2(i) += F_qp(1);
+                        Fmu1(i)+= Fm_qp(0);
+                        Fmu2(i)+= Fm_qp(1);
+                      }
+                  }
             }
+        }
       }
-
-      // We have now finished the quadrature point loop,
-      // and have therefore applied all the boundary conditions.
-
-      // If this assembly program were to be used on an adaptive mesh,
-      // we would have to apply any hanging node constraint equations
-      dof_map.constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
-
-      // The element matrix and right-hand-side are now built
-      // for this element.  Add them to the global matrix and
-      // right-hand-side vector.  The  SparseMatrix::add_matrix()
-      // and  NumericVector::add_vector() members do this for us.
-      system.matrix->add_matrix (Ke, dof_indices);
-      system.rhs->add_vector    (Fe, dof_indices);
+      primal_momentum_system.matrix->add_matrix (Me, primal_dof_indices);
+      mixed_momentum_system.matrix->add_matrix (Me, primal_dof_indices);
+      primal_momentum_system.rhs->add_vector    (Fe, primal_dof_indices);
+      mixed_momentum_system.rhs->add_vector    (Fme, primal_dof_indices);
+      pressure_system.matrix->add_matrix    (Mpp, pressure_dof_indices);
+      pressure_system.rhs->add_vector    (Fp, pressure_dof_indices);
     }
 
+  primal_momentum_system.matrix->close();
+  mixed_momentum_system.matrix->close();
+  pressure_system.matrix->close();
+  primal_momentum_system.rhs->close();
+  mixed_momentum_system.rhs->close();
+  pressure_system.rhs->close();
+
+  PetscBool rtol_set;
+  double runtime_rtol;
+  int ierr;
+  double tol = 1e-6;
+  int max_its = 100;
+  ierr = PetscOptionsGetReal(nullptr, "", "-ksp_rtol", &runtime_rtol, &rtol_set);
+  PetscBool max_it_set;
+  int runtime_max_it;
+  ierr = PetscOptionsGetInt(nullptr, "", "-ksp_max_it", &runtime_max_it, &max_it_set);
+
+//primal solve
+  {
+      using namespace libMesh;
+      PetscLinearSolver<double> * solver = dynamic_cast< PetscLinearSolver<double> * >(primal_momentum_system.get_linear_solver());
+      PetscMatrix<double> * M_mat = dynamic_cast<PetscMatrix<double>*>(primal_momentum_system.matrix);
+      ierr = KSPSetFromOptions( solver->ksp());
+      solver->solve(*M_mat, *M_mat, primal_momentum_system.get_vector("force"), *primal_momentum_system.rhs, rtol_set ? runtime_rtol : tol, max_it_set ? runtime_max_it : max_its);
+  }
+  //mixed solve
+  {
+      using namespace libMesh;
+      PetscLinearSolver<double> * solver = dynamic_cast< PetscLinearSolver<double> * >(mixed_momentum_system.get_linear_solver());
+      PetscMatrix<double> * M_mat = dynamic_cast<PetscMatrix<double>*>(mixed_momentum_system.matrix);
+      ierr = PetscOptionsGetInt(nullptr, "", "-ksp_max_it", &runtime_max_it, &max_it_set);
+      ierr = KSPSetFromOptions( solver->ksp());
+      solver->solve(*M_mat, *M_mat, mixed_momentum_system.get_vector("force"), *mixed_momentum_system.rhs, rtol_set ? runtime_rtol : tol, max_it_set ? runtime_max_it : max_its);
+  }
+  //pressure solve
+  {
+      using namespace libMesh;
+      PetscLinearSolver<double> * solver = dynamic_cast< PetscLinearSolver<double> * >(pressure_system.get_linear_solver());
+      PetscMatrix<double> * M_mat = dynamic_cast<PetscMatrix<double>*>(pressure_system.matrix);
+      ierr = PetscOptionsGetInt(nullptr, "", "-ksp_max_it", &runtime_max_it, &max_it_set);
+      ierr = KSPSetFromOptions( solver->ksp());
+      solver->solve(*M_mat, *M_mat, *pressure_system.solution, *pressure_system.rhs, rtol_set ? runtime_rtol : tol, max_it_set ? runtime_max_it : max_its);
+  }
+
+  // close solution
+  primal_momentum_system.solution->close();
+  mixed_momentum_system.solution->close();
+  primal_disp_system.solution->close();
+  mixed_disp_system.solution->close();
+  // update disp
+  primal_momentum_system.solution->add(Parameters::dt/Parameters::rho,  primal_momentum_system.get_vector("force"));
+  mixed_momentum_system.solution->add(Parameters::dt/Parameters::rho,  mixed_momentum_system.get_vector("force"));
+  primal_disp_system.solution->add(Parameters::dt, *primal_momentum_system.solution);
+  mixed_disp_system.solution->add(Parameters::dt, *mixed_momentum_system.solution);
   // All done!
 }
 

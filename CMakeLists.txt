@@ -7,7 +7,7 @@ set (BeatIt_VERSION_MAJOR 0)
 set (BeatIt_VERSION_MINOR 0)
 set(BeatIt_VERSION ${BeatIt_VERSION_MAJOR}.${BeatIt_VERSION_MINOR})
 
-# REQUIRES C++11
+# REQUIRES C++14
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -16,12 +16,12 @@ if( ${CMAKE_BUILD_TYPE} MATCHES DEBUG)
   message("\t Adding -D_GLIBCXX_DEBUG to the CXX flags:\n")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -Wall -D_GLIBCXX_DEBUG")
 else()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -ffast-math")  
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -ffast-math")
 endif()
 message(STATUS "CXX flags: ${CMAKE_CXX_FLAGS} \n")
 
 
-# Packages 
+# Packages
 find_package(MPI REQUIRED)
 find_package(VTK REQUIRED NO_MODULE)
 message("-- VTK_DIR: ${VTK_DIR}")
@@ -92,7 +92,7 @@ option(BEATIT_BUILD_EXAMPLES "This is settable from the command line" ON)
 message("-- BUILDING EXAMPLES? ${BEATIT_BUILD_EXAMPLES}")
 if(${BEATIT_BUILD_EXAMPLES})
 message("-- BUILDING EXAMPLES")
-add_subdirectory(examples)  
+add_subdirectory(examples)
 endif(${BEATIT_BUILD_EXAMPLES})
 
 #set (BEATIT_BUILD_TESTS TRUE)
@@ -109,7 +109,7 @@ endif(${BEATIT_BUILD_TESTS})
 
 
 
-# Summary 
+# Summary
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 foreach(dir ${dirs})
@@ -121,7 +121,7 @@ message("\n\tPlease type `make` in order to compile BeatIt.\n")
 
 message(STATUS "CXX DEBUG flags: ${CMAKE_CXX_FLAGS} \n")
 
-install(TARGETS beatit 
+install(TARGETS beatit
         LIBRARY  DESTINATION lib)
 install(DIRECTORY  src/ DESTINATION include/beatit FILES_MATCHING PATTERN  "*.hpp" )
 
@@ -132,14 +132,14 @@ include(CMakePackageConfigHelpers)
 set(BEATIT_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include/beatit/")
 message(STATUS "PACKAGE: ${BEATIT_INCLUDE_DIRS} \n")
 
-configure_package_config_file (                         
+configure_package_config_file (
         BeatItConfig.cmake.in
         # Important to write in CMAKE_BINARY_DIR if you want the registry
         # mechanism to work:
-        "${CMAKE_INSTALL_PREFIX}/cmake/BeatIt-config.cmake"  
+        "${CMAKE_INSTALL_PREFIX}/cmake/BeatIt-config.cmake"
         INSTALL_DESTINATION "${CMAKE_INSTALL_PREFIX}/cmake"
         PATH_VARS BEATIT_INCLUDE_DIRS )
-        
+
 #	         This file is included in our template:
 #export ( TARGETS BeatIt FILE "${CMAKE_INSTALL_PREFIX}/cmake/BeatItTargets.cmake" )
 #

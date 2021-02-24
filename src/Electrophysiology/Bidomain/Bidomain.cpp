@@ -526,7 +526,8 @@ void Bidomain::assemble_matrices(double dt)
             M_constraint_dof_id = static_cast<int>(dof_indices_Ve[0]);
             std::cout << "* BIDOMAIN: adding constraint done" << std::endl;
         }
-        M_equationSystems.comm().max(M_constraint_dof_id);
+        // FIX ME: GCC 9.1 warning
+        // M_equationSystems.comm().max(M_constraint_dof_id);
         std::cout << "* BIDOMAIN: Ground node ID: " << M_constraint_dof_id << std::endl;
     }
 
