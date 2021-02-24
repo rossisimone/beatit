@@ -88,6 +88,11 @@ Real exact_solution (const Real x,
 
 namespace Parameters
 {
+static int Nf = 1;
+static double gamma = 0.5;
+static double s = 15.0;
+static double L_fibers = 10.0;
+static double PHI_fibers = 10.0*M_PI;
 static double sigma = 1.0;
 static double gamma = 1.0;
 static double beta = 0.0;
@@ -199,7 +204,12 @@ int main (int argc, char ** argv)
   g_system.add_variable("ux", FIRST);
   g_system.add_variable("uy", FIRST);
   g_system.add_variable("uz", FIRST);
+
+  ExplicitSystem & v_system = lattice_equation_systems.add_system<ExplicitSystem>("Value");
+  v_system.add_variable("value", FIRST);
+
   lattice_equation_systems.init();
+
   std::vector<dof_id_type> dof_indices;
   // define lattice gradients;
   for (auto & node : lattice.local_node_ptr_range())
@@ -221,6 +231,9 @@ int main (int argc, char ** argv)
       g_system.solution->set(dof_indices[0], u(0));
       g_system.solution->set(dof_indices[1], u(1));
       g_system.solution->set(dof_indices[2], u(2));
+
+      v_system.get_dof_map().dof_indices(node, dof_indices);
+      g_system.solution->set(dof_indices[0], uniform_dist(mt));
   }
 
   libMesh::ExodusII_IO exporter(lattice);
@@ -292,8 +305,12 @@ int main (int argc, char ** argv)
   equation_systems.add_system<LinearImplicitSystem> ("Noise");
   // Adds the variable "u" to "Poisson".  "u"
   // will be approximated using second-order approximation.
+  // white noise
   equation_systems.get_system("Noise").add_variable("w", CONSTANT, MONOMIAL);
+  // perlin noise
   equation_systems.get_system("Noise").add_variable("p", CONSTANT, MONOMIAL);
+  // value noise
+  equation_systems.get_system("Noise").add_variable("fp", CONSTANT, MONOMIAL);
 
 
   ExplicitSystem & f_system = equation_systems.add_system<ExplicitSystem>("fibers");
@@ -478,6 +495,7 @@ void assemble_poisson(EquationSystems & es,
       {
           libMesh::Point x = elem->centroid();
 
+          double hmin = elem->hmin();
 
           const Elem* mapped_element = (*Parameters::locator)(x);
 
@@ -485,25 +503,49 @@ void assemble_poisson(EquationSystems & es,
           P = 0.5;
           for( auto & node : mapped_element->node_ref_range())
           {
-              Parameters::g_system->get_dof_map().dof_indices(&node, g_dof_indices);
-              libMesh::Point xi(node);
-              libMesh::Point gi( (*Parameters::g_system->solution)(g_dof_indices[0]),
-                                (*Parameters::g_system->solution)(g_dof_indices[1]),
-                                (*Parameters::g_system->solution)(g_dof_indices[2]) );
-              libMesh::Point ri(x-xi);
-              double dX = 1-std::abs(ri(0)) / hx;
-              double dY = 1-std::abs(ri(1)) / hy;
-              double dZ = 1-std::abs(ri(2)) / hz;
+              double PNf = 0.0;
+              double gamma_coeff = 1.0;
+              for(int cf = 0; cf < Parameters::Nf; cf++)
+              {
+                  double angle1 = uniform_dist(mt);
+                  double angle2 = 0.0;
+                  if(Parameters::grid_el_z > 0 ) angle2 = uniform_dist(mt);
+                  double dlength = uniform_dist(mt) / 2.0 / M_PI * (hmin / 2.0);
 
-              double aX = ((6*dX - 15)*dX + 10)*dX*dX*dX;
-              double aY = ((6*dY - 15)*dY + 10)*dY*dY*dY;
-              double aZ = ((6*dZ - 15)*dZ + 10)*dZ*dZ*dZ;
+                  libMesh::Point dx;
+                  dx(0) = std::cos(angle1) * std::cos(angle2);
+                  dx(1) = std::sin(angle1) * std::cos(angle2);
+                  dx(2) = std::sin(angle2);
+                  dx *= dlength;
+
+                  Parameters::g_system->get_dof_map().dof_indices(&node, g_dof_indices);
+                  libMesh::Point xi(node);
+                  libMesh::Point gi( (*Parameters::g_system->solution)(g_dof_indices[0]),
+                                    (*Parameters::g_system->solution)(g_dof_indices[1]),
+                                    (*Parameters::g_system->solution)(g_dof_indices[2]) );
+                  libMesh::Point ri(x+dx-xi);
+                  double dX = 1-std::abs(ri(0)) / hx;
+                  double dY = 1-std::abs(ri(1)) / hy;
+                  double dZ = 1-std::abs(ri(2)) / hz;
+
+                  double aX = ((6*dX - 15)*dX + 10)*dX*dX*dX;
+                  double aY = ((6*dY - 15)*dY + 10)*dY*dY*dY;
+                  double aZ = ((6*dZ - 15)*dZ + 10)*dZ*dZ*dZ;
 
 
-              if(Parameters::grid_el_z <= 0) P += std::sqrt(2.0) * 0.5 * aX * aY * gi.contract(ri);
-              else P += 1.0 / std::sqrt(3.0) * aX * aY * aZ* gi.contract(ri);
+                  if(Parameters::grid_el_z <= 0) PNf += gamma_coeff * aX * aY * gi.contract(ri);
+                  else PNf += gamma_coeff * aX * aY * aZ* gi.contract(ri);
+                  gamma_coeff *= Parameters::gamma;
+              }
+              P +=  (1.0 - Parameters::gamma)  /
+                    (1.0 - std::pow(Parameters::gamma, Parameters::Nf) ) /
+                    std::sqrt(double(dim)) * PNf;
           }
           w_system.solution->set(w_dof_indices[1], P);
+
+          double Fcos = 0.5 + 0.5 * std::cos(2.0*M_PI/Parameters::L_fibers + Parameters::PHI_fibers * P);
+          double FP = std::pow(Fcos, Parameters::s);
+          w_system.solution->set(w_dof_indices[2], FP);
 
           // fibers
           x = elem->centroid();
