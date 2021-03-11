@@ -413,7 +413,7 @@ int main(int argc, char** argv)
         //std::cout<< "u index= " <<u[tpv1[0]] <<", tpv1[0]= " <<  tpv1[0] <<", tpv1[1]= "<< tpv1[1]<<", tpv1[2]= " << tpv1[2]<<std::endl;
         // setup subregion
         if ((u[tpv1[0]]>tpv1[1])*(u[tpv1[0]]<tpv1[2])){//u[1] > 0.8) { //pv   //(u[tpv1[1]]>tpv1[2])*(u[tpv1[1]]>tpv1[3])
-            blockid = 0;
+            blockid = 12;
         }
         else if ((u[tpv2[0]]>tpv2[1])*(u[tpv2[0]]<tpv2[2])) { //pv
             blockid = 1;
@@ -467,33 +467,64 @@ int main(int argc, char** argv)
         switch (blockid)
         {
         //PV left front
-        case 0:
+        case 12:
         {
-        	//std::cout << "case 0 \n";
-            n0 = du[1].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 12 -  u0>0.5\n";
+				n0 = du[1].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 12 -  u0<0.5\n";
+				f0 = du[1].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //PV left back
         case 1:
         {
-            n0 = du[1].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 1 -  u0>0.5\n";
+				n0 = du[1].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 1 -  u0<0.5\n";
+				f0 = du[1].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //PV right front
         case 2:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 2 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 2 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //PV right front
         case 3:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 3 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 3 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         // Floor
         case 4:
@@ -501,70 +532,134 @@ int main(int argc, char** argv)
             // Let's say that u[2] can be use for defining the floor region,
             // then you can define the fibers as
         	//std::cout << "case 4 \n";
-            n0 = du[2].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 4 -  u0>0.5\n";
+				n0 = du[2].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 4 -  u0<0.5\n";
+				f0 = du[2].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         // LAA
         case 5:
         {
             // Let's say that u[2] can be use for defining the floor region,
             // then you can define the fibers as
-            n0 = du[5].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 5 -  u0>0.5\n";
+				n0 = du[5].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 5 -  u0<0.5\n";
+				f0 = du[5].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //Antra between pv2 and pv3
         case 6:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 6 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 6 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //Lateral
         case 7:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 7 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 7 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //Antra between pv0 and pv1
         case 8:
         {
-            n0 = du[1].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 8 -  u0>0.5\n";
+				n0 = du[1].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 8 -  u0<0.5\n";
+				f0 = du[1].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //Septum
         case 9:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 9 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 9 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         //Anterior
         case 10:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
-        }
+        	if(u[0]>0.5){
+        		//std::cout <<"case 10 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 10 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}        }
         //Posterior
         case 11:
         {
-            n0 = du[6].unit();
-            f0 = s0.cross(n0);
-            break;
+        	if(u[0]>0.5){
+        		//std::cout <<"case 11 -  u0>0.5\n";
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+        		//std::cout <<"case 11 -  u0<0.5\n";
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        	}
         }
         default:
         {
-        	std::cout << "Case default\n";
+        	//std::cout << "Case default, element = "<< elem <<"\n";
             f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
             s0(0) = 0.0; s0(1) = 1.0; s0(2) = 0.0;
             n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;
             break;
         }
         }
+
         /*
         f0.print();
         std::cout<< std::endl;
