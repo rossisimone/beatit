@@ -1,0 +1,3 @@
+dirichletbc0='7,8,9,10'
+dirichletbc1 ='5'
+output_number='3'

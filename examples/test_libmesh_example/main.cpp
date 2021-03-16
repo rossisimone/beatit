@@ -469,62 +469,34 @@ int main(int argc, char** argv)
         //PV left front
         case 12:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 12 -  u0>0.5\n";
 				n0 = du[1].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 12 -  u0<0.5\n";
-				f0 = du[1].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         //PV left back
         case 1:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 1 -  u0>0.5\n";
 				n0 = du[1].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 1 -  u0<0.5\n";
-				f0 = du[1].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         //PV right front
         case 2:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 2 -  u0>0.5\n";
 				n0 = du[6].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 2 -  u0<0.5\n";
-				f0 = du[6].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         //PV right front
         case 3:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 3 -  u0>0.5\n";
 				n0 = du[6].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 3 -  u0<0.5\n";
-				f0 = du[6].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         // Floor
         case 4:
@@ -542,6 +514,7 @@ int main(int argc, char** argv)
         		//std::cout <<"case 4 -  u0<0.5\n";
 				f0 = du[2].unit();
         		n0 = s0.cross(f0);
+        		break;
         	}
         }
         // LAA
@@ -559,22 +532,16 @@ int main(int argc, char** argv)
         		//std::cout <<"case 5 -  u0<0.5\n";
 				f0 = du[5].unit();
         		n0 = s0.cross(f0);
+        		break;
         	}
         }
         //Antra between pv2 and pv3
         case 6:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 6 -  u0>0.5\n";
 				n0 = du[6].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 6 -  u0<0.5\n";
-				f0 = du[6].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         //Lateral
         case 7:
@@ -589,22 +556,16 @@ int main(int argc, char** argv)
         		//std::cout <<"case 7 -  u0<0.5\n";
 				f0 = du[6].unit();
         		n0 = s0.cross(f0);
+        		break;
         	}
         }
         //Antra between pv0 and pv1
         case 8:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 8 -  u0>0.5\n";
 				n0 = du[1].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 8 -  u0<0.5\n";
-				f0 = du[1].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         //Septum
         case 9:
@@ -619,40 +580,28 @@ int main(int argc, char** argv)
         		//std::cout <<"case 9 -  u0<0.5\n";
 				f0 = du[6].unit();
         		n0 = s0.cross(f0);
+        		break;
         	}
         }
         //Anterior
         case 10:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 10 -  u0>0.5\n";
 				n0 = du[6].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 10 -  u0<0.5\n";
-				f0 = du[6].unit();
-        		n0 = s0.cross(f0);
-        	}        }
+        }
         //Posterior
         case 11:
         {
-        	if(u[0]>0.5){
         		//std::cout <<"case 11 -  u0>0.5\n";
 				n0 = du[6].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else{
-        		//std::cout <<"case 11 -  u0<0.5\n";
-				f0 = du[6].unit();
-        		n0 = s0.cross(f0);
-        	}
         }
         default:
         {
-        	//std::cout << "Case default, element = "<< elem <<"\n";
+        	std::cout << "Case default, element = "<< elem <<"\n";
             f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
             s0(0) = 0.0; s0(1) = 1.0; s0(2) = 0.0;
             n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;
@@ -1052,3 +1001,4 @@ void assemble_poisson(EquationSystems& es,
 
     // All done!
 }
+
