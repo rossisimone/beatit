@@ -492,6 +492,7 @@ int main(int argc, char** argv)
         //test
         //std::cout << blockid <<std::endl;
 
+        /*																					UNCOMMENT HERE - THIS IS THE FIRST WAY i DID FIBERS
         switch (blockid)
         {
         //PV left front
@@ -504,7 +505,6 @@ int main(int argc, char** argv)
         //PV left back
         case 1:
         {
-        		//std::cout <<"case 1 -  u0>0.5\n";
 				n0 = du[1].unit();
 				f0 = s0.cross(n0);
 				break;
@@ -512,7 +512,6 @@ int main(int argc, char** argv)
         //PV right front
         case 2:
         {
-        		//std::cout <<"case 2 -  u0>0.5\n";
 				n0 = du[6].unit();
 				f0 = s0.cross(n0);
 				break;
@@ -527,9 +526,6 @@ int main(int argc, char** argv)
         // Floor
         case 4:
         {
-            // Let's say that u[2] can be use for defining the floor region,
-            // then you can define the fibers as
-        	//std::cout << "case 4 \n";
         	if(u[0]>0.5){
 				n0 = du[2].unit();
 				f0 = s0.cross(n0);
@@ -544,8 +540,6 @@ int main(int argc, char** argv)
         // LAA
         case 5:
         {
-            // Let's say that u[2] can be use for defining the floor region,
-            // then you can define the fibers as
         	if(u[0]>0.5){
 				n0 = du[5].unit();
 				f0 = s0.cross(n0);
@@ -623,6 +617,141 @@ int main(int argc, char** argv)
             break;
         }
         }
+*/
+
+
+
+        switch (blockid)
+        {
+        //PV left front
+        case 12:
+        {
+				n0 = du[1].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        //PV left back
+        case 1:
+        {
+				n0 = du[1].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        //PV right front
+        case 2:
+        {
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        //PV right front
+        case 3:
+        {
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        // Floor
+        case 4:
+        {
+        	if(u[0]>0.5){
+				n0 = du[9].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+				f0 = du[2].unit();
+        		n0 = s0.cross(f0);
+        		break;
+        	}
+        }
+        // LAA
+        case 5:
+        {
+        	if(u[0]>0.5){
+				n0 = du[5].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+				f0 = du[5].unit();
+        		n0 = s0.cross(f0);
+        		break;
+        	}
+        }
+        //Antra between pv2 and pv3
+        case 6:
+        {
+				n0 = du[6].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        //Lateral
+        case 7:
+        {
+        	if(u[0]>0.5){
+				n0 = du[9].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        		break;
+        	}
+        }
+        //Antra between pv0 and pv1
+        case 8:
+        {
+				n0 = du[1].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        //Septum
+        case 9:
+        {
+        	if(u[0]>0.5){
+				n0 = du[9].unit();
+				f0 = s0.cross(n0);
+				break;
+        	}
+        	else{
+				f0 = du[6].unit();
+        		n0 = s0.cross(f0);
+        		break;
+        	}
+        }
+        //Anterior
+        case 10:
+        {
+//				n0 = du[9].unit();
+//				f0 = s0.cross(n0);
+			f0 = du[8].unit();
+			n0 = s0.cross(f0);
+
+				break;
+        }
+        //Posterior
+        case 11:
+        {
+				n0 = du[8].unit();
+				f0 = s0.cross(n0);
+				break;
+        }
+        default:
+        {
+        	std::cout << "Case default, element = "<< elem <<"\n";
+            f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
+            s0(0) = 0.0; s0(1) = 1.0; s0(2) = 0.0;
+            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;
+            break;
+        }
+        }
+
+
+
+
+
 
         /*
         f0.print();
