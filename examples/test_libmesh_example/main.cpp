@@ -116,15 +116,102 @@ class Poisson{
 		std::vector<double> dirichlet_id0_radius;
 		std::vector<double> dirichlet_id1_radius;
 		std::vector<double> dirichlet_id05_radius;
+
+		void reinit(std::string, std::string,std::string,
+				 std::string, std::string, std::string,
+				 std::string,std::string,std::string,
+				 std::string, std::string, std::string,
+				 std::string, std::string, std::string);
 };
+
+
+	void Poisson::reinit(std::string dirichlet_id_list_aux0, std::string dirichlet_id_list_aux05,std::string  dirichlet_id_list_aux1,
+			             std::string dirichlet_x0_list, std::string  dirichlet_x05_list, std::string dirichlet_x1_list,
+						 std::string dirichlet_y0_list, std::string dirichlet_y05_list, std::string dirichlet_y1_list,
+						 std::string dirichlet_z0_list, std::string dirichlet_z05_list, std::string dirichlet_z1_list,
+						 std::string dirichlet_r0_list, std::string dirichlet_r05_list, std::string dirichlet_r1_list)
+	{
+
+		std::cout << "Hi!!!!!!!!!!!!!!!!!!!!" << "\n";
+
+        //erase what was stored in global variables
+        dirichlet_id_list0.clear();
+        dirichlet_id_list1.clear();
+        dirichlet_id_list05.clear();
+        dirichlet_id0_points.clear();
+        dirichlet_id1_points.clear();
+        dirichlet_id05_points.clear();
+        dirichlet_id0_radius.clear();
+        dirichlet_id1_radius.clear();
+        dirichlet_id05_radius.clear();
+
+        //Read the BC list for the current problem
+        BeatIt::readList(dirichlet_id_list_aux0, dirichlet_id_list0);
+        BeatIt::readList(dirichlet_id_list_aux1, dirichlet_id_list1);
+        BeatIt::readList(dirichlet_id_list_aux05, dirichlet_id_list05);
+        std::cout << "Dirichlet BCs ID list 0 \n";
+        for (auto&& p : dirichlet_id_list0) std::cout << p << " ";
+        std::cout << "\n";
+        std::cout << "Dirichlet BCs ID list 1 \n";
+        for (auto&& p : dirichlet_id_list1) std::cout << p << " ";
+        std::cout << "\n";
+        std::cout << "Dirichlet BCs ID list 05 \n";
+        for (auto&& p : dirichlet_id_list05) std::cout << p << " ";
+        std::cout << "\n";
+
+        //for point 0
+
+        std::vector<double> x0, y0, z0, r0;
+        BeatIt::readList(dirichlet_x0_list, x0);
+        BeatIt::readList(dirichlet_y0_list, y0);
+        BeatIt::readList(dirichlet_z0_list, z0);
+        BeatIt::readList(dirichlet_r0_list, r0);
+
+
+        for (int jj = 0; jj < r0.size(); jj++) {
+            dirichlet_id0_points.emplace_back(x0[jj], y0[jj], z0[jj]);
+            dirichlet_id0_radius.push_back(r0[jj]);
+        }
+
+        // for point 1
+
+        std::vector<double> x1, y1, z1, r1;
+        BeatIt::readList(dirichlet_x1_list, x1);
+        BeatIt::readList(dirichlet_y1_list, y1);
+        BeatIt::readList(dirichlet_z1_list, z1);
+        BeatIt::readList(dirichlet_r1_list, r1);
+
+        for (int jj = 0; jj < r1.size(); jj++) {
+            dirichlet_id1_points.emplace_back(x1[jj], y1[jj], z1[jj]);
+            dirichlet_id1_radius.push_back(r1[jj]);
+        }
+
+
+        // for point 0.5
+
+	   std::vector<double> x05, y05, z05, r05;
+	   BeatIt::readList(dirichlet_x05_list, x05);
+	   BeatIt::readList(dirichlet_y05_list, y05);
+	   BeatIt::readList(dirichlet_z05_list, z05);
+	   BeatIt::readList(dirichlet_r05_list, r05);
+
+	   for (int jj = 0; jj < r05.size(); jj++) {
+		   dirichlet_id05_points.emplace_back(x05[jj], y05[jj], z05[jj]);
+		   dirichlet_id05_radius.push_back(r05[jj]);
+	   }
+
+
+	}
 
 	//global
 	Poisson * poisson_ptr = nullptr;
 
 
+
 // MAIN
 int main(int argc, char** argv)
 {
+
     // Read input file
     GetPot commandLine(argc, argv);
     std::string datafile_name = commandLine.follow("data.beat", 2, "-i", "--input");
@@ -132,12 +219,13 @@ int main(int argc, char** argv)
 
 
     // Modifying code to solve all problems at once
-    int N = data("number_of_problems", 0);
+    int N= data("number_of_problems", 0);
 
 
-    //
+    //Create an object of class Poisson and a pointer to it
     Poisson poisson_solver;
     poisson_ptr = & poisson_solver;
+
 
     // Read name of the input files corresponding to each problem
     std::string input_list_aux = data("inputs", "");
@@ -304,36 +392,10 @@ int main(int argc, char** argv)
         //name of the problem
         GetPot data_i(poisson_ptr->input_list[i]);
 
-
         // Read Dirichlet BC ID list from input file
         std::string dirichlet_id_list_aux0 = data_i("dirichletbc0", "");
         std::string dirichlet_id_list_aux1 = data_i("dirichletbc1", "");
         std::string dirichlet_id_list_aux05 = data_i("dirichletbc05", "");
-
-        //erase what was stored in global variables
-        poisson_ptr->dirichlet_id_list0.clear();
-        poisson_ptr->dirichlet_id_list1.clear();
-        poisson_ptr->dirichlet_id_list05.clear();
-        poisson_ptr->dirichlet_id0_points.clear();
-        poisson_ptr->dirichlet_id1_points.clear();
-        poisson_ptr->dirichlet_id05_points.clear();
-        poisson_ptr->dirichlet_id0_radius.clear();
-        poisson_ptr->dirichlet_id1_radius.clear();
-        poisson_ptr->dirichlet_id05_radius.clear();
-
-        //Read the BC list for the current problem
-        BeatIt::readList(dirichlet_id_list_aux0, poisson_ptr->dirichlet_id_list0);
-        BeatIt::readList(dirichlet_id_list_aux1, poisson_ptr->dirichlet_id_list1);
-        BeatIt::readList(dirichlet_id_list_aux05, poisson_ptr->dirichlet_id_list05);
-        std::cout << "Dirichlet BCs ID list 0 \n";
-        for (auto&& p : poisson_ptr->dirichlet_id_list0) std::cout << p << " ";
-        std::cout << "\n";
-        std::cout << "Dirichlet BCs ID list 1 \n";
-        for (auto&& p : poisson_ptr->dirichlet_id_list1) std::cout << p << " ";
-        std::cout << "\n";
-        std::cout << "Dirichlet BCs ID list 05 \n";
-        for (auto&& p : poisson_ptr->dirichlet_id_list05) std::cout << p << " ";
-        std::cout << "\n";
 
         // Read Dirichlet BC ID list for septum and laa points
         std::string dirichlet_x0_list = data_i("x0", " ");
@@ -341,52 +403,22 @@ int main(int argc, char** argv)
         std::string dirichlet_z0_list = data_i("z0", " ");
         std::string dirichlet_r0_list = data_i("r0", " ");
 
-        std::vector<double> x0, y0, z0, r0;
-        BeatIt::readList(dirichlet_x0_list, x0);
-        BeatIt::readList(dirichlet_y0_list, y0);
-        BeatIt::readList(dirichlet_z0_list, z0);
-        BeatIt::readList(dirichlet_r0_list, r0);
-
-
-        for (int jj = 0; jj < r0.size(); jj++) {
-            poisson_ptr->dirichlet_id0_points.emplace_back(x0[jj], y0[jj], z0[jj]);
-            poisson_ptr->dirichlet_id0_radius.push_back(r0[jj]);
-        }
-
-        // Read Dirichlet BC ID list for septum and laa points
         std::string dirichlet_x1_list = data_i("x1", " ");
         std::string dirichlet_y1_list = data_i("y1", " ");
         std::string dirichlet_z1_list = data_i("z1", " ");
         std::string dirichlet_r1_list = data_i("r1", " ");
 
-        std::vector<double> x1, y1, z1, r1;
-        BeatIt::readList(dirichlet_x1_list, x1);
-        BeatIt::readList(dirichlet_y1_list, y1);
-        BeatIt::readList(dirichlet_z1_list, z1);
-        BeatIt::readList(dirichlet_r1_list, r1);
-
-        for (int jj = 0; jj < r1.size(); jj++) {
-            poisson_ptr->dirichlet_id1_points.emplace_back(x1[jj], y1[jj], z1[jj]);
-            poisson_ptr->dirichlet_id1_radius.push_back(r1[jj]);
-        }
+ 	   std::string dirichlet_x05_list = data_i("x05", " ");
+ 	   std::string dirichlet_y05_list = data_i("y05", " ");
+ 	   std::string dirichlet_z05_list = data_i("z05", " ");
+ 	   std::string dirichlet_r05_list = data_i("r05", " ");
 
 
-        // Read Dirichlet BC ID list for  Dirichlet BC evaluated to 0.5
-	   std::string dirichlet_x05_list = data_i("x05", " ");
-	   std::string dirichlet_y05_list = data_i("y05", " ");
-	   std::string dirichlet_z05_list = data_i("z05", " ");
-	   std::string dirichlet_r05_list = data_i("r05", " ");
-
-	   std::vector<double> x05, y05, z05, r05;
-	   BeatIt::readList(dirichlet_x05_list, x05);
-	   BeatIt::readList(dirichlet_y05_list, y05);
-	   BeatIt::readList(dirichlet_z05_list, z05);
-	   BeatIt::readList(dirichlet_r05_list, r05);
-
-	   for (int jj = 0; jj < r05.size(); jj++) {
-		   poisson_ptr->dirichlet_id05_points.emplace_back(x05[jj], y05[jj], z05[jj]);
-		   poisson_ptr->dirichlet_id05_radius.push_back(r05[jj]);
-	   }
+ 	   poisson_solver.reinit(dirichlet_id_list_aux0, dirichlet_id_list_aux05, dirichlet_id_list_aux1,
+ 			   	   	   	   	   dirichlet_x0_list, dirichlet_x05_list, dirichlet_x1_list,
+							   dirichlet_y0_list, dirichlet_y05_list, dirichlet_y1_list,
+							   dirichlet_z0_list, dirichlet_z05_list, dirichlet_z1_list,
+							   dirichlet_r0_list, dirichlet_r05_list, dirichlet_r1_list);
 
        //Check
        if(poisson_ptr->dirichlet_id0_points.size()!= poisson_ptr->dirichlet_id0_radius.size()){
