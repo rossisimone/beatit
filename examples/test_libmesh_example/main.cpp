@@ -101,9 +101,8 @@ class Poisson{
 	public:
 		// Member variable Dirichlet BC list - can use inside poisson_assemble
 		// each list stores subregion IDs to where that boundary condition should be imposed
-		std::vector<int> dirichlet_id_list0;
-		std::vector<int> dirichlet_id_list1;
-		std::vector<int> dirichlet_id_list05;
+		std::vector<int> dirichlet_side_set_list;
+		std::vector<int> dirichlet_bc_list;
 
 
 		// Stores a list of the names of all input files for each problem we are solving
@@ -115,111 +114,72 @@ class Poisson{
 		//          and another sphere w/ center at Point2=(1,9,8) and radius 0.4
 		// 			then dirichlet_id05_points = [Point1 Point2];
 		//          and  dirichlet_id05_radius = [0.3 0.4]
-		std::vector<libMesh::Point> dirichlet_id0_points;
-		std::vector<libMesh::Point> dirichlet_id1_points;
-		std::vector<libMesh::Point> dirichlet_id05_points;
+
+		std::vector<libMesh::Point> dirichlet_id_points;
 
 		// Radius of sphere (neighborhood) where we impose Dirichlet BC
-		std::vector<double> dirichlet_id0_radius;
-		std::vector<double> dirichlet_id1_radius;
-		std::vector<double> dirichlet_id05_radius;
-		std::vector<int> layer0, layer1, layer05;
+		std::vector<double> dirichlet_id_radius;
+
 
 		void reinit(std::string, std::string,std::string,
-				 std::string, std::string, std::string,
-				 std::string,std::string,std::string,
-				 std::string, std::string, std::string,
-				 std::string, std::string, std::string,
 				 std::string, std::string, std::string);
 };
 
+/*
+class BCs{
+	id of side sets
+	values of bcs
+	do i want to apply on the side set or sphere? boolean that depends on radius
+	point and radius
+	variable negative if wna to apply to a set id and positive to a sphere
+};*/
 
-	void Poisson::reinit(std::string dirichlet_id_list_aux0, std::string dirichlet_id_list_aux05,std::string  dirichlet_id_list_aux1,
-			             std::string dirichlet_x0_list, std::string  dirichlet_x05_list, std::string dirichlet_x1_list,
-						 std::string dirichlet_y0_list, std::string dirichlet_y05_list, std::string dirichlet_y1_list,
-						 std::string dirichlet_z0_list, std::string dirichlet_z05_list, std::string dirichlet_z1_list,
-						 std::string dirichlet_r0_list, std::string dirichlet_r05_list, std::string dirichlet_r1_list,
-						 std::string layer0_aux       , std::string layer1_aux        , std::string layer05_aux)
+
+	void Poisson::reinit( std::string dirichlet_x_list, std::string dirichlet_y_list, std::string dirichlet_z_list,
+						 std::string dirichlet_r_list, std::string dirichlet_side_set_list_aux, std::string dirichlet_bc_list_aux)
 	{
 
         //erase what was stored in member variables
-        dirichlet_id_list0.clear();
-        dirichlet_id_list1.clear();
-        dirichlet_id_list05.clear();
-        dirichlet_id0_points.clear();
-        dirichlet_id1_points.clear();
-        dirichlet_id05_points.clear();
-        dirichlet_id0_radius.clear();
-        dirichlet_id1_radius.clear();
-        dirichlet_id05_radius.clear();
-        layer0.clear();
-        layer05.clear();
-        layer1.clear();
+        dirichlet_side_set_list.clear();
+        dirichlet_bc_list.clear();
+
+        dirichlet_id_points.clear();
+
+        dirichlet_id_radius.clear();
 
         //Read the BC list for the current problem
-        BeatIt::readList(dirichlet_id_list_aux0, dirichlet_id_list0);
-        BeatIt::readList(dirichlet_id_list_aux1, dirichlet_id_list1);
-        BeatIt::readList(dirichlet_id_list_aux05, dirichlet_id_list05);
-        std::cout << "Dirichlet BCs ID list 0 \n";
-        for (auto&& p : dirichlet_id_list0) std::cout << p << " ";
-        std::cout << "\n";
-        std::cout << "Dirichlet BCs ID list 1 \n";
-        for (auto&& p : dirichlet_id_list1) std::cout << p << " ";
-        std::cout << "\n";
-        std::cout << "Dirichlet BCs ID list 05 \n";
-        for (auto&& p : dirichlet_id_list05) std::cout << p << " ";
-        std::cout << "\n";
+        BeatIt::readList(dirichlet_side_set_list_aux, dirichlet_side_set_list);
+        BeatIt::readList(dirichlet_bc_list_aux, dirichlet_bc_list);
 
-        //for point 0
+        //for general
+        std::vector<double>  x, y, z, r;
+        BeatIt::readList(dirichlet_x_list ,     x);
+        BeatIt::readList(dirichlet_y_list ,     y);
+        BeatIt::readList(dirichlet_z_list ,     z);
+        BeatIt::readList(dirichlet_r_list ,     r);
 
-        std::vector<double> x0, y0, z0, r0;
-        BeatIt::readList(dirichlet_x0_list,     x0);
-        BeatIt::readList(dirichlet_y0_list,     y0);
-        BeatIt::readList(dirichlet_z0_list,     z0);
-        BeatIt::readList(dirichlet_r0_list,     r0);
-        BeatIt::readList(layer0_aux       , layer0);
-
-        std::cout<< "------------------------------------------------- " <<std::endl;
-        std::cout<< "-----------------------------LAYER0_SIZE = " <<layer0.size() <<std::endl;
-        std::cout<< "-----------------------------LAYER1_SIZE = " <<layer1.size() <<std::endl;
-        std::cout<< "-----------------------------LAYER05_SIZE = " <<layer05.size() <<std::endl;
-        std::cout<< "------------------------------------------------- " <<std::endl;
-
-        for (int jj = 0; jj < r0.size(); jj++) {
-            dirichlet_id0_points.emplace_back(x0[jj], y0[jj], z0[jj]);
-            dirichlet_id0_radius.push_back(r0[jj]);
+        for (int jj = 0; jj < r.size(); jj++) {
+            dirichlet_id_points.emplace_back(x[jj], y[jj], z[jj]);
+            dirichlet_id_radius.push_back(r[jj]);
         }
 
-        // for point 1
-
-        std::vector<double> x1, y1, z1, r1;
-        BeatIt::readList(dirichlet_x1_list,    x1);
-        BeatIt::readList(dirichlet_y1_list,    y1);
-        BeatIt::readList(dirichlet_z1_list,    z1);
-        BeatIt::readList(dirichlet_r1_list,    r1);
-        BeatIt::readList(layer1_aux       ,layer1);
-
-        for (int jj = 0; jj < r1.size(); jj++) {
-            dirichlet_id1_points.emplace_back(x1[jj], y1[jj], z1[jj]);
-            dirichlet_id1_radius.push_back(r1[jj]);
+        //check for error
+        if (x.size()!=y.size() || x.size()!=z.size()|| x.size()!=r.size())
+        {
+           	std::cout << "the sizes of x, y, z, and r lists should be the same "<< std::endl;
+           	std::cout<< "x.size() = " << x.size()  <<std::endl;
+           	std::cout<< "y.size() = " << y.size()  <<std::endl;
+           	std::cout<< "z.size() = " << z.size()  <<std::endl;
+           	std::cout<< "r.size() = " << r.size()  <<std::endl;
+           	throw std::runtime_error("the sizes of x, y, z, and r lists should be the same");
         }
 
-
-        // for point 0.5
-
-	   std::vector<double> x05, y05, z05, r05;
-       std::vector<int> layer05_aux2;
-	   BeatIt::readList(dirichlet_x05_list,     x05);
-	   BeatIt::readList(dirichlet_y05_list,     y05);
-	   BeatIt::readList(dirichlet_z05_list,     z05);
-	   BeatIt::readList(dirichlet_r05_list,     r05);
-	   BeatIt::readList(layer05_aux       , layer05);
-
-	   for (int jj = 0; jj < r05.size(); jj++) {
-		   dirichlet_id05_points.emplace_back(x05[jj], y05[jj], z05[jj]);
-		   dirichlet_id05_radius.push_back(r05[jj]);
-	   }
-
+        if(dirichlet_bc_list.size() != dirichlet_side_set_list.size() || dirichlet_bc_list.size() != dirichlet_id_radius.size()){
+        	std::cout << "Size of Idirichlet_bc_list and Idirichlet_side_set_list have to be equal"<<std::endl;
+        	std::cout << "dirichlet_bc_list.size() = " << dirichlet_bc_list.size() << ", dirichlet_side_set_list.size() = " <<
+        			dirichlet_side_set_list.size() << " , dirichlet_id_radius.size() = " << dirichlet_id_radius.size()<<std::endl;
+        	throw std::runtime_error("Size of Idirichlet_bc_list and Idirichlet_side_set_list has to be equal");
+        }
 	}
 
 	//global
@@ -403,6 +363,9 @@ int main(int argc, char** argv)
 
     // Reading the input for each of the problems
     for (int i = 0; i < N; i++) {
+    	std::cout << "----------------------------------------\n";
+    	std::cout << "----------------------------------------\n";
+
         std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
         ExplicitSystem& si = equation_systems.add_system<ExplicitSystem>(ui);
         si.add_variable(ui, FIRST);
@@ -415,64 +378,55 @@ int main(int argc, char** argv)
         std::string dirichlet_id_list_aux0 = data_i("dirichletbc0", "");
         std::string dirichlet_id_list_aux1 = data_i("dirichletbc1", "");
         std::string dirichlet_id_list_aux05 = data_i("dirichletbc05", "");
+        std::string dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", "");
+        std::string dirichlet_bc_list_aux = data_i("Idirichlet_bc_list", "");
 
         // Read Dirichlet BC ID list for septum and laa points
         std::string dirichlet_x0_list = data_i("x0", " ");
         std::string dirichlet_y0_list = data_i("y0", " ");
         std::string dirichlet_z0_list = data_i("z0", " ");
         std::string dirichlet_r0_list = data_i("r0", " ");
-        std::string layer0_aux = data_i("layer0", " ");
+        std::string layer0_aux = data_i("Ilayer0", " ");
 
         std::string dirichlet_x1_list = data_i("x1", " ");
         std::string dirichlet_y1_list = data_i("y1", " ");
         std::string dirichlet_z1_list = data_i("z1", " ");
         std::string dirichlet_r1_list = data_i("r1", " ");
-        std::string layer1_aux = data_i("layer1", " ");
+        std::string layer1_aux = data_i("Ilayer1", " ");
 
  	   std::string dirichlet_x05_list = data_i("x05", " ");
  	   std::string dirichlet_y05_list = data_i("y05", " ");
  	   std::string dirichlet_z05_list = data_i("z05", " ");
  	   std::string dirichlet_r05_list = data_i("r05", " ");
- 	   std::string layer05_aux = data_i("layer05", " ");
+ 	   std::string layer05_aux = data_i("Ilayer05", " ");
 
- 	   poisson_solver.reinit(dirichlet_id_list_aux0, dirichlet_id_list_aux05, dirichlet_id_list_aux1,
- 			   	   	   	   	   dirichlet_x0_list, dirichlet_x05_list, dirichlet_x1_list,
-							   dirichlet_y0_list, dirichlet_y05_list, dirichlet_y1_list,
-							   dirichlet_z0_list, dirichlet_z05_list, dirichlet_z1_list,
-							   dirichlet_r0_list, dirichlet_r05_list, dirichlet_r1_list,
-							   layer0_aux, layer1_aux, layer05_aux);
+
+       std::string dirichlet_x_list = data_i("Ix", " ");
+       std::string dirichlet_y_list = data_i("Iy", " ");
+       std::string dirichlet_z_list = data_i("Iz", " ");
+       std::string dirichlet_r_list = data_i("Ir", " ");
+
+       std::cout << "Ix, Iy, Iz and Ir are respectively: "<< dirichlet_x_list
+    		    << " | "<< dirichlet_y_list <<" | "<< dirichlet_z_list <<
+				" | "<< dirichlet_r_list << std::endl;
+
+
+       // reinit Poisson member variables using input file values
+ 	   poisson_solver.reinit(  dirichlet_x_list,  dirichlet_y_list,  dirichlet_z_list,
+							   dirichlet_r_list,  dirichlet_side_set_list_aux, dirichlet_bc_list_aux);
 
        //Check
-       if(poisson_ptr->dirichlet_id0_points.size()!= poisson_ptr->dirichlet_id0_radius.size()){
-       	std::cout << " The number of points does not match the number of radii for id0" << std::endl;
-       	std::cout << "for problem i= " << i << std::endl;
-       	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id0_points.size()<<std::endl;
-       	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id0_radius.size()<<std::endl;
-       	throw std::runtime_error(" The number of points does not match the number of radii for id0");
-       }
-
-       if(poisson_ptr->dirichlet_id05_points.size()!= poisson_ptr->dirichlet_id05_radius.size()){
-               	std::cout << " The number of points does not match the number of radii for id05" << std::endl;
+       if(poisson_ptr->dirichlet_id_points.size()!= poisson_ptr->dirichlet_id_radius.size()){
+               	std::cout << " The number of points does not match the number of radii" << std::endl;
                	std::cout << "for problem i= " << i << std::endl;
-               	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id05_points.size()<<std::endl;
-               	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id05_radius.size()<<std::endl;
-               	throw std::runtime_error(" The number of points does not match the number of radii for id05");
+               	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id_points.size()<<std::endl;
+               	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id_radius.size()<<std::endl;
+               	throw std::runtime_error(" The number of points does not match the number of radii");
        }
-
-       if(poisson_ptr->dirichlet_id1_points.size()!= poisson_ptr->dirichlet_id1_radius.size()){
-               	std::cout << " The number of points does not match the number of radii for id1" << std::endl;
-               	std::cout << "for problem i= " << i << std::endl;
-               	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id1_points.size()<<std::endl;
-               	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id1_radius.size()<<std::endl;
-               	throw std::runtime_error(" The number of points does not match the number of radii for id1");
-       }
-
 
 
 	   //Print info on screen
-        std::cout << "Setting Dirichlet homogeneous BCs on " << poisson_ptr->dirichlet_id0_points.size() << " points" << std::endl;
-        std::cout << "Setting Dirichlet 1 BCs on " << poisson_ptr->dirichlet_id1_points.size() << " points" << std::endl;
-        std::cout << "Setting Dirichlet 0.5 BCs on " << poisson_ptr->dirichlet_id05_points.size() << " points" << std::endl;
+        std::cout << "Setting Dirichlet BCs on " << poisson_ptr->dirichlet_id_points.size() << " points" << std::endl;
 
         /*
         // CHANGED LINE 288 - not attaching automatically
@@ -1154,21 +1108,24 @@ void assemble_poisson(EquationSystems& es,
                     auto boundaryid = mesh.get_boundary_info().boundary_id(elem, side);
                     //std::cout << boundaryid << "\n";
 
-                    //check if boundaryid of element elem is in the Dirichlet BC ID list 0
-                    bool found0 = (std::find(poisson_ptr->dirichlet_id_list0.begin(), poisson_ptr->dirichlet_id_list0.end(), boundaryid)
-                    				!= poisson_ptr->dirichlet_id_list0.end());
-                    bool found_layer0 = (std::find(poisson_ptr->layer0.begin(), poisson_ptr->layer0.end(), boundaryid)
-                    				!= poisson_ptr->layer0.end());
-                    //check if boundaryid of element elem is in the Dirichlet BC ID list 1
-                    bool found1 = (std::find(poisson_ptr->dirichlet_id_list1.begin(), poisson_ptr->dirichlet_id_list1.end(), boundaryid)
-                    				!= poisson_ptr->dirichlet_id_list1.end());
-                    bool found_layer1 = (std::find(poisson_ptr->layer1.begin(), poisson_ptr->layer1.end(), boundaryid)
-                    				!= poisson_ptr->layer1.end());
-                    //check if boundaryid of element elem is in the Dirichlet BC ID list 0.5
-                    bool found05 = (std::find(poisson_ptr->dirichlet_id_list05.begin(), poisson_ptr->dirichlet_id_list05.end(), boundaryid)
-                    				!= poisson_ptr->dirichlet_id_list05.end());
-                    bool found_layer05 = (std::find(poisson_ptr->layer05.begin(), poisson_ptr->layer05.end(), boundaryid)
-                    				!= poisson_ptr->layer05.end());
+                    //check if boundaryid of element elem is in the Dirichlet BC ID list
+
+                    double elem_dirichlet_bc=0;
+                    bool found_side_set_in_list =0;
+                    double radius;
+
+                    //Check if side set is on the Idirichlet_side_set_list from input
+                    for(int it=0; it<poisson_ptr->dirichlet_side_set_list.size(); it++)
+                    {
+                    	if(poisson_ptr->dirichlet_side_set_list[it]==boundaryid){
+                    	elem_dirichlet_bc=poisson_ptr->dirichlet_bc_list[it];
+                    	found_side_set_in_list =1;
+                    	radius = poisson_ptr->dirichlet_id_radius[it];
+                    	//std::cout<< radius <<std::endl;
+                    	}
+                    }
+
+
                     // The value of the shape functions at the quadrature
                     // points.
                     const std::vector<std::vector<Real>>& phi_face = fe_face->get_phi();
@@ -1201,27 +1158,18 @@ void assemble_poisson(EquationSystems& es,
                         bool is_on_neighborhood0 = 0;
                         bool is_on_neighborhood1 = 0;
                         bool is_on_neighborhood05 = 0;
-
-                        // Verify if the quadrature points are within the neighborhood of one of the id0 list points
-                        for (int jj = 0; jj < poisson_ptr->dirichlet_id0_radius.size(); jj++) {
-                            libMesh::Point p_id0(qface_point[qp] - poisson_ptr->dirichlet_id0_points[jj]);
-                            is_on_neighborhood0 = (p_id0.norm() <= poisson_ptr->dirichlet_id0_radius[jj]) ? 1 : 0;
-                            if (is_on_neighborhood0 == 1) break;
-                        }
-
-                        // Verify if the quadrature points are within the neighborhood of one of the id1 list points
-                        for (int jj = 0; jj < poisson_ptr->dirichlet_id1_points.size(); jj++) {
-                            libMesh::Point p_id1(qface_point[qp] - poisson_ptr->dirichlet_id1_points[jj]);
-                            is_on_neighborhood1 = (p_id1.norm() <= poisson_ptr->dirichlet_id1_radius[jj]) ? 1 : 0;
-                            if (is_on_neighborhood1 == 1) break;
-                        }
+                        bool is_on_neighborhood = 0;
 
                         // Verify if the quadrature points are within the neighborhood of one of the id05 list points
-                        for (int jj = 0; jj < poisson_ptr->dirichlet_id05_points.size(); jj++) {
-                            libMesh::Point p_id05(qface_point[qp] - poisson_ptr->dirichlet_id05_points[jj]);
-                            is_on_neighborhood05 = (p_id05.norm() <= poisson_ptr->dirichlet_id05_radius[jj]) ? 1 : 0;
-                            if (is_on_neighborhood05 == 1) break;
-                        }
+                        for (int jj = 0; jj < poisson_ptr->dirichlet_id_points.size(); jj++) {
+                            libMesh::Point p_id(qface_point[qp] - poisson_ptr->dirichlet_id_points[jj]);
+                            is_on_neighborhood = (p_id.norm() <= poisson_ptr->dirichlet_id_radius[jj]) ? 1 : 0;
+                            if (is_on_neighborhood == 1){
+                            	elem_dirichlet_bc=poisson_ptr->dirichlet_bc_list[jj];
+                                radius = poisson_ptr->dirichlet_id_radius[jj];
+                                break;
+                            }
+                       }
 
                         // The penalty value.  \frac{1}{\epsilon}
                         // in the discussion above.
@@ -1232,9 +1180,8 @@ void assemble_poisson(EquationSystems& es,
 
 
                         // Matrix contribution of the L2 projection.
-                        if ((found0 == 1 ) || (found1 == 1 )|| (found05==1) ||
-                        	(is_on_neighborhood0 && found_layer0) || (is_on_neighborhood1 && found_layer1) || (is_on_neighborhood05 && found_layer05))
-						{
+                        if((found_side_set_in_list && radius<0 ) || (found_side_set_in_list && radius>0 &&  is_on_neighborhood))
+                        {
                             for (unsigned int i = 0; i != n_dofs; i++)
                             {
                                 for (unsigned int j = 0; j != n_dofs; j++)
@@ -1244,19 +1191,10 @@ void assemble_poisson(EquationSystems& es,
                         // Right-hand-side contribution of the L2
                         // projection.
                         for (unsigned int i = 0; i != n_dofs; i++) {
-                            //                    Fe(i) += JxW_face[qp]*penalty*value*phi_face[i][qp];
-                            if (found0 == 0 && found1 == 0 && found05)
-                                Fe(i) += JxW_face[qp] * (0) * phi_face[i][qp]; // neumann=0 here
-                            else if ((found0 == 1 ) || (is_on_neighborhood0 && found_layer0))      // dirichlet =0
-                                Fe(i) += 0;         //JxW_face[qp]*penalty*phi_face[i][qp]
-
-                            if ((found1 == 1 ) || (is_on_neighborhood1 && found_layer1))    // dirichlet =1
-                                Fe(i) += JxW_face[qp] * penalty * 1 * phi_face[i][qp];
-
-                            if ((found05 == 1) || (is_on_neighborhood05 && found_layer05))    // dirichlet =0.5
-                            	{
-                                Fe(i) += JxW_face[qp] * penalty * 0.5 * phi_face[i][qp];
-                            	}
+                             if((found_side_set_in_list && radius<0 ) || (found_side_set_in_list && radius>0 &&  is_on_neighborhood))
+                                Fe(i) += JxW_face[qp] * penalty * elem_dirichlet_bc * phi_face[i][qp]; //dirichlet
+                            else
+                                Fe(i) += 0;         //neumann
                         }
                     }
                 }
