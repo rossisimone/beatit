@@ -123,6 +123,8 @@ class Poisson{
 
 		void reinit(std::string, std::string,std::string,
 				 std::string, std::string, std::string);
+
+		//solve
 };
 
 /*
@@ -182,379 +184,166 @@ class BCs{
         }
 	}
 
-	//global
-	Poisson * poisson_ptr = nullptr;
-
-
-
-// MAIN
-int main(int argc, char** argv)
-{
-
-    // Read input file
-    GetPot commandLine(argc, argv);
-    std::string datafile_name = commandLine.follow("data.beat", 2, "-i", "--input");
-    GetPot data(datafile_name);
-
-
-    // Modifying code to solve all problems at once
-    int N= data("number_of_problems", 0);
-
-
-    //Create an object of class Poisson and a pointer to it
-    Poisson poisson_solver;
-    poisson_ptr = & poisson_solver;
-
-
-    // Read name of the input files corresponding to each problem
-    std::string input_list_aux = data("inputs", "");
-    BeatIt::readList(input_list_aux, poisson_ptr->input_list);
-
-
-    // Initialize libraries, like in example 2.
-    LibMeshInit init(argc, argv);
-
-    // This example requires a linear solver package.
-    libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE,
-        "--enable-petsc, --enable-trilinos, or --enable-eigen");
-
-    // Brief message to the user regarding the program name
-    // and command line arguments.
-    libMesh::out << "Running " << argv[0];
-
-    for (int i = 1; i < argc; i++)
-        libMesh::out << " " << argv[i];
-
-    libMesh::out << std::endl << std::endl;
-
-    // Skip this 2D example if libMesh was compiled as 1D-only.
-    libmesh_example_requires(2 <= LIBMESH_DIM, "2D support");
-
-    // Create a mesh, with dimension to be overridden later, distributed
-    // across the default MPI communicator.
-    Mesh mesh(init.comm());
-
-    // read from input
-    // Get the ids where Dirichlet BC are imposed
-    std::string ids_dirichlet_test = data("dirichletbc", "");  //> did not work
-    std::cout << ids_dirichlet_test << " ";
-    //ids_dirichlet_bcs=ids_dirichlet_bcs*2;
-    int size_dirichlet_bcs = data.vector_variable_size("dirichletbc");
-    std::vector<int> ids_dirichlet_bcs; //(size_dirichlet_bcs);
-    for (int i = 0; i < size_dirichlet_bcs; i++) {
-        //ids_dirichlet_bcs[i]=data("dirichletbc", i, -1);
-        //std::cout << data("dirichletbc", i, -1)<< " ";
-        ids_dirichlet_bcs.push_back(data("dirichletbc", i, -1));
-    }
-
-    // BeatIt::readList(ids_dirichlet_test, ids_dirichlet_bcs);               // IMPORTANT LINE HERE
-     //std::cout <<"ids dirichlet:"<< ids_dirichlet_bcs << "\n";
-    for (int i = 0; i < size_dirichlet_bcs; i++) {
-        std::cout << ids_dirichlet_bcs[i] << " ";
-    }
-
-    // Read problem solution index and thresholds
-    std::string threshold_pv1 = data("pv1", " 1, 1, 0");
-    std::string threshold_pv2 = data("pv2", "1, 1, 0 ");
-    std::string threshold_pv3 = data("pv3", "1, 1, 0 ");
-    std::string threshold_pv4 = data("pv4", "1, 1, 0");
-    std::string threshold_floor = data("floor", "1, 1, 0 ");
-    std::string threshold_laa = data("laa", "1, 1, 0");
-    std::string threshold_antra1 = data("antra1", "1, 1, 0");
-    std::string threshold_antra2 = data("antra2", "1, 1, 0");
-    std::string threshold_septum = data("septum", "1, 1, 0");
-    std::string threshold_anterior = data("anterior", "1, 1, 0 ");
-    std::string threshold_posterior = data("posterior", "1, 1, 0 ");
-    std::string threshold_carina1 = data("carina1", "1, 1, 0 ");
-    std::string threshold_carina2 = data("carina2", "1, 1, 0 ");
-
-    std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2;
-    BeatIt::readList(threshold_pv1, tpv1);
-    BeatIt::readList(threshold_pv2, tpv2);
-    BeatIt::readList(threshold_pv3, tpv3);
-    BeatIt::readList(threshold_pv4, tpv4);
-    BeatIt::readList(threshold_floor,tfloor );
-    BeatIt::readList(threshold_laa,tlaa );
-    BeatIt::readList(threshold_antra1, tantra1);
-    BeatIt::readList(threshold_antra2, tantra2);
-    BeatIt::readList(threshold_septum, tseptum);
-    BeatIt::readList(threshold_anterior, tanterior);
-    BeatIt::readList(threshold_posterior, tposterior);
-    BeatIt::readList(threshold_carina1, tcarina1);
-    BeatIt::readList(threshold_carina2, tcarina2);
-
-    //Mesh as input?
-    bool ifmesh = data("mesh_input", false);
-
-    if (ifmesh == true) {
-        // read mesh
-        std::string name_mesh = data("mesh", "");
-        //mesh.read("F65_m1.e"); // give the full path here if not in the same folder
-        mesh.read(name_mesh); // give the full path here if not in the same folder
-    }
-    else {
-        // Use the MeshTools::Generation mesh generator to create a uniform
-        // 2D grid on the square [-1,1]^2.  We instruct the mesh generator
-        // to build a mesh of 15x15 QUAD9 elements.  Building QUAD9
-        // elements instead of the default QUAD4's we used in example 2
-        // allow us to use higher-order approximation.
-        MeshTools::Generation::build_square(mesh,
-            15, 15,
-            -1., 1.,
-            -1., 1.,
-            QUAD9);
-    }
-    // Print information about the mesh to the screen.
-    // Note that 5x5 QUAD9 elements actually has 11x11 nodes,
-    // so this mesh is significantly larger than the one in example 2.
-    mesh.print_info();
-
-
-    // Create an equation systems object.
-    EquationSystems equation_systems(mesh);
-
-    // Define fiber systems:
-    //EquationSystems es(mesh);
-    typedef libMesh::ExplicitSystem  FiberSystem;
-    FiberSystem& fiber_system = equation_systems.add_system<FiberSystem>("fibers");
-    fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.add_variable("fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    fiber_system.init();
-    auto& f_v = fiber_system.solution;
-    FiberSystem& sheet_system = equation_systems.add_system<FiberSystem>("sheets");
-    sheet_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheet_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheet_system.add_variable("sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    sheet_system.init();
-    auto& s_v = sheet_system.solution;
-    FiberSystem& xfiber_system = equation_systems.add_system<FiberSystem>("xfibers");
-    xfiber_system.add_variable("xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
-    xfiber_system.add_variable("xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    xfiber_system.add_variable("xfibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
-    xfiber_system.init();
-    auto& n_v = xfiber_system.solution;
-
-    // Declare the Poisson system and its variables.
-    // The Poisson system is another example of a steady system.
-    LinearImplicitSystem& system = equation_systems.add_system<LinearImplicitSystem>("Poisson");
-
-    // Adds the variable "u" to "Poisson".  "u"
-    // will be approximated using second-order approximation.
-    if (ifmesh == true) {
-        equation_systems.get_system("Poisson").add_variable("u", FIRST); //TET4 ELEMENTS
-    }
-    else {
-        equation_systems.get_system("Poisson").add_variable("u", SECOND); // QUAD9 ELEMENTS FOR SQUARE
-    }
-
-
-    // Give the system a pointer to the matrix assembly
-    // function.  This will be called when needed by the
-    // library.
-    equation_systems.get_system("Poisson").attach_assemble_function(assemble_poisson);
-
-
-    // Initialize the data structures for the equation system.
-    equation_systems.init();
-
-    // Prints information about the system to the screen.
-    equation_systems.print_info();
-
-    // Reading the input for each of the problems
-    for (int i = 0; i < N; i++) {
-    	std::cout << "----------------------------------------\n";
-    	std::cout << "----------------------------------------\n";
-
-        std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
-        ExplicitSystem& si = equation_systems.add_system<ExplicitSystem>(ui);
-        si.add_variable(ui, FIRST);
-        si.init();
-
-        //name of the problem
-        GetPot data_i(poisson_ptr->input_list[i]);
-
-        // Read Dirichlet BC ID list from input file
-        std::string dirichlet_id_list_aux0 = data_i("dirichletbc0", "");
-        std::string dirichlet_id_list_aux1 = data_i("dirichletbc1", "");
-        std::string dirichlet_id_list_aux05 = data_i("dirichletbc05", "");
-        std::string dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", "");
-        std::string dirichlet_bc_list_aux = data_i("Idirichlet_bc_list", "");
-
-        // Read Dirichlet BC ID list for septum and laa points
-        std::string dirichlet_x0_list = data_i("x0", " ");
-        std::string dirichlet_y0_list = data_i("y0", " ");
-        std::string dirichlet_z0_list = data_i("z0", " ");
-        std::string dirichlet_r0_list = data_i("r0", " ");
-        std::string layer0_aux = data_i("Ilayer0", " ");
-
-        std::string dirichlet_x1_list = data_i("x1", " ");
-        std::string dirichlet_y1_list = data_i("y1", " ");
-        std::string dirichlet_z1_list = data_i("z1", " ");
-        std::string dirichlet_r1_list = data_i("r1", " ");
-        std::string layer1_aux = data_i("Ilayer1", " ");
-
- 	   std::string dirichlet_x05_list = data_i("x05", " ");
- 	   std::string dirichlet_y05_list = data_i("y05", " ");
- 	   std::string dirichlet_z05_list = data_i("z05", " ");
- 	   std::string dirichlet_r05_list = data_i("r05", " ");
- 	   std::string layer05_aux = data_i("Ilayer05", " ");
-
-
-       std::string dirichlet_x_list = data_i("Ix", " ");
-       std::string dirichlet_y_list = data_i("Iy", " ");
-       std::string dirichlet_z_list = data_i("Iz", " ");
-       std::string dirichlet_r_list = data_i("Ir", " ");
-
-       std::cout << "Ix, Iy, Iz and Ir are respectively: "<< dirichlet_x_list
-    		    << " | "<< dirichlet_y_list <<" | "<< dirichlet_z_list <<
-				" | "<< dirichlet_r_list << std::endl;
-
-
-       // reinit Poisson member variables using input file values
- 	   poisson_solver.reinit(  dirichlet_x_list,  dirichlet_y_list,  dirichlet_z_list,
-							   dirichlet_r_list,  dirichlet_side_set_list_aux, dirichlet_bc_list_aux);
-
-       //Check
-       if(poisson_ptr->dirichlet_id_points.size()!= poisson_ptr->dirichlet_id_radius.size()){
-               	std::cout << " The number of points does not match the number of radii" << std::endl;
-               	std::cout << "for problem i= " << i << std::endl;
-               	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id_points.size()<<std::endl;
-               	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id_radius.size()<<std::endl;
-               	throw std::runtime_error(" The number of points does not match the number of radii");
-       }
-
-
-	   //Print info on screen
-        std::cout << "Setting Dirichlet BCs on " << poisson_ptr->dirichlet_id_points.size() << " points" << std::endl;
-
-        /*
-        // CHANGED LINE 288 - not attaching automatically
-        equation_systems.get_system("Poisson").matrix->zero();
-        equation_systems.get_system("Poisson").rhs->zero();
-        //Assemble function manually
-        assemble_poisson( ); // now I can change the inputs here!
-
-        //  Libmesh zeros out matrix and RHS when i call solve
-        // preventing that to happen:
-        equation_systems.get_system("Poisson").zero_out_matrix_and_rhs=false;*/
-
-        equation_systems.get_system("Poisson").solve();
-
-        // Copy the content of "u" (solution to Poisson problem) to "ui"
-        *si.solution = *equation_systems.get_system("Poisson").solution; // "unique vector"
-        si.update(); //distributes/copies the solution of the global on the shared interface > local processor vectors - "repeated vector"
-    }
-
-    // Read output folder name from input file
-    std::string output_folder_name = data("output_name", "Output_default");
-    std::string output_number = data("output_number", "");
-    std::string test = output_folder_name + output_number;
-    BeatIt::createOutputFolder(test);
-
-    // Output file name
-    std::string output_file_name = data("output_file", "/out");
-
-
-    // case 1 -
-    //equation_systems.get_system("Poisson").assemble_before_solve = false;
-    // assemble_poisson(parameters);
-     // --------------------------
-
-
-
-
-    // Solve the system "Poisson".  Note that calling this
-    // member will assemble the linear system and invoke
-    // the default numerical solver.  With PETSc the solver can be
-    // controlled from the command line.  For example,
-    // you can invoke conjugate gradient with:
-    //
-    // ./introduction_ex3 -ksp_type cg
-    //
-    // You can also get a nice X-window that monitors the solver
-    // convergence with:
-    //
-    // ./introduction-ex3 -ksp_xmonitor
-    //
-    // if you linked against the appropriate X libraries when you
-    // built PETSc.
-
-    const DofMap& dofmap = system.get_dof_map(); // replicating assembly function
-
-    std::cout << " Looping over elements to set up subdomain IDs"<< std::endl;
-
-    for (const auto& elem: mesh.active_local_element_ptr_range()) { // similar to dealii   - libMesh::Elem* instead of auto&
-        int blockid = elem->subdomain_id();//(*elem).subdomain_id();
-        libMesh::Point centroid = elem->centroid();
-        std::vector<double> u(N);
-        std::vector<libMesh::Gradient> du(N);
-
-        // loop over the number of laplace problems we are solving
-        for (int i = 0; i < N; i++)
-        {
-            std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
-            ExplicitSystem& si = equation_systems.get_system<ExplicitSystem>(ui);
-            u[i] = si.point_value(si.variable_number(ui), centroid, *elem);
-            du[i] = si.point_gradient(si.variable_number(ui), centroid, *elem);   //may ask for pointers - maybe error
-        }
-
-        //std::cout<< "u index= " <<u[tpv1[0]] <<", tpv1[0]= " <<  tpv1[0] <<", tpv1[1]= "<< tpv1[1]<<", tpv1[2]= " << tpv1[2]<<std::endl;
-        // setup subregion
-        if ((u[tpv1[0]]>tpv1[1])*(u[tpv1[0]]<tpv1[2])){//u[1] > 0.8) { //pv   //(u[tpv1[1]]>tpv1[2])*(u[tpv1[1]]>tpv1[3])
+
+
+	class AnatomicalParameters{
+		public:
+
+		int i_PV1, i_PV2, i_PV3, i_PV4;
+		int i_antra1, i_antra2;
+		int i_carina1, i_carina2;
+		int i_floor, i_LAA, i_septum;
+		int i_anterior, i_posterior, i_lateral;
+		double thresholdA_PV1, thresholdB_PV1;
+		double thresholdA_PV2, thresholdB_PV2;
+		double thresholdA_PV3, thresholdB_PV3;
+		double thresholdA_PV4, thresholdB_PV4;
+		double thresholdA_antra1, thresholdB_antra1;
+		double thresholdA_antra2, thresholdB_antra2;
+		double thresholdA_carina1, thresholdB_carina1;
+		double thresholdA_carina2, thresholdB_carina2;
+		double thresholdA_floor, thresholdB_floor;
+		double thresholdA_LAA, thresholdB_LAA;
+		double thresholdA_septum, thresholdB_septum;
+		double thresholdA_anterior, thresholdB_anterior;
+		double thresholdA_posterior, thresholdB_posterior;
+		double thresholdA_lateral, thresholdB_lateral;
+        libMesh::Gradient f0, s0, n0;
+
+		//Reinitialize variables
+		void reinit(std::string, std::string, std::string, std::string,
+					std::string, std::string, std::string, std::string,
+					std::string, std::string, std::string,
+					std::string, std::string);
+
+		// Define regions
+		int define_regions (std::vector<double> &);
+		// function to define fibers  | input: u, output: fiber field??
+		void define_fibers(std::vector<double> & , std::vector<libMesh::Gradient> & , int, const auto&);
+	};
+
+	void AnatomicalParameters::reinit(std::string Ithreshold_pv1, std::string threshold_pv2, std::string threshold_pv3, std::string threshold_pv4,
+										std::string threshold_floor, std::string threshold_laa, std::string threshold_antra1, std::string threshold_antra2,
+										std::string threshold_septum, std::string threshold_anterior, std::string threshold_posterior,
+										std::string threshold_carina1, std::string threshold_carina2)
+		{
+		std::vector<double> tpv1;
+	    BeatIt::readList(Ithreshold_pv1, tpv1);
+	    i_PV1 = tpv1[0];
+	    thresholdA_PV1 = tpv1[1];
+	    thresholdB_PV1 = tpv1[2];
+
+	    std::vector<double>  tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2;
+	    BeatIt::readList(threshold_pv2, tpv2);
+	    i_PV2 = tpv2[0];
+	    thresholdA_PV2 = tpv2[1];
+	    thresholdB_PV2 = tpv2[2];
+
+	    BeatIt::readList(threshold_pv3, tpv3);
+	    i_PV3 = tpv3[0];
+	    thresholdA_PV3 = tpv3[1];
+	    thresholdB_PV3 = tpv3[2];
+
+	    BeatIt::readList(threshold_pv4, tpv4);
+	    i_PV4 = tpv4[0];
+	    thresholdA_PV4 = tpv4[1];
+	    thresholdB_PV4 = tpv4[2];
+
+	    BeatIt::readList(threshold_floor,tfloor );
+	    i_floor = tfloor[0];
+	    thresholdA_floor = tfloor[1];
+	    thresholdB_floor = tfloor[2];
+
+	    BeatIt::readList(threshold_laa,tlaa );
+	    i_LAA = tlaa[0];
+	    thresholdA_LAA = tlaa[1];
+	    thresholdB_LAA = tlaa[2];
+
+	    BeatIt::readList(threshold_antra1, tantra1);
+	    i_antra1 = tantra1[0];
+	    thresholdA_antra1 = tantra1[1];
+	    thresholdB_antra1 = tantra1[2];
+
+	    BeatIt::readList(threshold_antra2, tantra2);
+	    i_antra2 = tantra2[0];
+	    thresholdA_antra2 = tantra2[1];
+	    thresholdB_antra2 = tantra2[2];
+
+	    BeatIt::readList(threshold_septum, tseptum);
+	    i_septum = tseptum[0];
+	    thresholdA_septum = tseptum[1];
+	    thresholdB_septum = tseptum[2];
+
+	    BeatIt::readList(threshold_anterior, tanterior);
+	    i_anterior = tanterior[0];
+	    thresholdA_anterior = tanterior[1];
+	    thresholdB_anterior = tanterior[2];
+
+	    BeatIt::readList(threshold_posterior, tposterior);
+	    i_posterior = tposterior[0];
+	    thresholdA_posterior = tposterior[1];
+	    thresholdB_posterior = tposterior[2];
+
+	    BeatIt::readList(threshold_carina1, tcarina1);
+	    i_carina1 = tcarina1[0];
+	    thresholdA_carina1 = tcarina1[1];
+	    thresholdB_carina1 = tcarina1[2];
+
+	    BeatIt::readList(threshold_carina2, tcarina2);
+	    i_carina2 = tcarina2[0];
+	    thresholdA_carina2 = tcarina2[1];
+	    thresholdB_carina2 = tcarina2[2];
+	}
+
+	int AnatomicalParameters::define_regions (std::vector<double> & u){
+		int blockid;
+        if ((u[i_PV1]>thresholdA_PV1)*(u[i_PV1]<thresholdB_PV1)){
             blockid = 12;
         }
-        else if ((u[tpv2[0]]>tpv2[1])*(u[tpv2[0]]<tpv2[2])) { //pv
+        else if ((u[i_PV2]>thresholdA_PV2)*(u[i_PV2]<thresholdB_PV2)) { //pv
             blockid = 1;
         }
-        else if ((u[tpv3[0]]>tpv3[1])*(u[tpv3[0]]<tpv3[2])) { //pv
+        else if ((u[i_PV3]>thresholdA_PV3)*(u[i_PV3]<thresholdB_PV3)) { //pv
             blockid = 2;
         }
-        else if ((u[tpv4[0]]>tpv4[1])*(u[tpv4[0]]<tpv4[2])) { //pv
+        else if ((u[i_PV4]>thresholdA_PV4)*(u[i_PV4]<thresholdB_PV4)) { //pv
             blockid = 3;
         }
-        else if ((u[tfloor[0]]>tfloor[1])*(u[tfloor[0]]<tfloor[2])) { //floor
+        else if ((u[i_floor]>thresholdA_floor)*(u[i_floor]<thresholdB_floor)) { //floor
             blockid = 4;//10;
         }
-        else if ((u[tlaa[0]]>tlaa[1])*(u[tlaa[0]]<tlaa[2])) { //laa
+        else if ((u[i_LAA]>thresholdA_LAA)*(u[i_LAA]<thresholdB_LAA)) { //laa
             blockid = 5;//20;
         }
-        else if ((u[tantra1[0]]>tantra1[1])*(u[tantra1[0]]<tantra1[2])) { //antra
+        else if ((u[i_antra1]>thresholdA_antra1)*(u[i_antra1]<thresholdB_antra1)) { //antra
             blockid = 6;//40;
         }
-        else if ((u[tantra2[0]]>tantra2[1])*(u[tantra2[0]]<tantra2[2])) { //antra /*
+        else if ((u[i_antra2]>thresholdA_antra2)*(u[i_antra2]<thresholdB_antra2)) { //antra /*
             blockid = 8;//41;
         }
-        else if ((u[tseptum[0]]>tseptum[1])*(u[tseptum[0]]<tseptum[2])) { //septum
+        else if ((u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { //septum
             blockid = 9;//50;
         }
-        else if ((u[tanterior[0]]>tanterior[1])*(u[tanterior[0]]<tanterior[2])) { //anterior
+        else if ((u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) { //anterior
             blockid = 10;//60;
         }
-        else if ((u[tposterior[0]]>tposterior[1])*(u[tposterior[0]]<tposterior[2])) { //posterior
+        else if ((u[i_posterior]>thresholdA_posterior)*(u[i_posterior]<thresholdB_posterior)) { //posterior
             blockid = 11;//70;
         }//*/
         else {               //lateral
             blockid = 7;//12;//80;
         }
+        return blockid;
+	}
 
-//      std::cout <<
-        elem->Elem::subdomain_id()=blockid;
-        //elem->subdomain_id() = blockid;
+	void AnatomicalParameters::define_fibers(std::vector<double> & u, std::vector<libMesh::Gradient> & du, int block_id, const auto& elem){
 
-
-        // setup fibers
-        libMesh::Gradient f0, s0, n0;
-        // SR -> LA
         // Solve the transmural problem as the first one, such that
         // the next line is always true
         s0 = du[0].unit();
 
-        //test
-        //std::cout << blockid <<std::endl;
-
         /*																					UNCOMMENT HERE - THIS IS THE FIRST WAY i DID FIBERS
-        switch (blockid)
+        switch (block_id)
         {
         //PV left front
         case 12:
@@ -682,7 +471,7 @@ int main(int argc, char** argv)
 
 
 
-        switch (blockid)
+        switch (block_id)
         {
         //PV left front
         case 12:
@@ -825,13 +614,331 @@ int main(int argc, char** argv)
         std::cout<< std::endl;
 		*/
 
+
+	}
+
+
+	//global
+	Poisson * poisson_ptr = nullptr;
+
+// MAIN
+int main(int argc, char** argv)
+{
+
+    // Read input file
+    GetPot commandLine(argc, argv);
+    std::string datafile_name = commandLine.follow("data.beat", 2, "-i", "--input");
+    GetPot data(datafile_name);
+
+
+    // Modifying code to solve all problems at once
+    int N= data("number_of_problems", 0);
+
+
+    //Create an object of class Poisson and a pointer to it
+    Poisson poisson_solver;
+    poisson_ptr = & poisson_solver;
+
+
+    // Read name of the input files corresponding to each problem
+    std::string input_list_aux = data("inputs", "");
+    BeatIt::readList(input_list_aux, poisson_ptr->input_list);
+
+
+    // Initialize libraries, like in example 2.
+    LibMeshInit init(argc, argv);
+
+    // This example requires a linear solver package.
+    libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE,
+        "--enable-petsc, --enable-trilinos, or --enable-eigen");
+
+    // Brief message to the user regarding the program name
+    // and command line arguments.
+    libMesh::out << "Running " << argv[0];
+
+    for (int i = 1; i < argc; i++)
+        libMesh::out << " " << argv[i];
+
+    libMesh::out << std::endl << std::endl;
+
+    // Skip this 2D example if libMesh was compiled as 1D-only.
+    libmesh_example_requires(2 <= LIBMESH_DIM, "2D support");
+
+    // Create a mesh, with dimension to be overridden later, distributed
+    // across the default MPI communicator.
+    Mesh mesh(init.comm());
+
+    // read from input
+    // Get the ids where Dirichlet BC are imposed
+    std::string ids_dirichlet_test = data("dirichletbc", "");  //> did not work
+    std::cout << ids_dirichlet_test << " ";
+    //ids_dirichlet_bcs=ids_dirichlet_bcs*2;
+    int size_dirichlet_bcs = data.vector_variable_size("dirichletbc");
+    std::vector<int> ids_dirichlet_bcs; //(size_dirichlet_bcs);
+    for (int i = 0; i < size_dirichlet_bcs; i++) {
+        //ids_dirichlet_bcs[i]=data("dirichletbc", i, -1);
+        //std::cout << data("dirichletbc", i, -1)<< " ";
+        ids_dirichlet_bcs.push_back(data("dirichletbc", i, -1));
+    }
+
+    // BeatIt::readList(ids_dirichlet_test, ids_dirichlet_bcs);               // IMPORTANT LINE HERE
+     //std::cout <<"ids dirichlet:"<< ids_dirichlet_bcs << "\n";
+    for (int i = 0; i < size_dirichlet_bcs; i++) {
+        std::cout << ids_dirichlet_bcs[i] << " ";
+    }
+
+    // Read problem solution index and thresholds
+    std::string threshold_pv1 = data("pv1", " 1, 1, 0");
+    std::string threshold_pv2 = data("pv2", "1, 1, 0 ");
+    std::string threshold_pv3 = data("pv3", "1, 1, 0 ");
+    std::string threshold_pv4 = data("pv4", "1, 1, 0");
+    std::string threshold_floor = data("floor", "1, 1, 0 ");
+    std::string threshold_laa = data("laa", "1, 1, 0");
+    std::string threshold_antra1 = data("antra1", "1, 1, 0");
+    std::string threshold_antra2 = data("antra2", "1, 1, 0");
+    std::string threshold_septum = data("septum", "1, 1, 0");
+    std::string threshold_anterior = data("anterior", "1, 1, 0 ");
+    std::string threshold_posterior = data("posterior", "1, 1, 0 ");
+    std::string threshold_carina1 = data("carina1", "1, 1, 0 ");
+    std::string threshold_carina2 = data("carina2", "1, 1, 0 ");
+
+
+    std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2;
+    BeatIt::readList(threshold_pv2, tpv2);
+    BeatIt::readList(threshold_pv3, tpv3);
+    BeatIt::readList(threshold_pv4, tpv4);
+    BeatIt::readList(threshold_floor,tfloor );
+    BeatIt::readList(threshold_laa,tlaa );
+    BeatIt::readList(threshold_antra1, tantra1);
+    BeatIt::readList(threshold_antra2, tantra2);
+    BeatIt::readList(threshold_septum, tseptum);
+    BeatIt::readList(threshold_anterior, tanterior);
+    BeatIt::readList(threshold_posterior, tposterior);
+    BeatIt::readList(threshold_carina1, tcarina1);
+    BeatIt::readList(threshold_carina2, tcarina2);
+
+    AnatomicalParameters anatomic_parameters;
+
+    anatomic_parameters.reinit(threshold_pv1, threshold_pv2, threshold_pv3, threshold_pv4,
+    							threshold_floor, threshold_laa, threshold_antra1, threshold_antra2,
+								threshold_septum, threshold_anterior, threshold_posterior,
+								threshold_carina1, threshold_carina2);
+
+
+    //Mesh as input?
+    bool ifmesh = data("mesh_input", false);
+
+    if (ifmesh == true) {
+        // read mesh
+        std::string name_mesh = data("mesh", "");
+        //mesh.read("F65_m1.e"); // give the full path here if not in the same folder
+        mesh.read(name_mesh); // give the full path here if not in the same folder
+    }
+    else {
+        // Use the MeshTools::Generation mesh generator to create a uniform
+        // 2D grid on the square [-1,1]^2.  We instruct the mesh generator
+        // to build a mesh of 15x15 QUAD9 elements.  Building QUAD9
+        // elements instead of the default QUAD4's we used in example 2
+        // allow us to use higher-order approximation.
+        MeshTools::Generation::build_square(mesh,
+            15, 15,
+            -1., 1.,
+            -1., 1.,
+            QUAD9);
+    }
+    // Print information about the mesh to the screen.
+    // Note that 5x5 QUAD9 elements actually has 11x11 nodes,
+    // so this mesh is significantly larger than the one in example 2.
+    mesh.print_info();
+
+
+    // Create an equation systems object.
+    EquationSystems equation_systems(mesh);
+
+    // Define fiber systems:
+    //EquationSystems es(mesh);
+    typedef libMesh::ExplicitSystem  FiberSystem;
+    FiberSystem& fiber_system = equation_systems.add_system<FiberSystem>("fibers");
+    fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+    fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    fiber_system.add_variable("fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    fiber_system.init();
+    auto& f_v = fiber_system.solution;
+    FiberSystem& sheet_system = equation_systems.add_system<FiberSystem>("sheets");
+    sheet_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
+    sheet_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    sheet_system.add_variable("sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    sheet_system.init();
+    auto& s_v = sheet_system.solution;
+    FiberSystem& xfiber_system = equation_systems.add_system<FiberSystem>("xfibers");
+    xfiber_system.add_variable("xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+    xfiber_system.add_variable("xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    xfiber_system.add_variable("xfibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    xfiber_system.init();
+    auto& n_v = xfiber_system.solution;
+
+    // Declare the Poisson system and its variables.
+    // The Poisson system is another example of a steady system.
+    LinearImplicitSystem& system = equation_systems.add_system<LinearImplicitSystem>("Poisson");
+
+    // Adds the variable "u" to "Poisson".  "u"
+    // will be approximated using second-order approximation.
+    if (ifmesh == true) {
+        equation_systems.get_system("Poisson").add_variable("u", FIRST); //TET4 ELEMENTS
+    }
+    else {
+        equation_systems.get_system("Poisson").add_variable("u", SECOND); // QUAD9 ELEMENTS FOR SQUARE
+    }
+
+
+    // Give the system a pointer to the matrix assembly
+    // function.  This will be called when needed by the
+    // library.
+    equation_systems.get_system("Poisson").attach_assemble_function(assemble_poisson);
+
+
+    // Initialize the data structures for the equation system.
+    equation_systems.init();
+
+    // Prints information about the system to the screen.
+    equation_systems.print_info();
+
+    // Reading the input for each of the problems
+    for (int i = 0; i < N; i++) {
+    	std::cout << "----------------------------------------\n";
+    	std::cout << "----------------------------------------\n";
+
+        std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
+        ExplicitSystem& si = equation_systems.add_system<ExplicitSystem>(ui);
+        si.add_variable(ui, FIRST);
+        si.init();
+
+        //name of the problem
+        GetPot data_i(poisson_ptr->input_list[i]);
+
+        // Read Dirichlet BC ID list from input file
+        std::string dirichlet_id_list_aux0 = data_i("dirichletbc0", "");
+        std::string dirichlet_id_list_aux1 = data_i("dirichletbc1", "");
+        std::string dirichlet_id_list_aux05 = data_i("dirichletbc05", "");
+        std::string dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", "");
+        std::string dirichlet_bc_list_aux = data_i("Idirichlet_bc_list", "");
+
+        // Read Dirichlet BC ID list for septum and laa points
+
+       std::string dirichlet_x_list = data_i("Ix", " ");
+       std::string dirichlet_y_list = data_i("Iy", " ");
+       std::string dirichlet_z_list = data_i("Iz", " ");
+       std::string dirichlet_r_list = data_i("Ir", " ");
+
+       std::cout << "Ix, Iy, Iz and Ir are respectively: "<< dirichlet_x_list
+    		    << " | "<< dirichlet_y_list <<" | "<< dirichlet_z_list <<
+				" | "<< dirichlet_r_list << std::endl;
+
+
+       // reinit Poisson member variables using input file values
+ 	   poisson_solver.reinit(  dirichlet_x_list,  dirichlet_y_list,  dirichlet_z_list,
+							   dirichlet_r_list,  dirichlet_side_set_list_aux, dirichlet_bc_list_aux);
+
+       //Check
+       if(poisson_ptr->dirichlet_id_points.size()!= poisson_ptr->dirichlet_id_radius.size()){
+               	std::cout << " The number of points does not match the number of radii" << std::endl;
+               	std::cout << "for problem i= " << i << std::endl;
+               	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id_points.size()<<std::endl;
+               	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id_radius.size()<<std::endl;
+               	throw std::runtime_error(" The number of points does not match the number of radii");
+       }
+
+
+	   //Print info on screen
+        std::cout << "Setting Dirichlet BCs on " << poisson_ptr->dirichlet_id_points.size() << " points" << std::endl;
+
+        /*
+        // CHANGED LINE 288 - not attaching automatically
+        equation_systems.get_system("Poisson").matrix->zero();
+        equation_systems.get_system("Poisson").rhs->zero();
+        //Assemble function manually
+        assemble_poisson( ); // now I can change the inputs here!
+
+        //  Libmesh zeros out matrix and RHS when i call solve
+        // preventing that to happen:
+        equation_systems.get_system("Poisson").zero_out_matrix_and_rhs=false;*/
+
+        equation_systems.get_system("Poisson").solve();
+
+        // Copy the content of "u" (solution to Poisson problem) to "ui"
+        *si.solution = *equation_systems.get_system("Poisson").solution; // "unique vector"
+        si.update(); //distributes/copies the solution of the global on the shared interface > local processor vectors - "repeated vector"
+    }
+
+    // Read output folder name from input file
+    std::string output_folder_name = data("output_name", "Output_default");
+    std::string output_number = data("output_number", "");
+    std::string test = output_folder_name + output_number;
+    BeatIt::createOutputFolder(test);
+
+    // Output file name
+    std::string output_file_name = data("output_file", "/out");
+
+
+    // case 1 -
+    //equation_systems.get_system("Poisson").assemble_before_solve = false;
+    // assemble_poisson(parameters);
+     // --------------------------
+
+
+
+
+
+    // Solve the system "Poisson".  Note that calling this
+    // member will assemble the linear system and invoke
+    // the default numerical solver.  With PETSc the solver can be
+    // controlled from the command line.  For example,
+    // you can invoke conjugate gradient with:
+    //
+    // ./introduction_ex3 -ksp_type cg
+    //
+    // You can also get a nice X-window that monitors the solver
+    // convergence with:
+    //
+    // ./introduction-ex3 -ksp_xmonitor
+    //
+    // if you linked against the appropriate X libraries when you
+    // built PETSc.
+
+    const DofMap& dofmap = system.get_dof_map(); // replicating assembly function
+
+    std::cout << " Looping over elements to set up subdomain IDs"<< std::endl;
+
+    for (const auto& elem: mesh.active_local_element_ptr_range()) { // similar to dealii   - libMesh::Elem* instead of auto&
+        int blockid = elem->subdomain_id();//(*elem).subdomain_id();
+        libMesh::Point centroid = elem->centroid();
+        std::vector<double> u(N);
+        std::vector<libMesh::Gradient> du(N);
+
+        // loop over the number of laplace problems we are solving
+        for (int i = 0; i < N; i++)
+        {
+            std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
+            ExplicitSystem& si = equation_systems.get_system<ExplicitSystem>(ui);
+            u[i] = si.point_value(si.variable_number(ui), centroid, *elem);
+            du[i] = si.point_gradient(si.variable_number(ui), centroid, *elem);   //may ask for pointers - maybe error
+        }
+
+        //Define anatomical regions
+        blockid = anatomic_parameters.define_regions(u);
+
+        elem->Elem::subdomain_id()=blockid;
+
+        // Setup fibers
+        anatomic_parameters.define_fibers(u, du, blockid, elem);
+
         std::vector<dof_id_type> fibers_dof_indices; //putting this back to the system so that we can export it
         fiber_system.get_dof_map().dof_indices(elem, fibers_dof_indices);
         for (int idim = 0; idim < 3; ++idim)
         {
-            fiber_system.solution->set(fibers_dof_indices[idim], f0(idim));
-            sheet_system.solution->set(fibers_dof_indices[idim], s0(idim));
-            xfiber_system.solution->set(fibers_dof_indices[idim], n0(idim));
+            fiber_system.solution->set(fibers_dof_indices[idim], anatomic_parameters.f0(idim));
+            sheet_system.solution->set(fibers_dof_indices[idim], anatomic_parameters.s0(idim));
+            xfiber_system.solution->set(fibers_dof_indices[idim], anatomic_parameters.n0(idim));
         }
     }
 
