@@ -189,11 +189,20 @@ class BCs{
 	class AnatomicalParameters{
 		public:
 
-		int i_PV1, i_PV2, i_PV3, i_PV4;
-		int i_antra1, i_antra2;
-		int i_carina1, i_carina2;
-		int i_floor, i_LAA, i_septum;
-		int i_anterior, i_posterior, i_lateral;
+		int i_PV1, i_epic_PV1, i_endo_PV1;
+		int i_PV2, i_epic_PV2, i_endo_PV2;
+		int i_PV3, i_epic_PV3, i_endo_PV3;
+		int i_PV4, i_epic_PV4, i_endo_PV4;
+		int i_antra1, i_epic_antra1, i_endo_antra1;
+		int i_antra2, i_epic_antra2, i_endo_antra2;
+		int i_carina1, i_epic_carina1, i_endo_carina1;
+		int i_carina2, i_epic_carina2, i_endo_carina2;
+		int i_floor, i_epic_floor, i_endo_floor;
+		int i_LAA, i_epic_LAA, i_endo_LAA;
+		int i_septum, i_epic_septum, i_endo_septum;
+		int i_anterior, i_epic_anterior, i_endo_anterior;
+		int i_posterior, i_epic_posterior, i_endo_posterior;
+		int i_epic_lateral, i_endo_lateral;
 		double thresholdA_PV1, thresholdB_PV1;
 		double thresholdA_PV2, thresholdB_PV2;
 		double thresholdA_PV3, thresholdB_PV3;
@@ -214,7 +223,7 @@ class BCs{
 		void reinit(std::string, std::string, std::string, std::string,
 					std::string, std::string, std::string, std::string,
 					std::string, std::string, std::string,
-					std::string, std::string);
+					std::string, std::string, std::string);
 
 		// Define regions
 		int define_regions (std::vector<double> &);
@@ -225,74 +234,105 @@ class BCs{
 	void AnatomicalParameters::reinit(std::string Ithreshold_pv1, std::string threshold_pv2, std::string threshold_pv3, std::string threshold_pv4,
 										std::string threshold_floor, std::string threshold_laa, std::string threshold_antra1, std::string threshold_antra2,
 										std::string threshold_septum, std::string threshold_anterior, std::string threshold_posterior,
-										std::string threshold_carina1, std::string threshold_carina2)
+										std::string threshold_carina1, std::string threshold_carina2, std::string threshold_lateral)
 		{
-		std::vector<double> tpv1;
+		std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2, tlateral;
 	    BeatIt::readList(Ithreshold_pv1, tpv1);
-	    i_PV1 = tpv1[0];
+
+	    i_PV1          = tpv1[0];
 	    thresholdA_PV1 = tpv1[1];
 	    thresholdB_PV1 = tpv1[2];
+	    i_epic_PV1     = tpv1[3];
+	    i_endo_PV1     = tpv1[4];
 
-	    std::vector<double>  tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2;
 	    BeatIt::readList(threshold_pv2, tpv2);
-	    i_PV2 = tpv2[0];
+	    i_PV2          = tpv2[0];
 	    thresholdA_PV2 = tpv2[1];
 	    thresholdB_PV2 = tpv2[2];
+	    i_epic_PV2     = tpv2[3];
+	    i_endo_PV2     = tpv2[4];
 
 	    BeatIt::readList(threshold_pv3, tpv3);
-	    i_PV3 = tpv3[0];
+	    i_PV3          = tpv3[0];
 	    thresholdA_PV3 = tpv3[1];
 	    thresholdB_PV3 = tpv3[2];
+	    i_epic_PV3     = tpv3[3];
+	    i_endo_PV3     = tpv3[4];
 
 	    BeatIt::readList(threshold_pv4, tpv4);
-	    i_PV4 = tpv4[0];
+	    i_PV4          = tpv4[0];
 	    thresholdA_PV4 = tpv4[1];
 	    thresholdB_PV4 = tpv4[2];
+	    i_epic_PV4     = tpv4[3];
+	    i_endo_PV4     = tpv4[4];
 
 	    BeatIt::readList(threshold_floor,tfloor );
 	    i_floor = tfloor[0];
 	    thresholdA_floor = tfloor[1];
 	    thresholdB_floor = tfloor[2];
+	    i_epic_floor     = tfloor[3];
+	    i_endo_floor     = tfloor[4];
 
 	    BeatIt::readList(threshold_laa,tlaa );
-	    i_LAA = tlaa[0];
+	    i_LAA          = tlaa[0];
 	    thresholdA_LAA = tlaa[1];
 	    thresholdB_LAA = tlaa[2];
+	    i_epic_LAA     = tlaa[3];
+	    i_endo_LAA     = tlaa[4];
 
 	    BeatIt::readList(threshold_antra1, tantra1);
-	    i_antra1 = tantra1[0];
+	    i_antra1          = tantra1[0];
 	    thresholdA_antra1 = tantra1[1];
 	    thresholdB_antra1 = tantra1[2];
+	    i_epic_antra1     = tantra1[3];
+	    i_endo_antra1     = tantra1[4];
 
 	    BeatIt::readList(threshold_antra2, tantra2);
-	    i_antra2 = tantra2[0];
+	    i_antra2          = tantra2[0];
 	    thresholdA_antra2 = tantra2[1];
 	    thresholdB_antra2 = tantra2[2];
+	    i_epic_antra2     = tantra2[3];
+	    i_endo_antra2     = tantra2[4];
 
 	    BeatIt::readList(threshold_septum, tseptum);
-	    i_septum = tseptum[0];
+	    i_septum          = tseptum[0];
 	    thresholdA_septum = tseptum[1];
 	    thresholdB_septum = tseptum[2];
+	    i_epic_septum     = tseptum[3];
+	    i_endo_septum     = tseptum[4];
 
 	    BeatIt::readList(threshold_anterior, tanterior);
-	    i_anterior = tanterior[0];
+	    i_anterior          = tanterior[0];
 	    thresholdA_anterior = tanterior[1];
 	    thresholdB_anterior = tanterior[2];
+	    i_epic_anterior     = tanterior[3];
+	    i_endo_anterior     = tanterior[4];
 
 	    BeatIt::readList(threshold_posterior, tposterior);
-	    i_posterior = tposterior[0];
+	    i_posterior          = tposterior[0];
 	    thresholdA_posterior = tposterior[1];
 	    thresholdB_posterior = tposterior[2];
+	    i_epic_posterior     = tposterior[3];
+	    i_endo_posterior     = tposterior[4];
 
 	    BeatIt::readList(threshold_carina1, tcarina1);
-	    i_carina1 = tcarina1[0];
+	    i_carina1          = tcarina1[0];
 	    thresholdA_carina1 = tcarina1[1];
 	    thresholdB_carina1 = tcarina1[2];
+	    i_epic_carina1     = tcarina1[3];
+	    i_endo_carina1     = tcarina1[4];
 
 	    BeatIt::readList(threshold_carina2, tcarina2);
-	    i_carina2 = tcarina2[0];
+	    i_carina2          = tcarina2[0];
 	    thresholdA_carina2 = tcarina2[1];
 	    thresholdB_carina2 = tcarina2[2];
+	    i_epic_carina2     = tcarina2[3];
+	    i_endo_carina2     = tcarina2[4];
+
+	    BeatIt::readList(threshold_lateral, tlateral);
+	    i_epic_lateral     = tlateral[3];
+	    i_endo_lateral     = tlateral[4];
+
 	}
 
 	int AnatomicalParameters::define_regions (std::vector<double> & u){
@@ -300,38 +340,38 @@ class BCs{
         if ((u[i_PV1]>thresholdA_PV1)*(u[i_PV1]<thresholdB_PV1)){
             blockid = 12;
         }
-        else if ((u[i_PV2]>thresholdA_PV2)*(u[i_PV2]<thresholdB_PV2)) { //pv
+        else if ((u[i_PV2]>thresholdA_PV2)*(u[i_PV2]<thresholdB_PV2)) { 						//pv
             blockid = 1;
         }
-        else if ((u[i_PV3]>thresholdA_PV3)*(u[i_PV3]<thresholdB_PV3)) { //pv
+        else if ((u[i_PV3]>thresholdA_PV3)*(u[i_PV3]<thresholdB_PV3)) { 						//pv
             blockid = 2;
         }
-        else if ((u[i_PV4]>thresholdA_PV4)*(u[i_PV4]<thresholdB_PV4)) { //pv
+        else if ((u[i_PV4]>thresholdA_PV4)*(u[i_PV4]<thresholdB_PV4)) { 						//pv
             blockid = 3;
         }
-        else if ((u[i_floor]>thresholdA_floor)*(u[i_floor]<thresholdB_floor)) { //floor
-            blockid = 4;//10;
+        else if ((u[i_floor]>thresholdA_floor)*(u[i_floor]<thresholdB_floor)) { 				//floor
+            blockid = 4;
         }
-        else if ((u[i_LAA]>thresholdA_LAA)*(u[i_LAA]<thresholdB_LAA)) { //laa
-            blockid = 5;//20;
+        else if ((u[i_LAA]>thresholdA_LAA)*(u[i_LAA]<thresholdB_LAA)) {							//laa
+            blockid = 5;
         }
-        else if ((u[i_antra1]>thresholdA_antra1)*(u[i_antra1]<thresholdB_antra1)) { //antra
-            blockid = 6;//40;
+        else if ((u[i_antra1]>thresholdA_antra1)*(u[i_antra1]<thresholdB_antra1)) { 			//antra
+            blockid = 6;
         }
-        else if ((u[i_antra2]>thresholdA_antra2)*(u[i_antra2]<thresholdB_antra2)) { //antra /*
-            blockid = 8;//41;
+        else if ((u[i_antra2]>thresholdA_antra2)*(u[i_antra2]<thresholdB_antra2)) { 			//antra
+            blockid = 8;
         }
-        else if ((u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { //septum
-            blockid = 9;//50;
+        else if ((u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { 			//septum
+            blockid = 9;
         }
-        else if ((u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) { //anterior
-            blockid = 10;//60;
+        else if ((u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) {     //anterior
+            blockid = 10;
         }
         else if ((u[i_posterior]>thresholdA_posterior)*(u[i_posterior]<thresholdB_posterior)) { //posterior
-            blockid = 11;//70;
-        }//*/
-        else {               //lateral
-            blockid = 7;//12;//80;
+            blockid = 11;
+        }
+        else {               																	//lateral
+            blockid = 7;
         }
         return blockid;
 	}
@@ -342,7 +382,7 @@ class BCs{
         // the next line is always true
         s0 = du[0].unit();
 
-        /*																					UNCOMMENT HERE - THIS IS THE FIRST WAY i DID FIBERS
+        /*	FIBERS FIRST WAY - TRADITIONAL - LIKE MILANO PAPER 2021
         switch (block_id)
         {
         //PV left front
@@ -469,35 +509,34 @@ class BCs{
         }
 */
 
-
-
+        // Fibers created so we have epi and endo layers in some regions
         switch (block_id)
         {
         //PV left front
         case 12:
         {
-				n0 = du[1].unit();
+				n0 = du[i_epic_PV1].unit();
 				f0 = s0.cross(n0);
 				break;
         }
         //PV left back
         case 1:
         {
-				n0 = du[1].unit();
+				n0 = du[i_epic_PV2].unit();
 				f0 = s0.cross(n0);
 				break;
         }
         //PV right front
         case 2:
         {
-				n0 = du[6].unit();
+				n0 = du[i_epic_PV3].unit();
 				f0 = s0.cross(n0);
 				break;
         }
         //PV right front
         case 3:
         {
-				n0 = du[6].unit();
+				n0 = du[i_epic_PV4].unit();
 				f0 = s0.cross(n0);
 				break;
         }
@@ -505,12 +544,12 @@ class BCs{
         case 4:
         {
         	if(u[0]>0.5){
-				n0 = du[9].unit();
+				n0 = du[i_epic_floor].unit();
 				f0 = s0.cross(n0);
 				break;
         	}
         	else{
-				f0 = du[2].unit();
+				f0 = du[i_endo_floor].unit();
         		n0 = s0.cross(f0);
         		break;
         	}
@@ -519,12 +558,12 @@ class BCs{
         case 5:
         {
         	if(u[0]>0.5){
-				n0 = du[5].unit();
+				n0 = du[i_epic_LAA].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
+        	}                          // endocardium 90 degrees wrt to epicardium
         	else{
-				f0 = du[5].unit();
+				f0 = du[i_endo_LAA].unit();
         		n0 = s0.cross(f0);
         		break;
         	}
@@ -532,7 +571,7 @@ class BCs{
         //Antra between pv2 and pv3
         case 6:
         {
-				n0 = du[6].unit();
+				n0 = du[i_epic_antra2].unit();
 				f0 = s0.cross(n0);
 				break;
         }
@@ -540,12 +579,12 @@ class BCs{
         case 7:
         {
         	if(u[0]>0.5){
-				n0 = du[9].unit();
+				n0 = du[i_epic_lateral].unit();
 				f0 = s0.cross(n0);
 				break;
         	}
         	else{
-				f0 = du[6].unit();
+				f0 = du[i_endo_lateral].unit();
         		n0 = s0.cross(f0);
         		break;
         	}
@@ -553,7 +592,7 @@ class BCs{
         //Antra between pv0 and pv1
         case 8:
         {
-				n0 = du[1].unit();
+				n0 = du[i_epic_antra2].unit();
 				f0 = s0.cross(n0);
 				break;
         }
@@ -561,12 +600,12 @@ class BCs{
         case 9:
         {
         	if(u[0]>0.5){
-				n0 = du[9].unit();
+				n0 = du[i_epic_septum].unit();
 				f0 = s0.cross(n0);
 				break;
         	}
         	else{
-				f0 = du[6].unit();
+				f0 = du[i_endo_septum].unit();
         		n0 = s0.cross(f0);
         		break;
         	}
@@ -576,7 +615,7 @@ class BCs{
         {
 //				n0 = du[9].unit();
 //				f0 = s0.cross(n0);
-			f0 = du[8].unit();
+			f0 = du[i_epic_anterior].unit();
 			n0 = s0.cross(f0);
 
 				break;
@@ -584,7 +623,7 @@ class BCs{
         //Posterior
         case 11:
         {
-				n0 = du[8].unit();
+				n0 = du[i_epic_posterior].unit();
 				f0 = s0.cross(n0);
 				break;
         }
@@ -598,23 +637,20 @@ class BCs{
         }
         }
 
-
-
-        /*
-        f0.print();
-        std::cout<< std::endl;
-		*/
         f0 = f0.unit();
-        s0=s0.unit();
-        n0=n0.unit();
+        s0 = s0.unit();
+        n0 = n0.unit();
 
         /*
-        std::cout<< "--after .unit\n";
+        if(block_id ==7){
+        std::cout << "block_id=7 and f0, n0 and s0 are equal to\n";
         f0.print();
-        std::cout<< std::endl;
-		*/
-
-
+        std::cout<<" ";
+    	n0.print();
+        std::cout<<" ";
+    	s0.print();
+        std::cout<<"\n";
+        }*/
 	}
 
 
@@ -672,12 +708,9 @@ int main(int argc, char** argv)
     // Get the ids where Dirichlet BC are imposed
     std::string ids_dirichlet_test = data("dirichletbc", "");  //> did not work
     std::cout << ids_dirichlet_test << " ";
-    //ids_dirichlet_bcs=ids_dirichlet_bcs*2;
     int size_dirichlet_bcs = data.vector_variable_size("dirichletbc");
-    std::vector<int> ids_dirichlet_bcs; //(size_dirichlet_bcs);
+    std::vector<int> ids_dirichlet_bcs;
     for (int i = 0; i < size_dirichlet_bcs; i++) {
-        //ids_dirichlet_bcs[i]=data("dirichletbc", i, -1);
-        //std::cout << data("dirichletbc", i, -1)<< " ";
         ids_dirichlet_bcs.push_back(data("dirichletbc", i, -1));
     }
 
@@ -688,22 +721,23 @@ int main(int argc, char** argv)
     }
 
     // Read problem solution index and thresholds
-    std::string threshold_pv1 = data("pv1", " 1, 1, 0");
-    std::string threshold_pv2 = data("pv2", "1, 1, 0 ");
-    std::string threshold_pv3 = data("pv3", "1, 1, 0 ");
-    std::string threshold_pv4 = data("pv4", "1, 1, 0");
-    std::string threshold_floor = data("floor", "1, 1, 0 ");
-    std::string threshold_laa = data("laa", "1, 1, 0");
-    std::string threshold_antra1 = data("antra1", "1, 1, 0");
-    std::string threshold_antra2 = data("antra2", "1, 1, 0");
-    std::string threshold_septum = data("septum", "1, 1, 0");
-    std::string threshold_anterior = data("anterior", "1, 1, 0 ");
-    std::string threshold_posterior = data("posterior", "1, 1, 0 ");
-    std::string threshold_carina1 = data("carina1", "1, 1, 0 ");
-    std::string threshold_carina2 = data("carina2", "1, 1, 0 ");
+    std::string threshold_pv1       = data("pv1"      , " 1, 1, 0, 0, 0");
+    std::string threshold_pv2       = data("pv2"      , " 1, 1, 0, 0, 0");
+    std::string threshold_pv3       = data("pv3"      , " 1, 1, 0, 0, 0");
+    std::string threshold_pv4       = data("pv4"      , " 1, 1, 0, 0, 0");
+    std::string threshold_floor     = data("floor"    , " 1, 1, 0, 0, 0");
+    std::string threshold_laa       = data("laa"      , " 1, 1, 0, 0, 0");
+    std::string threshold_antra1    = data("antra1"   , " 1, 1, 0, 0, 0");
+    std::string threshold_antra2    = data("antra2"   , " 1, 1, 0, 0, 0");
+    std::string threshold_septum    = data("septum"   , " 1, 1, 0, 0, 0");
+    std::string threshold_anterior  = data("anterior" , " 1, 1, 0, 0, 0");
+    std::string threshold_posterior = data("posterior", " 1, 1, 0, 0, 0");
+    std::string threshold_carina1   = data("carina1"  , " 1, 1, 0, 0, 0");
+    std::string threshold_carina2   = data("carina2"  , " 1, 1, 0, 0, 0");
+    std::string threshold_lateral   = data("lateral"  , " 1, 1, 0, 0, 0");
 
 
-    std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2;
+    std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2, tlateral;
     BeatIt::readList(threshold_pv2, tpv2);
     BeatIt::readList(threshold_pv3, tpv3);
     BeatIt::readList(threshold_pv4, tpv4);
@@ -716,13 +750,14 @@ int main(int argc, char** argv)
     BeatIt::readList(threshold_posterior, tposterior);
     BeatIt::readList(threshold_carina1, tcarina1);
     BeatIt::readList(threshold_carina2, tcarina2);
+    BeatIt::readList(threshold_lateral, tlateral);
 
     AnatomicalParameters anatomic_parameters;
 
     anatomic_parameters.reinit(threshold_pv1, threshold_pv2, threshold_pv3, threshold_pv4,
     							threshold_floor, threshold_laa, threshold_antra1, threshold_antra2,
 								threshold_septum, threshold_anterior, threshold_posterior,
-								threshold_carina1, threshold_carina2);
+								threshold_carina1, threshold_carina2, threshold_lateral);
 
 
     //Mesh as input?
@@ -731,7 +766,6 @@ int main(int argc, char** argv)
     if (ifmesh == true) {
         // read mesh
         std::string name_mesh = data("mesh", "");
-        //mesh.read("F65_m1.e"); // give the full path here if not in the same folder
         mesh.read(name_mesh); // give the full path here if not in the same folder
     }
     else {
@@ -817,22 +851,18 @@ int main(int argc, char** argv)
         GetPot data_i(poisson_ptr->input_list[i]);
 
         // Read Dirichlet BC ID list from input file
-        std::string dirichlet_id_list_aux0 = data_i("dirichletbc0", "");
-        std::string dirichlet_id_list_aux1 = data_i("dirichletbc1", "");
-        std::string dirichlet_id_list_aux05 = data_i("dirichletbc05", "");
-        std::string dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", "");
-        std::string dirichlet_bc_list_aux = data_i("Idirichlet_bc_list", "");
+        std::string dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", " ");
+        std::string dirichlet_bc_list_aux       = data_i("Idirichlet_bc_list"      , " ");
 
         // Read Dirichlet BC ID list for septum and laa points
-
        std::string dirichlet_x_list = data_i("Ix", " ");
        std::string dirichlet_y_list = data_i("Iy", " ");
        std::string dirichlet_z_list = data_i("Iz", " ");
        std::string dirichlet_r_list = data_i("Ir", " ");
 
        std::cout << "Ix, Iy, Iz and Ir are respectively: "<< dirichlet_x_list
-    		    << " | "<< dirichlet_y_list <<" | "<< dirichlet_z_list <<
-				" | "<< dirichlet_r_list << std::endl;
+    		     << " | " << dirichlet_y_list << " | "<< dirichlet_z_list <<
+				    " | " << dirichlet_r_list << std::endl;
 
 
        // reinit Poisson member variables using input file values
@@ -933,15 +963,15 @@ int main(int argc, char** argv)
         anatomic_parameters.define_fibers(u, du, blockid, elem);
 
         std::vector<dof_id_type> fibers_dof_indices; //putting this back to the system so that we can export it
+
         fiber_system.get_dof_map().dof_indices(elem, fibers_dof_indices);
         for (int idim = 0; idim < 3; ++idim)
         {
-            fiber_system.solution->set(fibers_dof_indices[idim], anatomic_parameters.f0(idim));
-            sheet_system.solution->set(fibers_dof_indices[idim], anatomic_parameters.s0(idim));
+            fiber_system.solution ->set(fibers_dof_indices[idim], anatomic_parameters.f0(idim));
+            sheet_system.solution ->set(fibers_dof_indices[idim], anatomic_parameters.s0(idim));
             xfiber_system.solution->set(fibers_dof_indices[idim], anatomic_parameters.n0(idim));
         }
     }
-
 
     // After solving the system write the solution
     // to a VTK-formatted plot file.
