@@ -102,7 +102,7 @@ class Poisson{
 		// Member variable Dirichlet BC list - can use inside poisson_assemble
 		// each list stores subregion IDs to where that boundary condition should be imposed
 		std::vector<int> dirichlet_side_set_list;
-		std::vector<int> dirichlet_bc_list;
+		std::vector<double> dirichlet_bc_list;
 
 
 		// Stores a list of the names of all input files for each problem we are solving
@@ -864,6 +864,8 @@ int main(int argc, char** argv)
     		     << " | " << dirichlet_y_list << " | "<< dirichlet_z_list <<
 				    " | " << dirichlet_r_list << std::endl;
 
+       std::cout << "Idirichlet_side_set_list = " <<dirichlet_side_set_list_aux <<std::endl;
+       std::cout << "Idirichlet_bc_list = " <<dirichlet_bc_list_aux <<std::endl;
 
        // reinit Poisson member variables using input file values
  	   poisson_solver.reinit(  dirichlet_x_list,  dirichlet_y_list,  dirichlet_z_list,
@@ -1258,6 +1260,9 @@ void assemble_poisson(EquationSystems& es,
                     	elem_dirichlet_bc=poisson_ptr->dirichlet_bc_list[it];
                     	found_side_set_in_list =1;
                     	radius = poisson_ptr->dirichlet_id_radius[it];
+                        //std::cout << "dirichlet_side_set= " <<  poisson_ptr->dirichlet_side_set_list[it]<<
+                        //		    ", elem_dirichlet_bc1= " << elem_dirichlet_bc <<std::endl;//<< ", dirichlet_bc= " <<", radius= " << radius <<
+						//poisson_ptr->dirichlet_bc_list[it] <<
                     	//std::cout<< radius <<std::endl;
                     	}
                     }
@@ -1292,9 +1297,6 @@ void assemble_poisson(EquationSystems& es,
                         // face quadrature point.
                         const Real xf = qface_point[qp](0);
                         const Real yf = qface_point[qp](1);
-                        bool is_on_neighborhood0 = 0;
-                        bool is_on_neighborhood1 = 0;
-                        bool is_on_neighborhood05 = 0;
                         bool is_on_neighborhood = 0;
 
                         // Verify if the quadrature points are within the neighborhood of one of the id05 list points
@@ -1307,6 +1309,13 @@ void assemble_poisson(EquationSystems& es,
                                 break;
                             }
                        }
+
+/*                        std::cout << "dirichlet_side_set= " <<  poisson_ptr->dirichlet_side_set_list[jj]<<", radius= " << radius <<
+                        		    ", elem_dirichlet_bc= " << elem_dirichlet_bc << ", dirichlet_bc= " <<
+									poisson_ptr->dirichlet_bc_list[jj] <<std::endl;
+*/
+                        //std::cout << "radius= " << radius <<", elem_dirichlet_bc= " << elem_dirichlet_bc <<std::endl;
+
 
                         // The penalty value.  \frac{1}{\epsilon}
                         // in the discussion above.
@@ -1328,8 +1337,10 @@ void assemble_poisson(EquationSystems& es,
                         // Right-hand-side contribution of the L2
                         // projection.
                         for (unsigned int i = 0; i != n_dofs; i++) {
-                             if((found_side_set_in_list && radius<0 ) || (found_side_set_in_list && radius>0 &&  is_on_neighborhood))
+                             if((found_side_set_in_list && radius<0 ) || (found_side_set_in_list && radius>0 &&  is_on_neighborhood)){
+                                 //std::cout <<  "elem_dirichlet_bc3= " << elem_dirichlet_bc <<" , ";
                                 Fe(i) += JxW_face[qp] * penalty * elem_dirichlet_bc * phi_face[i][qp]; //dirichlet
+                             }
                             else
                                 Fe(i) += 0;         //neumann
                         }
