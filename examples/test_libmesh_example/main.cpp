@@ -189,6 +189,10 @@ class BCs{
 	class AnatomicalParameters{
 		public:
 
+		// i_region is used to define the anatomical regions
+		// i_epic_region is used to define the fibers in the anatomical region on the epicardium
+		// i_endo_region is used to define the fibers in the anatomical region on the endocardium
+
 		int i_PV1, i_epic_PV1, i_endo_PV1;
 		int i_PV2, i_epic_PV2, i_endo_PV2;
 		int i_PV3, i_epic_PV3, i_endo_PV3;
@@ -204,6 +208,9 @@ class BCs{
 		int i_anterior, i_epic_anterior, i_endo_anterior;
 		int i_posterior, i_epic_posterior, i_endo_posterior;
 		int i_epic_lateral, i_endo_lateral;
+		int i_epic_posterior_bottom, i_endo_posterior_bottom;
+		int i_epic_anterior_bottom, i_endo_anterior_bottom;
+		int i_epic_septum_bottom, i_endo_septum_bottom;
 		double thresholdA_PV1, thresholdB_PV1;
 		double thresholdA_PV2, thresholdB_PV2;
 		double thresholdA_PV3, thresholdB_PV3;
@@ -225,7 +232,8 @@ class BCs{
 		void reinit(std::string, std::string, std::string, std::string,
 					std::string, std::string, std::string, std::string,
 					std::string, std::string, std::string,
-					std::string, std::string, std::string, std::string);
+					std::string, std::string, std::string, std::string,
+					std::string, std::string, std::string);
 
 		// Define regions
 		int define_regions (std::vector<double> &);
@@ -236,9 +244,11 @@ class BCs{
 	void AnatomicalParameters::reinit(std::string Ithreshold_pv1, std::string threshold_pv2, std::string threshold_pv3, std::string threshold_pv4,
 										std::string threshold_floor, std::string threshold_laa, std::string threshold_antra1, std::string threshold_antra2,
 										std::string threshold_septum, std::string threshold_anterior, std::string threshold_posterior,
-										std::string threshold_carina1, std::string threshold_carina2, std::string threshold_lateral, std::string threshold_strip)
+										std::string threshold_carina1, std::string threshold_carina2, std::string threshold_lateral, std::string threshold_strip,
+										std::string threshold_septum_bottom, std::string threshold_anterior_bottom, std::string threshold_posterior_bottom)
 		{
 		std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2, tlateral, tstrip;
+		std::vector<double> tanterior_bottom, tposterior_bottom, tseptum_bottom;
 
 		BeatIt::readList(Ithreshold_pv1, tpv1);
 	    i_PV1          = tpv1[0];
@@ -342,6 +352,18 @@ class BCs{
 	    i_epic_lateral     = tlateral[3];
 	    i_endo_lateral     = tlateral[4];
 
+	    BeatIt::readList(threshold_septum_bottom, tseptum_bottom);
+	    i_epic_septum_bottom     = tseptum_bottom[3];
+	    i_endo_septum_bottom     = tseptum_bottom[4];
+
+	    BeatIt::readList(threshold_anterior_bottom, tanterior_bottom);
+	    i_epic_anterior_bottom   = tanterior_bottom[3];
+	    i_endo_anterior_bottom   = tanterior_bottom[4];
+
+	    BeatIt::readList(threshold_posterior_bottom, tposterior_bottom);
+	    i_epic_posterior_bottom  = tposterior_bottom[3];
+	    i_endo_posterior_bottom  = tposterior_bottom[4];
+
 	}
 
 	int AnatomicalParameters::define_regions (std::vector<double> & u){
@@ -372,21 +394,21 @@ class BCs{
         }
         else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) &&
         		(u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { 			//septum bottom
-            blockid = 15;
+            blockid = 13;
         }
         else if ((u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { 			//septum
             blockid = 9;
         }
         else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) &&
         		(u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) {	    //anterior_bottom
-                    blockid = 13;
+                    blockid = 14;
                 }
         else if ((u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) {     //anterior
             blockid = 10;
         }
         else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) &&
         		(u[i_posterior]>thresholdA_posterior)*(u[i_posterior]<thresholdB_posterior)) { //posterior bottom
-            blockid = 14;
+            blockid = 15;
         }
         else if ((u[i_posterior]>thresholdA_posterior)*(u[i_posterior]<thresholdB_posterior)) { //posterior
             blockid = 11;
@@ -570,7 +592,7 @@ class BCs{
 				break;
         	}
         	else if(u[0]<=0.5 && i_endo_floor!=90){
-				n0 = du[i_endo_floor].unit();
+				n0 = du[i_epic_floor].unit();
         		f0 = s0.cross(n0);
         		break;
         	}
@@ -583,21 +605,21 @@ class BCs{
         // LAA
         case 5:
         {
-        	if(u[0]>0.5){
+        	/*if(u[0]>0.5){
 				n0 = du[i_epic_LAA].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}                          // endocardium 90 degrees wrt to epicardium
-        	else if(u[0]<=0.5 && i_endo_LAA!=90){
-				n0 = du[i_endo_LAA].unit();
+					}                          // endocardium 90 degrees wrt to epicardium
+        	else if(u[0]<=0.5 && i_endo_LAA!=90){*/
+				n0 = du[i_epic_LAA].unit();
         		f0 = s0.cross(n0);
         		break;
-        	}
+        	/*}
         	else{
 			    f0 = du[i_endo_LAA].unit();
         		n0 = s0.cross(f0);
         		break;
-        	}
+        	}*/
         }
         //Antra between pv2 and pv3
         case 6:
@@ -615,7 +637,7 @@ class BCs{
 				break;
         	}
         	else if(u[0]<=0.5 && i_endo_lateral!=90){
-				n0 = du[i_endo_lateral].unit();
+				n0 = du[i_epic_lateral].unit();
         		f0 = s0.cross(n0);
         		break;
         	}
@@ -641,7 +663,7 @@ class BCs{
 				break;
         	}
         	else if(u[0]<=0.5 && i_endo_septum!=90){
-				n0 = du[i_endo_septum].unit();
+				n0 = du[i_epic_septum].unit();
         		f0 = s0.cross(n0);
         		break;
         	}
@@ -667,24 +689,62 @@ class BCs{
 				f0 = s0.cross(n0);
 				break;
         }
-        //strip
+        //Septum_bottom
         case 13:
         {
-        	if(u[0]>0.5){
-				n0 = du[i_epic_strip].unit();
+        	//if(u[0]>0.5){
+				n0 = du[i_epic_septum_bottom].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
-        	else if(u[0]<=0.5 && i_endo_strip!=90){
-				n0 = du[i_endo_strip].unit();
+        	/*}
+        	else if(u[0]<=0.5 && i_endo_septum_bottom!=90){
+				n0 = du[i_epic_septum_bottom].unit();
         		f0 = s0.cross(n0);
         		break;
         	}
         	else{
-			    f0 = du[i_endo_strip].unit();
+			    f0 = du[i_endo_septum_bottom].unit();
         		n0 = s0.cross(f0);
         		break;
-        	}
+        	}*/
+            //Anterior_bottom
+            case 14:
+            {
+            	if(u[0]>0.5){
+    				n0 = du[i_epic_anterior_bottom].unit();
+    				f0 = s0.cross(n0);
+    				break;
+            	}
+            	else if(u[0]<=0.5 && i_endo_anterior_bottom!=90){
+    				n0 = du[i_epic_anterior_bottom].unit();
+            		f0 = s0.cross(n0);
+            		break;
+            	}
+            	else{
+    			    f0 = du[i_endo_anterior_bottom].unit();
+            		n0 = s0.cross(f0);
+            		break;
+            	}
+            }
+            //Posterior_bottom
+            case 15:
+            {
+            	if(u[0]>0.5){
+    				n0 = du[i_epic_posterior_bottom].unit();
+    				f0 = s0.cross(n0);
+    				break;
+            	}
+            	else if(u[0]<=0.5 && i_endo_posterior_bottom!=90){
+    				n0 = du[i_epic_posterior_bottom].unit();
+            		f0 = s0.cross(n0);
+            		break;
+            	}
+            	else{
+    			    f0 = du[i_endo_posterior_bottom].unit();
+            		n0 = s0.cross(f0);
+            		break;
+            	}
+            }
         }
         default:
         {
@@ -789,6 +849,9 @@ int main(int argc, char** argv)
     std::string threshold_antra1    = data("antra1"   , " 1, 1, 0, 0, 0");
     std::string threshold_antra2    = data("antra2"   , " 1, 1, 0, 0, 0");
     std::string threshold_septum    = data("septum"   , " 1, 1, 0, 0, 0");
+    std::string threshold_septum_bottom    = data("septum_bottom"     , " 1, 1, 0, 0, 0");
+    std::string threshold_anterior_bottom  = data("anterior_bottom"   , " 1, 1, 0, 0, 0");
+    std::string threshold_posterior_bottom = data("posterior_bottom"  , " 1, 1, 0, 0, 0");
     std::string threshold_anterior  = data("anterior" , " 1, 1, 0, 0, 0");
     std::string threshold_posterior = data("posterior", " 1, 1, 0, 0, 0");
     std::string threshold_carina1   = data("carina1"  , " 1, 1, 0, 0, 0");
@@ -797,7 +860,8 @@ int main(int argc, char** argv)
     std::string threshold_strip     = data("strip"    , " 1, 1, 0, 0, 0");
 
 
-    std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tcarina1, tcarina2, tlateral, tstrip;
+    std::vector<double> tpv1, tpv2, tpv3, tpv4, tfloor, tlaa, tantra1, tantra2, tseptum, tanterior, tposterior, tlateral, tstrip;
+    std::vector<double> tcarina1, tcarina2, tposterior_bottom, tanterior_bottom, tseptum_bottom;
     BeatIt::readList(threshold_pv2, tpv2);
     BeatIt::readList(threshold_pv3, tpv3);
     BeatIt::readList(threshold_pv4, tpv4);
@@ -808,17 +872,23 @@ int main(int argc, char** argv)
     BeatIt::readList(threshold_septum, tseptum);
     BeatIt::readList(threshold_anterior, tanterior);
     BeatIt::readList(threshold_posterior, tposterior);
-    BeatIt::readList(threshold_carina1, tcarina1);
-    BeatIt::readList(threshold_carina2, tcarina2);
     BeatIt::readList(threshold_lateral, tlateral);
     BeatIt::readList(threshold_strip, tstrip);
+
+    BeatIt::readList(threshold_carina1, tcarina1);
+    BeatIt::readList(threshold_carina2, tcarina2);
+    BeatIt::readList(threshold_septum_bottom, tseptum);
+    BeatIt::readList(threshold_anterior_bottom, tanterior);
+    BeatIt::readList(threshold_posterior_bottom, tposterior);
+
 
     AnatomicalParameters anatomic_parameters;
 
     anatomic_parameters.reinit(threshold_pv1, threshold_pv2, threshold_pv3, threshold_pv4,
     							threshold_floor, threshold_laa, threshold_antra1, threshold_antra2,
 								threshold_septum, threshold_anterior, threshold_posterior,
-								threshold_carina1, threshold_carina2, threshold_lateral, threshold_strip);
+								threshold_carina1, threshold_carina2, threshold_lateral, threshold_strip,
+								threshold_septum_bottom, threshold_anterior_bottom, threshold_posterior_bottom);
 
 
     //Mesh as input?
