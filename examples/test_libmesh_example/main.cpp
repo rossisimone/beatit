@@ -352,7 +352,7 @@ class BCs{
         else if ((u[i_PV2]>thresholdA_PV2)*(u[i_PV2]<thresholdB_PV2)) { 						//pv
             blockid = 1;
         }
-        /*else if ((u[i_PV3]>thresholdA_PV3)*(u[i_PV3]<thresholdB_PV3)) { 						//pv
+        else if ((u[i_PV3]>thresholdA_PV3)*(u[i_PV3]<thresholdB_PV3)) { 						//pv
             blockid = 2;
         }
         else if ((u[i_PV4]>thresholdA_PV4)*(u[i_PV4]<thresholdB_PV4)) { 						//pv
@@ -364,25 +364,33 @@ class BCs{
         else if ((u[i_LAA]>thresholdA_LAA)*(u[i_LAA]<thresholdB_LAA)) {							//laa
             blockid = 5;
         }
-       // else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) ){//&&
-        		//(u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) {	    //anterior_bottom
-       //             blockid = 13;
-        //        }
         else if ((u[i_antra1]>thresholdA_antra1)*(u[i_antra1]<thresholdB_antra1)) { 			//antra
             blockid = 6;
         }
         else if ((u[i_antra2]>thresholdA_antra2)*(u[i_antra2]<thresholdB_antra2)) { 			//antra
             blockid = 8;
         }
+        else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) &&
+        		(u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { 			//septum bottom
+            blockid = 15;
+        }
         else if ((u[i_septum]>thresholdA_septum)*(u[i_septum]<thresholdB_septum)) { 			//septum
             blockid = 9;
         }
+        else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) &&
+        		(u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) {	    //anterior_bottom
+                    blockid = 13;
+                }
         else if ((u[i_anterior]>thresholdA_anterior)*(u[i_anterior]<thresholdB_anterior)) {     //anterior
             blockid = 10;
         }
+        else if ((u[i_strip]>thresholdA_strip)*(u[i_strip]<thresholdB_strip) &&
+        		(u[i_posterior]>thresholdA_posterior)*(u[i_posterior]<thresholdB_posterior)) { //posterior bottom
+            blockid = 14;
+        }
         else if ((u[i_posterior]>thresholdA_posterior)*(u[i_posterior]<thresholdB_posterior)) { //posterior
             blockid = 11;
-        }*/
+        }
         else {               																	//lateral
             blockid = 7;
         }
