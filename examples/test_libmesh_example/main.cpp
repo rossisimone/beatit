@@ -108,6 +108,10 @@ class Poisson{
 		// Stores a list of the names of all input files for each problem we are solving
 		std::vector<std::string> input_list;
 
+		//Mesh
+		//Mesh mesh; ??
+
+
 		// Pointer to a vector of points
 		// These vectors store coordinates of centers of spheres and their radius
 		// example: we want to impose Dirichlet BC 0.5 on spheres w/ centers at Point1=(0,2,3) and radius 0.3
@@ -124,7 +128,10 @@ class Poisson{
 		void reinit(std::string, std::string,std::string,
 				 std::string, std::string, std::string);
 
+		// assemble_poisson
+
 		//solve
+
 };
 
 /*
@@ -182,13 +189,44 @@ class BCs{
         			dirichlet_side_set_list.size() << " , dirichlet_id_radius.size() = " << dirichlet_id_radius.size()<<std::endl;
         	throw std::runtime_error("Size of Idirichlet_bc_list and Idirichlet_side_set_list has to be equal");
         }
+
+        //Check
+        if(dirichlet_id_points.size()!= dirichlet_id_radius.size()){
+                	std::cout << " The number of points does not match the number of radii" << std::endl;
+                	std::cout << "the size of vector points is "<< dirichlet_id_points.size()<<std::endl;
+                	std::cout << "the size of vector radius is "<< dirichlet_id_radius.size()<<std::endl;
+                	throw std::runtime_error(" The number of points does not match the number of radii"); // throw an exception
+        }
+
 	}
 
 
+	void save_fibers(std::string e_test, std::string e_output_file_name, std::string e_output_number,
+								EquationSystems & equation_systems, Mesh & mesh){
+		   std::string output_path = e_test + e_output_file_name + e_output_number + ".pvtu";
+		    VTKIO(mesh).write_equation_systems(output_path, equation_systems);
+
+		    // Export fibers in nemesis format
+		    ExodusII_IO nemesis_exporter(mesh); // creates the exporter
+		    std::vector<std::string> output_variables(9); // creates a vector that stores the names of vectors
+		    output_variables[0] = "fibersx";
+		    output_variables[1] = "fibersy";
+		    output_variables[2] = "fibersz";
+		    output_variables[3] = "sheetsx";
+		    output_variables[4] = "sheetsy";
+		    output_variables[5] = "sheetsz";
+		    output_variables[6] = "xfibersx";
+		    output_variables[7] = "xfibersy";
+		    output_variables[8] = "xfibersz";
+		    nemesis_exporter.set_output_variables(output_variables);
+		    nemesis_exporter.write_equation_systems(e_test + e_output_file_name + e_output_number + ".e", equation_systems); // saves the variables at the nodes
+		    nemesis_exporter.write_element_data(equation_systems); // this saves the variables at the centroid of the elements
+	}
 
 	class AnatomicalParameters{
 		public:
 
+		// this info is read from the main input file (input.main)
 		// i_region is used to define the anatomical regions
 		// i_epic_region is used to define the fibers in the anatomical region on the epicardium
 		// i_endo_region is used to define the fibers in the anatomical region on the endocardium
@@ -586,11 +624,11 @@ class BCs{
         // Floor
         case 4:
         {
-        	if(u[0]>0.5){
+        	//if(u[0]>0.5){
 				n0 = du[i_epic_floor].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
+        	/*}
         	else if(u[0]<=0.5 && i_endo_floor!=90){
 				n0 = du[i_epic_floor].unit();
         		f0 = s0.cross(n0);
@@ -600,21 +638,21 @@ class BCs{
 			    f0 = du[i_endo_floor].unit();
         		n0 = s0.cross(f0);
         		break;
-        	}
+        	}*/
         }
         // LAA
         case 5:
         {
-        	/*if(u[0]>0.5){
+        	//if(u[0]>0.5){
 				n0 = du[i_epic_LAA].unit();
 				f0 = s0.cross(n0);
 				break;
-					}                          // endocardium 90 degrees wrt to epicardium
-        	else if(u[0]<=0.5 && i_endo_LAA!=90){*/
+				/*	}                          // endocardium 90 degrees wrt to epicardium
+        	else if(u[0]<=0.5 && i_endo_LAA!=90){
 				n0 = du[i_epic_LAA].unit();
         		f0 = s0.cross(n0);
         		break;
-        	/*}
+        	}
         	else{
 			    f0 = du[i_endo_LAA].unit();
         		n0 = s0.cross(f0);
@@ -631,11 +669,11 @@ class BCs{
         //Lateral
         case 7:
         {
-        	if(u[0]>0.5){
+        	//if(u[0]>0.5){
 				n0 = du[i_epic_lateral].unit();
 				f0 = s0.cross(n0);
 				break;
-        	}
+        	/*}
         	else if(u[0]<=0.5 && i_endo_lateral!=90){
 				n0 = du[i_epic_lateral].unit();
         		f0 = s0.cross(n0);
@@ -645,7 +683,7 @@ class BCs{
 			    f0 = du[i_endo_lateral].unit();
         		n0 = s0.cross(f0);
         		break;
-        	}
+        	}*/
         }
         //Antra between pv0 and pv1
         case 8:
@@ -657,21 +695,21 @@ class BCs{
         //Septum
         case 9:
         {
-        	if(u[0]>0.5){
+        	/*if(u[0]>0.5){
 				n0 = du[i_epic_septum].unit();
 				f0 = s0.cross(n0);
 				break;
         	}
-        	else if(u[0]<=0.5 && i_endo_septum!=90){
-				n0 = du[i_epic_septum].unit();
+        	else if(u[0]<=0.5 && i_endo_septum!=90){*/
+				n0 = du[i_endo_septum].unit();
         		f0 = s0.cross(n0);
         		break;
-        	}
+        	/*}
         	else{
 			    f0 = du[i_endo_septum].unit();
         		n0 = s0.cross(f0);
         		break;
-        	}
+        	}*/
         }
         //Anterior
         case 10:
@@ -710,11 +748,11 @@ class BCs{
             //Anterior_bottom
             case 14:
             {
-            	if(u[0]>0.5){
+            	//if(u[0]>0.5){
     				n0 = du[i_epic_anterior_bottom].unit();
     				f0 = s0.cross(n0);
     				break;
-            	}
+            	/*}
             	else if(u[0]<=0.5 && i_endo_anterior_bottom!=90){
     				n0 = du[i_epic_anterior_bottom].unit();
             		f0 = s0.cross(n0);
@@ -724,16 +762,16 @@ class BCs{
     			    f0 = du[i_endo_anterior_bottom].unit();
             		n0 = s0.cross(f0);
             		break;
-            	}
+            	}*/
             }
             //Posterior_bottom
             case 15:
             {
-            	if(u[0]>0.5){
+            	//if(u[0]>0.5){
     				n0 = du[i_epic_posterior_bottom].unit();
     				f0 = s0.cross(n0);
     				break;
-            	}
+            	/*}
             	else if(u[0]<=0.5 && i_endo_posterior_bottom!=90){
     				n0 = du[i_epic_posterior_bottom].unit();
             		f0 = s0.cross(n0);
@@ -743,7 +781,7 @@ class BCs{
     			    f0 = du[i_endo_posterior_bottom].unit();
             		n0 = s0.cross(f0);
             		break;
-            	}
+            	}*/
             }
         }
         default:
@@ -1002,15 +1040,6 @@ int main(int argc, char** argv)
  	   poisson_solver.reinit(  dirichlet_x_list,  dirichlet_y_list,  dirichlet_z_list,
 							   dirichlet_r_list,  dirichlet_side_set_list_aux, dirichlet_bc_list_aux);
 
-       //Check
-       if(poisson_ptr->dirichlet_id_points.size()!= poisson_ptr->dirichlet_id_radius.size()){
-               	std::cout << " The number of points does not match the number of radii" << std::endl;
-               	std::cout << "for problem i= " << i << std::endl;
-               	std::cout << "the size of vector points is "<< poisson_ptr->dirichlet_id_points.size()<<std::endl;
-               	std::cout << "the size of vector radius is "<< poisson_ptr->dirichlet_id_radius.size()<<std::endl;
-               	throw std::runtime_error(" The number of points does not match the number of radii");
-       }
-
 
 	   //Print info on screen
         std::cout << "Setting Dirichlet BCs on " << poisson_ptr->dirichlet_id_points.size() << " points" << std::endl;
@@ -1024,7 +1053,8 @@ int main(int argc, char** argv)
 
         //  Libmesh zeros out matrix and RHS when i call solve
         // preventing that to happen:
-        equation_systems.get_system("Poisson").zero_out_matrix_and_rhs=false;*/
+        equation_systems.get_system("Poisson").zero_out_matrix_and_rhs=false;
+        */
 
         equation_systems.get_system("Poisson").solve();
 
@@ -1108,24 +1138,28 @@ int main(int argc, char** argv)
 
     // After solving the system write the solution
     // to a VTK-formatted plot file.
-    std::string output_path = test + output_file_name + output_number + ".pvtu";
-    VTKIO(mesh).write_equation_systems(output_path, equation_systems);
+       save_fibers(test, output_file_name, output_number, equation_systems, mesh);
 
-    // Export fibers in nemesis format
-    ExodusII_IO nemesis_exporter(mesh); // creates the exporter
-    std::vector<std::string> output_variables(9); // creates a vector that stores the names of vectors
-    output_variables[0] = "fibersx";
-    output_variables[1] = "fibersy";
-    output_variables[2] = "fibersz";
-    output_variables[3] = "sheetsx";
-    output_variables[4] = "sheetsy";
-    output_variables[5] = "sheetsz";
-    output_variables[6] = "xfibersx";
-    output_variables[7] = "xfibersy";
-    output_variables[8] = "xfibersz";
-    nemesis_exporter.set_output_variables(output_variables);
-    nemesis_exporter.write_equation_systems(test + output_file_name + output_number + ".e", equation_systems); // saves the variables at the nodes
-    nemesis_exporter.write_element_data(equation_systems); // this saves the variables at the centroid of the elements
+	   /*std::string output_path = test + output_file_name + output_number + ".pvtu";
+	    VTKIO(mesh).write_equation_systems(output_path, equation_systems);
+
+	    // Export fibers in nemesis format
+	    ExodusII_IO nemesis_exporter(mesh); // creates the exporter
+	    std::vector<std::string> output_variables(9); // creates a vector that stores the names of vectors
+	    output_variables[0] = "fibersx";
+	    output_variables[1] = "fibersy";
+	    output_variables[2] = "fibersz";
+	    output_variables[3] = "sheetsx";
+	    output_variables[4] = "sheetsy";
+	    output_variables[5] = "sheetsz";
+	    output_variables[6] = "xfibersx";
+	    output_variables[7] = "xfibersy";
+	    output_variables[8] = "xfibersz";
+	    nemesis_exporter.set_output_variables(output_variables);
+	    nemesis_exporter.write_equation_systems(test + output_file_name + output_number + ".e", equation_systems); // saves the variables at the nodes
+	    nemesis_exporter.write_element_data(equation_systems); // this saves the variables at the centroid of the elements
+*/
+
     // All done.
     return 0;
 }
