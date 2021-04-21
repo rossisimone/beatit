@@ -82,8 +82,6 @@ using namespace libMesh;
 // name of the system we are assembling as input.  From the
 //  EquationSystems object we have access to the  Mesh and
 // other objects we might need.
-void assemble_poisson(EquationSystems& es,
-    const std::string& system_name);
 
 // Function prototype for the exact solution.
 Real exact_solution(const Real x,
@@ -111,6 +109,14 @@ class Poisson{
 		//Mesh
 		//Mesh mesh; ??
 
+		// For each input file i we need:
+        std::string dirichlet_side_set_list_aux;
+        std::string dirichlet_bc_list_aux;
+        std::string dirichlet_x_list;
+        std::string dirichlet_y_list;
+        std::string dirichlet_z_list;
+        std::string dirichlet_r_list;
+
 
 		// Pointer to a vector of points
 		// These vectors store coordinates of centers of spheres and their radius
@@ -128,9 +134,13 @@ class Poisson{
 		void reinit(std::string, std::string,std::string,
 				 std::string, std::string, std::string);
 
+		void read_input_i(double, EquationSystems &);
+
 		// assemble_poisson
+		void assemble_poisson(EquationSystems&, const std::string&);
 
 		//solve
+
 
 };
 
@@ -197,6 +207,42 @@ class BCs{
                 	std::cout << "the size of vector radius is "<< dirichlet_id_radius.size()<<std::endl;
                 	throw std::runtime_error(" The number of points does not match the number of radii"); // throw an exception
         }
+ 	   //Print info on screen
+         std::cout << "Setting Dirichlet BCs on " << dirichlet_id_points.size() << " points" << std::endl;
+
+	}
+
+	void Poisson::read_input_i( double i, EquationSystems & equation_systems)
+	{
+	  	std::cout << "----------------------------------------\n";
+    	std::cout << "----------------------------------------\n";
+
+        //name of the problem
+        GetPot data_i(input_list[i]);
+
+        dirichlet_side_set_list_aux.clear();
+        dirichlet_bc_list_aux.clear();
+        dirichlet_x_list.clear();
+        dirichlet_y_list.clear();
+        dirichlet_z_list.clear();
+        dirichlet_r_list.clear();
+
+        // Read Dirichlet BC ID list from input file
+        dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", " ");
+        dirichlet_bc_list_aux       = data_i("Idirichlet_bc_list"      , " ");
+
+        // Read Dirichlet BC ID list for septum and laa points
+        dirichlet_x_list = data_i("Ix", " ");
+        dirichlet_y_list = data_i("Iy", " ");
+        dirichlet_z_list = data_i("Iz", " ");
+        dirichlet_r_list = data_i("Ir", " ");
+
+       std::cout << "Ix, Iy, Iz and Ir are respectively: "<< dirichlet_x_list
+    		     << " | " << dirichlet_y_list << " | "<< dirichlet_z_list <<
+				    " | " << dirichlet_r_list << std::endl;
+
+       std::cout << "Idirichlet_side_set_list = " <<dirichlet_side_set_list_aux <<std::endl;
+       std::cout << "Idirichlet_bc_list = " <<dirichlet_bc_list_aux <<std::endl;
 
 	}
 
@@ -598,6 +644,11 @@ class BCs{
         {
 				n0 = du[i_epic_PV1].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_PV1==0 && i_endo_PV1==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         //PV left back
@@ -605,6 +656,11 @@ class BCs{
         {
 				n0 = du[i_epic_PV2].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_PV2==0 && i_endo_PV2==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         //PV right front
@@ -612,6 +668,11 @@ class BCs{
         {
 				n0 = du[i_epic_PV3].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_PV3==0 && i_endo_PV3==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         //PV right front
@@ -619,6 +680,11 @@ class BCs{
         {
 				n0 = du[i_epic_PV4].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_PV4==0 && i_endo_PV4==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         // Floor
@@ -627,6 +693,11 @@ class BCs{
         	//if(u[0]>0.5){
 				n0 = du[i_epic_floor].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_floor==0 && i_endo_floor==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         	/*}
         	else if(u[0]<=0.5 && i_endo_floor!=90){
@@ -644,16 +715,24 @@ class BCs{
         case 5:
         {
         	//if(u[0]>0.5){
-				n0 = du[i_epic_LAA].unit();
+			if 	(i_endo_LAA!=90 && i_epic_LAA!=90 ){
+        	    n0 = du[i_epic_LAA].unit();
 				f0 = s0.cross(n0);
 				break;
-				/*	}                          // endocardium 90 degrees wrt to epicardium
-        	else if(u[0]<=0.5 && i_endo_LAA!=90){
-				n0 = du[i_epic_LAA].unit();
-        		f0 = s0.cross(n0);
+					}                          // endocardium 90 degrees wrt to epicardium
+//        	else if(u[0]<=0.5 && i_endo_LAA!=90){
+			else if(i_epic_LAA==0 && i_endo_LAA==0){
+	            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+	            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+	            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+	            break;
+			}
+			else{
+			    f0 = du[i_epic_LAA].unit();
+        		n0 = s0.cross(f0);
         		break;
         	}
-        	else{
+        	/*else{
 			    f0 = du[i_endo_LAA].unit();
         		n0 = s0.cross(f0);
         		break;
@@ -662,8 +741,13 @@ class BCs{
         //Antra between pv2 and pv3
         case 6:
         {
-				n0 = du[i_epic_antra2].unit();
+				n0 = du[i_epic_antra1].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_antra1==0 && i_endo_antra1==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         //Lateral
@@ -672,6 +756,11 @@ class BCs{
         	//if(u[0]>0.5){
 				n0 = du[i_epic_lateral].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_lateral==0 && i_endo_lateral==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         	/*}
         	else if(u[0]<=0.5 && i_endo_lateral!=90){
@@ -690,7 +779,13 @@ class BCs{
         {
 				n0 = du[i_epic_antra2].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_antra2==0 && i_endo_antra2==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
+
         }
         //Septum
         case 9:
@@ -703,13 +798,18 @@ class BCs{
         	else if(u[0]<=0.5 && i_endo_septum!=90){*/
 				n0 = du[i_endo_septum].unit();
         		f0 = s0.cross(n0);
-        		break;
         	/*}
         	else{
 			    f0 = du[i_endo_septum].unit();
         		n0 = s0.cross(f0);
         		break;
         	}*/
+				if(i_epic_septum==0 && i_endo_septum==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
+        		break;
         }
         //Anterior
         case 10:
@@ -718,6 +818,11 @@ class BCs{
 				f0 = s0.cross(n0);
 //			f0 = du[11].unit();
 //			n0 = s0.cross(f0);
+				if(i_epic_anterior==0 && i_endo_anterior==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         //Posterior
@@ -725,6 +830,11 @@ class BCs{
         {
 				n0 = du[i_epic_posterior].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_posterior==0 && i_endo_posterior==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         }
         //Septum_bottom
@@ -733,6 +843,11 @@ class BCs{
         	//if(u[0]>0.5){
 				n0 = du[i_epic_septum_bottom].unit();
 				f0 = s0.cross(n0);
+				if(i_epic_septum_bottom==0 && i_endo_septum_bottom==0){
+		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+				}
 				break;
         	/*}
         	else if(u[0]<=0.5 && i_endo_septum_bottom!=90){
@@ -751,6 +866,11 @@ class BCs{
             	//if(u[0]>0.5){
     				n0 = du[i_epic_anterior_bottom].unit();
     				f0 = s0.cross(n0);
+    				if(i_epic_anterior_bottom==0 && i_endo_anterior_bottom==0){
+    		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+    		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+    		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+    				}
     				break;
             	/*}
             	else if(u[0]<=0.5 && i_endo_anterior_bottom!=90){
@@ -770,6 +890,11 @@ class BCs{
             	//if(u[0]>0.5){
     				n0 = du[i_epic_posterior_bottom].unit();
     				f0 = s0.cross(n0);
+    				if(i_epic_posterior_bottom==0 && i_endo_posterior_bottom==0){
+    		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+    		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+    		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+    				}
     				break;
             	/*}
             	else if(u[0]<=0.5 && i_endo_posterior_bottom!=90){
@@ -787,9 +912,12 @@ class BCs{
         default:
         {
         	std::cout << "Case default, element = "<< elem <<"\n";
-            f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
+            /*f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
             s0(0) = 0.0; s0(1) = 1.0; s0(2) = 0.0;
-            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;
+            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;*/
+            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
+            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
+            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
             break;
         }
         }
@@ -811,8 +939,6 @@ class BCs{
 	}
 
 
-	//global
-	Poisson * poisson_ptr = nullptr;
 
 // MAIN
 int main(int argc, char** argv)
@@ -828,14 +954,12 @@ int main(int argc, char** argv)
     int N= data("number_of_problems", 0);
 
 
-    //Create an object of class Poisson and a pointer to it
+    //Create an object of class Poisson
     Poisson poisson_solver;
-    poisson_ptr = & poisson_solver;
-
 
     // Read name of the input files corresponding to each problem
     std::string input_list_aux = data("inputs", "");
-    BeatIt::readList(input_list_aux, poisson_ptr->input_list);
+    BeatIt::readList(input_list_aux, poisson_solver.input_list); //poisson_solver.input_list?
 
 
     // Initialize libraries, like in example 2.
@@ -994,11 +1118,6 @@ int main(int argc, char** argv)
     }
 
 
-    // Give the system a pointer to the matrix assembly
-    // function.  This will be called when needed by the
-    // library.
-    equation_systems.get_system("Poisson").attach_assemble_function(assemble_poisson);
-
 
     // Initialize the data structures for the equation system.
     equation_systems.init();
@@ -1008,53 +1127,31 @@ int main(int argc, char** argv)
 
     // Reading the input for each of the problems
     for (int i = 0; i < N; i++) {
-    	std::cout << "----------------------------------------\n";
-    	std::cout << "----------------------------------------\n";
 
         std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
         ExplicitSystem& si = equation_systems.add_system<ExplicitSystem>(ui);
         si.add_variable(ui, FIRST);
         si.init();
 
-        //name of the problem
-        GetPot data_i(poisson_ptr->input_list[i]);
-
-        // Read Dirichlet BC ID list from input file
-        std::string dirichlet_side_set_list_aux = data_i("Idirichlet_side_set_list", " ");
-        std::string dirichlet_bc_list_aux       = data_i("Idirichlet_bc_list"      , " ");
-
-        // Read Dirichlet BC ID list for septum and laa points
-       std::string dirichlet_x_list = data_i("Ix", " ");
-       std::string dirichlet_y_list = data_i("Iy", " ");
-       std::string dirichlet_z_list = data_i("Iz", " ");
-       std::string dirichlet_r_list = data_i("Ir", " ");
-
-       std::cout << "Ix, Iy, Iz and Ir are respectively: "<< dirichlet_x_list
-    		     << " | " << dirichlet_y_list << " | "<< dirichlet_z_list <<
-				    " | " << dirichlet_r_list << std::endl;
-
-       std::cout << "Idirichlet_side_set_list = " <<dirichlet_side_set_list_aux <<std::endl;
-       std::cout << "Idirichlet_bc_list = " <<dirichlet_bc_list_aux <<std::endl;
+ 	   //READ INPUT I > BE CAREFUL BECAUSE HERE I WILL BE OVERWRITTING WHAT I HAD BEFORE
+ 	   poisson_solver.read_input_i(i, equation_systems);
 
        // reinit Poisson member variables using input file values
- 	   poisson_solver.reinit(  dirichlet_x_list,  dirichlet_y_list,  dirichlet_z_list,
-							   dirichlet_r_list,  dirichlet_side_set_list_aux, dirichlet_bc_list_aux);
+ 	  poisson_solver.reinit(poisson_solver.dirichlet_x_list, poisson_solver.dirichlet_y_list,  poisson_solver.dirichlet_z_list,
+ 			  poisson_solver.dirichlet_r_list,  poisson_solver.dirichlet_side_set_list_aux, poisson_solver.dirichlet_bc_list_aux);
+
+ 	  poisson_solver.assemble_poisson(equation_systems, "Poisson" );
 
 
-	   //Print info on screen
-        std::cout << "Setting Dirichlet BCs on " << poisson_ptr->dirichlet_id_points.size() << " points" << std::endl;
-
-        /*
         // CHANGED LINE 288 - not attaching automatically
-        equation_systems.get_system("Poisson").matrix->zero();
-        equation_systems.get_system("Poisson").rhs->zero();
+        //equation_systems.get_system("Poisson").matrix->zero();
+        //equation_systems.get_system("Poisson").rhs->zero();
         //Assemble function manually
-        assemble_poisson( ); // now I can change the inputs here!
+        //assemble_poisson( ); // now I can change the inputs here!
 
         //  Libmesh zeros out matrix and RHS when i call solve
         // preventing that to happen:
-        equation_systems.get_system("Poisson").zero_out_matrix_and_rhs=false;
-        */
+        equation_systems.get_system<ImplicitSystem>("Poisson").zero_out_matrix_and_rhs=false;
 
         equation_systems.get_system("Poisson").solve();
 
@@ -1171,8 +1268,8 @@ int main(int argc, char** argv)
 // matrices and right-hand sides, and then take into
 // account the boundary conditions, which will be handled
 // via a penalty method.
-void assemble_poisson(EquationSystems& es,
-    const std::string& libmesh_dbg_var(system_name))
+void Poisson::assemble_poisson(EquationSystems& es,
+    const std::string& system_name)
 {
 
     // It is a good idea to make sure we are assembling
@@ -1419,15 +1516,15 @@ void assemble_poisson(EquationSystems& es,
                     double radius;
 
                     //Check if side set is on the Idirichlet_side_set_list from input
-                    for(int it=0; it<poisson_ptr->dirichlet_side_set_list.size(); it++)
+                    for(int it=0; it<dirichlet_side_set_list.size(); it++)
                     {
-                    	if(poisson_ptr->dirichlet_side_set_list[it]==boundaryid){
-                    	elem_dirichlet_bc=poisson_ptr->dirichlet_bc_list[it];
+                    	if(dirichlet_side_set_list[it]==boundaryid){
+                    	elem_dirichlet_bc=dirichlet_bc_list[it];
                     	found_side_set_in_list =1;
-                    	radius = poisson_ptr->dirichlet_id_radius[it];
-                        //std::cout << "dirichlet_side_set= " <<  poisson_ptr->dirichlet_side_set_list[it]<<
+                    	radius = dirichlet_id_radius[it];
+                        //std::cout << "dirichlet_side_set= " <<  dirichlet_side_set_list[it]<<
                         //		    ", elem_dirichlet_bc1= " << elem_dirichlet_bc <<std::endl;//<< ", dirichlet_bc= " <<", radius= " << radius <<
-						//poisson_ptr->dirichlet_bc_list[it] <<
+						//dirichlet_bc_list[it] <<
                     	//std::cout<< radius <<std::endl;
                     	}
                     }
@@ -1465,19 +1562,19 @@ void assemble_poisson(EquationSystems& es,
                         bool is_on_neighborhood = 0;
 
                         // Verify if the quadrature points are within the neighborhood of one of the id05 list points
-                        for (int jj = 0; jj < poisson_ptr->dirichlet_id_points.size(); jj++) {
-                            libMesh::Point p_id(qface_point[qp] - poisson_ptr->dirichlet_id_points[jj]);
-                            is_on_neighborhood = (p_id.norm() <= poisson_ptr->dirichlet_id_radius[jj]) ? 1 : 0;
+                        for (int jj = 0; jj < dirichlet_id_points.size(); jj++) {
+                            libMesh::Point p_id(qface_point[qp] - dirichlet_id_points[jj]);
+                            is_on_neighborhood = (p_id.norm() <= dirichlet_id_radius[jj]) ? 1 : 0;
                             if (is_on_neighborhood == 1){
-                            	elem_dirichlet_bc=poisson_ptr->dirichlet_bc_list[jj];
-                                radius = poisson_ptr->dirichlet_id_radius[jj];
+                            	elem_dirichlet_bc=dirichlet_bc_list[jj];
+                                radius = dirichlet_id_radius[jj];
                                 break;
                             }
                        }
 
-/*                        std::cout << "dirichlet_side_set= " <<  poisson_ptr->dirichlet_side_set_list[jj]<<", radius= " << radius <<
+/*                        std::cout << "dirichlet_side_set= " <<  dirichlet_side_set_list[jj]<<", radius= " << radius <<
                         		    ", elem_dirichlet_bc= " << elem_dirichlet_bc << ", dirichlet_bc= " <<
-									poisson_ptr->dirichlet_bc_list[jj] <<std::endl;
+									dirichlet_bc_list[jj] <<std::endl;
 */
                         //std::cout << "radius= " << radius <<", elem_dirichlet_bc= " << elem_dirichlet_bc <<std::endl;
 
