@@ -1,0 +1,9 @@
+output_number='3'
+
+
+Ix = '0 , 0 , 0 ,  0, 0 '
+Iy = '0 , 0 , 0 ,  0, 0 '
+Iz = '0 , 0 , 0 ,  0, 0 '
+Ir = '-1,-1 ,-1 , -1, -1'
+Idirichlet_side_set_list = '7 , 8 , 9 ,  10, 5  '
+Idirichlet_bc_list       = '0 , 0 , 0 ,  0 , 1  '

@@ -1,0 +1,38 @@
+# Using a mesh? If so set mesh_input=true
+mesh_input=true
+# Mesh file name
+mesh=M75_folder/M75_m0.e
+# If you want to store your outputs in a folder named "Output47"
+output_number='47'
+output_name= 'M75_folder/Output'
+
+# Output file name
+output_file= '/M75_epi_m0_out'
+
+#Secondary input files
+inputs=' M75_folder/input.secondary0, M75_folder/input.secondary1, M75_folder/input.secondary2, M75_folder/input.secondary3, M75_folder/input.secondary4,  M75_folder/input.secondary5, M75_folder/input.secondary6, M75_folder/input.secondary7, M75_folder/input.secondary8, M75_folder/input.secondary9, M75_folder/input.secondary10, M75_folder/input.secondary11, M75_folder/input.secondary12, M75_folder/input.secondary13, M75_folder/input.secondary14, M75_folder/input.secondary15'
+
+#Count the number of input files you are passing in the above line
+number_of_problems='16'
+
+# region  |solution index | lower threshldold | upper threshold | fiber direction epi |  fiber direction endo 
+pv1      ='     1         ,       0.8         ,      1.1        ,          1          ,          1'
+pv2      ='     1         ,        0          ,      0.25       ,          1          ,          1'
+pv3      ='     8         ,       0.7         ,      1.1        ,          8          ,          8'
+pv4      ='     8         ,       0           ,      0.2        ,          8          ,          8'
+floor    ='     2         ,       0.95        ,      1.1        ,          9          ,          9'
+laa      ='     5         ,       0.38        ,      1.1        ,          5          ,          5'
+antra1   ='     6         ,       0.74        ,      1.1        ,          8          ,          8'
+antra2   ='     6         ,       0           ,      0.25       ,          1          ,          1'
+septum   ='     5         ,       0           ,      0.10       ,         11          ,         11'
+anterior ='     1         ,       0.59        ,      1.1        ,          14         ,         14'
+posterior='     5         ,       0           ,      0.3        ,          13         ,         13'
+lateral  ='     0         ,       0           ,      0          ,          2          ,          2'
+septum_bottom     ='     0         ,       0           ,      0          ,          9          ,         9'
+anterior_bottom   ='     0         ,       0           ,      0          ,          9          ,         9'
+posterior_bottom  ='     0         ,       0           ,      0          ,          9         ,         9'
+carina1  ='     0         ,       0           ,      0          ,           0         ,          0'
+carina2  ='     0         ,       0           ,      0          ,           0         ,          0'
+strip    ='     2         ,       0.4         ,      1          ,          9          ,          9'
+# first three entries for lateral are placeholders 
+

@@ -1,0 +1,9 @@
+output_number='7'
+
+
+Ix = '0 , 0 , 0  '
+Iy = '0 , 0 , 0 '
+Iz = '0 , 0 , 0 '
+Ir = '-1,-1 ,-1 '
+Idirichlet_side_set_list = '4 , 9 , 10  '
+Idirichlet_bc_list       = '0 , 1 , 1   '

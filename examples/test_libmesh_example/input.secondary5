@@ -1,0 +1,8 @@
+output_number='5'
+
+Ix = '3 , -3.89'
+Iy = '1 ,  3.99'
+Iz = '3 ,  0.94'
+Ir = '1 ,  0.50'
+Idirichlet_side_set_list = '3 , 3 '
+Idirichlet_bc_list       = '0 , 1 '
