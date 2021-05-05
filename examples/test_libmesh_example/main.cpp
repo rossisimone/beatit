@@ -16,17 +16,13 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 
-// <h1>Introduction Example 3 - Solving a Poisson Problem</h1>
-// \author Benjamin S. Kirk
-// \date 2003
+// Adapted from Introduction Example 3 - Solving a Poisson Problem</h1>
+// \author Laryssa Abdala
+// \date 2021
 //
-// This is the third example program.  It builds on
-// the second example program by showing how to solve a simple
-// Poisson system.  This example also introduces the notion
-// of customized matrix assembly functions, working with an
-// exact solution, and using element iterators.
-// We will not comment on things that
-// were already explained in the second example.
+// This program solves a simple
+// Poisson system.  It also gets many inputs from main and
+// secondary input files
 
 // C++ include files that we need
 #include <iostream>
@@ -83,17 +79,9 @@ using namespace libMesh;
 //  EquationSystems object we have access to the  Mesh and
 // other objects we might need.
 
-// Function prototype for the exact solution.
-Real exact_solution(const Real x,
-    const Real y,
-    const Real z = 0.)
-{
-    static const Real pi = acos(-1.);
 
-    //  return (16/9)*cos(.25*pi*(3*x-5))*sin(pi*y)*cos(.5*pi*z);
-    //  return cos(.5*pi*x)*sin(.5*pi*y)*cos(.5*pi*z); //original
-    return sin(.5 * pi * x) * cos(.5 * pi * y) * cos(.5 * pi * z); // reversed - test
-}
+// Poisson class - contains all important information to solve
+// the Poisson problem
 
 class Poisson{
 	public:
@@ -106,9 +94,6 @@ class Poisson{
 		// Stores a list of the names of all input files for each problem we are solving
 		std::vector<std::string> input_list;
 
-		//Mesh
-		//Mesh mesh; ??
-
 		// For each input file i we need:
         std::string dirichlet_side_set_list_aux;
         std::string dirichlet_bc_list_aux;
@@ -118,41 +103,23 @@ class Poisson{
         std::string dirichlet_r_list;
 
 
-		// Pointer to a vector of points
-		// These vectors store coordinates of centers of spheres and their radius
-		// example: we want to impose Dirichlet BC 0.5 on spheres w/ centers at Point1=(0,2,3) and radius 0.3
-		//          and another sphere w/ center at Point2=(1,9,8) and radius 0.4
-		// 			then dirichlet_id05_points = [Point1 Point2];
-		//          and  dirichlet_id05_radius = [0.3 0.4]
-
+		// Pointer to a vector of points x,y,z
 		std::vector<libMesh::Point> dirichlet_id_points;
 
 		// Radius of sphere (neighborhood) where we impose Dirichlet BC
 		std::vector<double> dirichlet_id_radius;
 
-
+		//Reinitializes all the member variables
 		void reinit(std::string, std::string,std::string,
 				 std::string, std::string, std::string);
 
+		//reads input secondary input file i
 		void read_input_i(double, EquationSystems &);
 
 		// assemble_poisson
 		void assemble_poisson(EquationSystems&, const std::string&);
 
-		//solve
-
-
 };
-
-/*
-class BCs{
-	id of side sets
-	values of bcs
-	do i want to apply on the side set or sphere? boolean that depends on radius
-	point and radius
-	variable negative if wna to apply to a set id and positive to a sphere
-};*/
-
 
 	void Poisson::reinit( std::string dirichlet_x_list, std::string dirichlet_y_list, std::string dirichlet_z_list,
 						 std::string dirichlet_r_list, std::string dirichlet_side_set_list_aux, std::string dirichlet_bc_list_aux)
@@ -246,7 +213,7 @@ class BCs{
 
 	}
 
-
+// Save the fibers
 	void save_fibers(std::string e_test, std::string e_output_file_name, std::string e_output_number,
 								EquationSystems & equation_systems, Mesh & mesh){
 		   std::string output_path = e_test + e_output_file_name + e_output_number + ".pvtu";
@@ -269,6 +236,8 @@ class BCs{
 		    nemesis_exporter.write_element_data(equation_systems); // this saves the variables at the centroid of the elements
 	}
 
+	// The AnatomicalParameters constains all parameters that have to do with
+	// region selection and building the fiber
 	class AnatomicalParameters{
 		public:
 
@@ -321,7 +290,8 @@ class BCs{
 
 		// Define regions
 		int define_regions (std::vector<double> &);
-		// function to define fibers  | input: u, output: fiber field??
+
+		// function to define fibers  | input: u, output: fiber field
 		void define_fibers(std::vector<double> & , std::vector<libMesh::Gradient> & , int, const auto&);
 	};
 
@@ -690,7 +660,6 @@ class BCs{
         // Floor
         case 4:
         {
-        	//if(u[0]>0.5){
 				n0 = du[i_epic_floor].unit();
 				f0 = s0.cross(n0);
 				if(i_epic_floor==0 && i_endo_floor==0){
@@ -699,28 +668,15 @@ class BCs{
 		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
 				}
 				break;
-        	/*}
-        	else if(u[0]<=0.5 && i_endo_floor!=90){
-				n0 = du[i_epic_floor].unit();
-        		f0 = s0.cross(n0);
-        		break;
-        	}
-        	else{
-			    f0 = du[i_endo_floor].unit();
-        		n0 = s0.cross(f0);
-        		break;
-        	}*/
         }
         // LAA
         case 5:
         {
-        	//if(u[0]>0.5){
 			if 	(i_endo_LAA!=90 && i_epic_LAA!=90 ){
         	    n0 = du[i_epic_LAA].unit();
 				f0 = s0.cross(n0);
 				break;
-					}                          // endocardium 90 degrees wrt to epicardium
-//        	else if(u[0]<=0.5 && i_endo_LAA!=90){
+					}
 			else if(i_epic_LAA==0 && i_endo_LAA==0){
 	            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
 	            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
@@ -732,11 +688,6 @@ class BCs{
         		n0 = s0.cross(f0);
         		break;
         	}
-        	/*else{
-			    f0 = du[i_endo_LAA].unit();
-        		n0 = s0.cross(f0);
-        		break;
-        	}*/
         }
         //Antra between pv2 and pv3
         case 6:
@@ -753,7 +704,6 @@ class BCs{
         //Lateral
         case 7:
         {
-        	//if(u[0]>0.5){
 				n0 = du[i_epic_lateral].unit();
 				f0 = s0.cross(n0);
 				if(i_epic_lateral==0 && i_endo_lateral==0){
@@ -762,17 +712,6 @@ class BCs{
 		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
 				}
 				break;
-        	/*}
-        	else if(u[0]<=0.5 && i_endo_lateral!=90){
-				n0 = du[i_epic_lateral].unit();
-        		f0 = s0.cross(n0);
-        		break;
-        	}
-        	else{
-			    f0 = du[i_endo_lateral].unit();
-        		n0 = s0.cross(f0);
-        		break;
-        	}*/
         }
         //Antra between pv0 and pv1
         case 8:
@@ -790,20 +729,6 @@ class BCs{
         //Septum
         case 9:
         {
-        	/*if(u[0]>0.5){
-				n0 = du[i_epic_septum].unit();
-				f0 = s0.cross(n0);
-				break;
-        	}
-        	else if(u[0]<=0.5 && i_endo_septum!=90){*/
-				n0 = du[i_endo_septum].unit();
-        		f0 = s0.cross(n0);
-        	/*}
-        	else{
-			    f0 = du[i_endo_septum].unit();
-        		n0 = s0.cross(f0);
-        		break;
-        	}*/
 				if(i_epic_septum==0 && i_endo_septum==0){
 		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
 		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
@@ -816,8 +741,6 @@ class BCs{
         {
 				n0 = du[i_epic_anterior].unit();
 				f0 = s0.cross(n0);
-//			f0 = du[11].unit();
-//			n0 = s0.cross(f0);
 				if(i_epic_anterior==0 && i_endo_anterior==0){
 		            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
 		            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
@@ -840,7 +763,6 @@ class BCs{
         //Septum_bottom
         case 13:
         {
-        	//if(u[0]>0.5){
 				n0 = du[i_epic_septum_bottom].unit();
 				f0 = s0.cross(n0);
 				if(i_epic_septum_bottom==0 && i_endo_septum_bottom==0){
@@ -849,17 +771,6 @@ class BCs{
 		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
 				}
 				break;
-        	/*}
-        	else if(u[0]<=0.5 && i_endo_septum_bottom!=90){
-				n0 = du[i_epic_septum_bottom].unit();
-        		f0 = s0.cross(n0);
-        		break;
-        	}
-        	else{
-			    f0 = du[i_endo_septum_bottom].unit();
-        		n0 = s0.cross(f0);
-        		break;
-        	}*/
             //Anterior_bottom
             case 14:
             {
@@ -872,22 +783,10 @@ class BCs{
     		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
     				}
     				break;
-            	/*}
-            	else if(u[0]<=0.5 && i_endo_anterior_bottom!=90){
-    				n0 = du[i_epic_anterior_bottom].unit();
-            		f0 = s0.cross(n0);
-            		break;
-            	}
-            	else{
-    			    f0 = du[i_endo_anterior_bottom].unit();
-            		n0 = s0.cross(f0);
-            		break;
-            	}*/
             }
             //Posterior_bottom
             case 15:
             {
-            	//if(u[0]>0.5){
     				n0 = du[i_epic_posterior_bottom].unit();
     				f0 = s0.cross(n0);
     				if(i_epic_posterior_bottom==0 && i_endo_posterior_bottom==0){
@@ -896,28 +795,14 @@ class BCs{
     		            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
     				}
     				break;
-            	/*}
-            	else if(u[0]<=0.5 && i_endo_posterior_bottom!=90){
-    				n0 = du[i_epic_posterior_bottom].unit();
-            		f0 = s0.cross(n0);
-            		break;
-            	}
-            	else{
-    			    f0 = du[i_endo_posterior_bottom].unit();
-            		n0 = s0.cross(f0);
-            		break;
-            	}*/
             }
         }
         default:
         {
         	std::cout << "Case default, element = "<< elem <<"\n";
-            /*f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
+            f0(0) = 1.0; f0(1) = 0.0; f0(2) = 0.0;
             s0(0) = 0.0; s0(1) = 1.0; s0(2) = 0.0;
-            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;*/
-            f0(0) = 0.0; f0(1) = 0.0; f0(2) = 0.0;
-            s0(0) = 0.0; s0(1) = 0.0; s0(2) = 0.0;
-            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 0.0;
+            n0(0) = 0.0; n0(1) = 0.0; n0(2) = 1.0;
             break;
         }
         }
@@ -925,17 +810,6 @@ class BCs{
         f0 = f0.unit();
         s0 = s0.unit();
         n0 = n0.unit();
-
-        /*
-        if(block_id ==7){
-        std::cout << "block_id=7 and f0, n0 and s0 are equal to\n";
-        f0.print();
-        std::cout<<" ";
-    	n0.print();
-        std::cout<<" ";
-    	s0.print();
-        std::cout<<"\n";
-        }*/
 	}
 
 
@@ -1083,7 +957,6 @@ int main(int argc, char** argv)
     EquationSystems equation_systems(mesh);
 
     // Define fiber systems:
-    //EquationSystems es(mesh);
     typedef libMesh::ExplicitSystem  FiberSystem;
     FiberSystem& fiber_system = equation_systems.add_system<FiberSystem>("fibers");
     fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -1142,13 +1015,6 @@ int main(int argc, char** argv)
 
  	  poisson_solver.assemble_poisson(equation_systems, "Poisson" );
 
-
-        // CHANGED LINE 288 - not attaching automatically
-        //equation_systems.get_system("Poisson").matrix->zero();
-        //equation_systems.get_system("Poisson").rhs->zero();
-        //Assemble function manually
-        //assemble_poisson( ); // now I can change the inputs here!
-
         //  Libmesh zeros out matrix and RHS when i call solve
         // preventing that to happen:
         equation_systems.get_system<ImplicitSystem>("Poisson").zero_out_matrix_and_rhs=false;
@@ -1169,23 +1035,13 @@ int main(int argc, char** argv)
     // Output file name
     std::string output_file_name = data("output_file", "/out");
 
-
-    // case 1 -
-    //equation_systems.get_system("Poisson").assemble_before_solve = false;
-    // assemble_poisson(parameters);
-     // --------------------------
-
-
-
-
-
     // Solve the system "Poisson".  Note that calling this
     // member will assemble the linear system and invoke
     // the default numerical solver.  With PETSc the solver can be
     // controlled from the command line.  For example,
     // you can invoke conjugate gradient with:
     //
-    // ./introduction_ex3 -ksp_type cg
+    // ./executable -ksp_type cg
     //
     // You can also get a nice X-window that monitors the solver
     // convergence with:
@@ -1199,8 +1055,8 @@ int main(int argc, char** argv)
 
     std::cout << " Looping over elements to set up subdomain IDs"<< std::endl;
 
-    for (const auto& elem: mesh.active_local_element_ptr_range()) { // similar to dealii   - libMesh::Elem* instead of auto&
-        int blockid = elem->subdomain_id();//(*elem).subdomain_id();
+    for (const auto& elem: mesh.active_local_element_ptr_range()) {
+        int blockid = elem->subdomain_id();
         libMesh::Point centroid = elem->centroid();
         std::vector<double> u(N);
         std::vector<libMesh::Gradient> du(N);
@@ -1208,10 +1064,10 @@ int main(int argc, char** argv)
         // loop over the number of laplace problems we are solving
         for (int i = 0; i < N; i++)
         {
-            std::string ui = "u" + std::to_string(i);    //how cool! to use i in the name here!!!
+            std::string ui = "u" + std::to_string(i);
             ExplicitSystem& si = equation_systems.get_system<ExplicitSystem>(ui);
             u[i] = si.point_value(si.variable_number(ui), centroid, *elem);
-            du[i] = si.point_gradient(si.variable_number(ui), centroid, *elem);   //may ask for pointers - maybe error
+            du[i] = si.point_gradient(si.variable_number(ui), centroid, *elem);
         }
 
         //Define anatomical regions
@@ -1236,26 +1092,6 @@ int main(int argc, char** argv)
     // After solving the system write the solution
     // to a VTK-formatted plot file.
        save_fibers(test, output_file_name, output_number, equation_systems, mesh);
-
-	   /*std::string output_path = test + output_file_name + output_number + ".pvtu";
-	    VTKIO(mesh).write_equation_systems(output_path, equation_systems);
-
-	    // Export fibers in nemesis format
-	    ExodusII_IO nemesis_exporter(mesh); // creates the exporter
-	    std::vector<std::string> output_variables(9); // creates a vector that stores the names of vectors
-	    output_variables[0] = "fibersx";
-	    output_variables[1] = "fibersy";
-	    output_variables[2] = "fibersz";
-	    output_variables[3] = "sheetsx";
-	    output_variables[4] = "sheetsy";
-	    output_variables[5] = "sheetsz";
-	    output_variables[6] = "xfibersx";
-	    output_variables[7] = "xfibersy";
-	    output_variables[8] = "xfibersz";
-	    nemesis_exporter.set_output_variables(output_variables);
-	    nemesis_exporter.write_equation_systems(test + output_file_name + output_number + ".e", equation_systems); // saves the variables at the nodes
-	    nemesis_exporter.write_element_data(equation_systems); // this saves the variables at the centroid of the elements
-*/
 
     // All done.
     return 0;
@@ -1302,7 +1138,7 @@ void Poisson::assemble_poisson(EquationSystems& es,
 
     // Get a constant reference to the Finite Element type
     // for the first (and only) variable in the system.
-    FEType fe_type = dof_map.variable_type(0);                        //??????
+    FEType fe_type = dof_map.variable_type(0);
 
     // Build a Finite Element object of the specified type.  Since the
     // FEBase::build() member dynamically creates memory we will
@@ -1452,11 +1288,7 @@ void Poisson::assemble_poisson(EquationSystems& es,
                 // Since the value of the forcing function depends only
                 // on the location of the quadrature point (q_point[qp])
                 // we will compute it here, outside of the i-loop
-                const Real fxy = 0;//-(exact_solution(x, y-eps) +
-                                 //  exact_solution(x, y+eps) +
-                                 //  exact_solution(x-eps, y) +
-                                 //  exact_solution(x+eps, y) -
-                                 //  4.*exact_solution(x, y))/eps/eps;
+                const Real fxy = 0;
 
                 for (unsigned int i = 0; i != n_dofs; i++)
                 {
@@ -1584,7 +1416,7 @@ void Poisson::assemble_poisson(EquationSystems& es,
                         const Real penalty = 1.e10;
 
                         // The boundary value.
-                        const Real value = exact_solution(xf, yf);
+                       //const Real value = exact_solution(xf, yf);
 
 
                         // Matrix contribution of the L2 projection.
