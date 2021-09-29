@@ -15,7 +15,7 @@
 #include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"
 #include "Util/SpiritFunction.hpp"
-
+#include "libmesh/mesh_refinement.h"
 #include "libmesh/numeric_vector.h"
 #include "libmesh/elem.h"
 #include "Util/CTestUtil.hpp"
@@ -23,15 +23,17 @@
 #include <iomanip>
 #include "Util/GenerateFibers.hpp"
 #include "libmesh/exodusII_io.h"
-
+#include <libmesh/point_locator_tree.h>
 #include <fstream>
 #include <sstream>
+#include "libmesh/xdr_io.h"
+#include "libmesh/enum_xdr_mode.h"
 
 using namespace libMesh;
 
-const int N = 7;
+const int N = 9;
 void evaluate(double f[], double s[], double n[],
-              double phi[], double dphi[][3], int blockID, Point& x);
+              double phi[], double dphi[][3], int blockID);
 
 void cross(double v1[], double v2[], double cross_product[])
 {
@@ -82,6 +84,8 @@ int main(int argc, char ** argv)
 {
     // Initialize libmesh
     using namespace libMesh;
+    typedef libMesh::ExodusII_IO EXOExporter;
+
     LibMeshInit init (argc, argv, MPI_COMM_WORLD);
 
     // Read input file
@@ -109,10 +113,127 @@ int main(int argc, char ** argv)
     std::cout << "Reading Region Mesh" << std::endl;
     regions_mesh.read (&regions_meshfile[0]);
     std::cout << "Reading Final Mesh" << std::endl;
-    final_mesh.read (&final_meshfile[0]);
+
+
+    int num_refs = data("valves_refs", 0);
+    if(num_refs > 0)
+    {
+        std::cout << "Refinement" << std::endl;
+        libMesh::MeshRefinement mesh_refinement(heart_mesh);
+        std::cout << "Refining Valves" << std::endl;
+        libMesh::MeshBase::const_element_iterator el = heart_mesh.active_local_elements_begin();
+        const libMesh::MeshBase::const_element_iterator end_el = heart_mesh.active_local_elements_end();
+        libMesh::PointLocatorTree point_locator(regions_mesh);
+        std::set<libMesh::subdomain_id_type> allowed_subdomains;
+        regions_mesh.subdomain_ids(allowed_subdomains);
+        std::cout << "Setting Flags Valves" << std::endl;
+        int c = 0;
+        for (; el != end_el; ++el)
+        {
+            c++;
+            libMesh::Elem * elem = *el;
+            auto elID = elem->id();
+            const Point centroid = elem->centroid();
+            const Elem * subregion_element = point_locator(centroid);
+            unsigned int blockID = 0;
+            if(subregion_element) blockID = subregion_element->subdomain_id();
+            else
+            {
+                //std::cout << "Subregion Element NOT FOUND! " << elID << " " << c << " performing linear search: " << std::endl;
+                const Elem * subregion_element_linear_search = point_locator.perform_linear_search(centroid, &allowed_subdomains, true, 5e-1);
+                if(subregion_element_linear_search) blockID = subregion_element_linear_search->subdomain_id();
+                else
+                {
+                    //std::cout << "Subregion Element NOT FOUND! " << elID << " " << c << "performing fuzzy linear search:" <<   std::endl;
+                    std::set<const libMesh::Elem*> subregion_element_fuzzy_linear_search = point_locator.perform_fuzzy_linear_search(centroid, &allowed_subdomains, 5e-1);
+                    if(subregion_element_fuzzy_linear_search.size() > 0)
+                    {
+                        double distance = 1e9;
+                        for(auto && found_elem : subregion_element_fuzzy_linear_search)
+                        {
+                            Point ptest(centroid);
+                            ptest -= found_elem->centroid();
+                            double new_distance = ptest.norm();
+                            if( new_distance < distance )
+                                blockID = found_elem->subdomain_id();
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "Subregion Element NOT FOUND! " << elID << " " << c << "NOT FOUND!" <<   std::endl;
+                        throw std::runtime_error("subregion element not found");
+                    }
+                }
+            }
+
+            switch(blockID)
+            {
+                // AV
+                case 41:
+                case 42:
+                case 43:
+                // PV
+                case 51:
+                case 52:
+                case 53:
+                // MV
+                case 60:
+                // TV
+                case 70:
+                {
+                    //std::cout << "Setting Refinement Flag in " << blockID << std::endl;
+                    elem->set_refinement_flag(libMesh::Elem::REFINE);
+                    break;
+                }
+                default:
+                {
+                    elem->set_refinement_flag(libMesh::Elem::DO_NOTHING);
+                    break;
+                }
+            }
+
+        }
+        // refine mesh
+        mesh_refinement.refine_elements();
+        std::cout << "Prepare" << std::endl;
+        heart_mesh.prepare_for_use(false);
+        std::cout << "output" << std::endl;
+        EXOExporter(heart_mesh).write("refined_valves.e");
+        return 0;
+    }
+
+//    final_mesh.read (&final_meshfile[0]);
     //heart_mesh.read("full_heart_mesh.e");
 
+    std::cout << "Changing sidesets names" << std::endl;
+    // set boundary_ids names
+    heart_mesh.get_boundary_info().sideset_name(103) = "right_ventricle_septum";
+    heart_mesh.get_boundary_info().sideset_name(104) = "right_ventricle_septum";
+    heart_mesh.get_boundary_info().sideset_name(105) = "aorta_top_surface";
+    heart_mesh.get_boundary_info().sideset_name(106) = "pulmonary_artery_left_branch";
+    heart_mesh.get_boundary_info().sideset_name(107) = "pulmonary_artery_right_branch";
+    heart_mesh.get_boundary_info().sideset_name(440) = "aortic_valve_side";
+    heart_mesh.get_boundary_info().sideset_name(441) = "aortic_valve_bottom";
+    heart_mesh.get_boundary_info().sideset_name(442) = "aortic_valve_top";
+    heart_mesh.get_boundary_info().sideset_name(540) = "pulmonic_valve_side";
+    heart_mesh.get_boundary_info().sideset_name(541) = "pulmonic_valve_bottom";
+    heart_mesh.get_boundary_info().sideset_name(542) = "pulmonic_valve_top";
+    heart_mesh.get_boundary_info().sideset_name(640) = "mitral_valve_side";
+    heart_mesh.get_boundary_info().sideset_name(642) = "mitral_valve_bottom";
+    heart_mesh.get_boundary_info().sideset_name(740) = "tricuspid_valve_side";
+    heart_mesh.get_boundary_info().sideset_name(742) = "tricuspid_valve_bottom";
+    heart_mesh.get_boundary_info().sideset_name(743) = "tricuspid_valve_side";
 
+    bool export_new_mesh_only = data("export_new_mesh_only", false);
+    if(export_new_mesh_only)
+    {
+        heart_mesh.get_boundary_info().remove_id(440);
+        heart_mesh.get_boundary_info().remove_id(540);
+        heart_mesh.get_boundary_info().remove_id(640);
+        heart_mesh.get_boundary_info().remove_id(743);
+        heart_mesh.write ("heart_mesh_v5.xdr");
+        return 0;
+    }
     libMesh::EquationSystems es(heart_mesh);
 
     std::string pois[N];
@@ -130,7 +251,6 @@ int main(int argc, char ** argv)
     for(int i = 0; i < N; i++)
     {
 		std::cout << "Solving Poisson " << i << std::endl;
-		const int N = 1;
 		std::string pois1 = pois[i];
 		BeatIt::Poisson poisson(es, pois1);
 		std::cout << "Calling setup: ..." << std::flush;
@@ -180,6 +300,13 @@ int main(int argc, char ** argv)
     n_sys.init();
     auto& n_v = n_sys.solution;
 
+    typedef libMesh::ExplicitSystem  FiberSystem;
+    FiberSystem& l_sys = es.add_system<FiberSystem>("lambda");
+    l_sys.add_variable( "lambda", libMesh::FIRST, libMesh::LAGRANGE);
+    l_sys.init();
+    auto& l_v = l_sys.solution;
+
+
     // Define auxiliary vectors used in the computations of the fibers
 	double fx = 0,fy = 0, fz = 0;
 	double f[3];
@@ -187,7 +314,7 @@ int main(int argc, char ** argv)
     double s[3];
 	double nx = 0, ny = 0, nz = 0;
     double n[3];
-
+    double lambda;
 	double phi[N];
 	double dphi[N][3];
 
@@ -199,19 +326,59 @@ int main(int argc, char ** argv)
     std::cout << "\nGetting dof map:  ... " << std::flush;
     const libMesh::DofMap & dof_map = f_sys.get_dof_map();
     const libMesh::DofMap & dof_map_p = es.get_system<libMesh::ExplicitSystem>(pois[0]+"_P0").get_dof_map();
+    const libMesh::DofMap & dof_map_phi = es.get_system<libMesh::ExplicitSystem>(pois[0]).get_dof_map();
 	std::cout << " done \n " << std::flush;
     std::vector < libMesh::dof_id_type > dof_indices;
     std::vector < libMesh::dof_id_type > dof_indices_p;
+    std::vector < libMesh::dof_id_type > dof_indices_phi;
+    std::vector < libMesh::Real > phi_values;
     std::cout << "\nLooping over elements: ... \n" << std::flush;
 
+
+    std::set<libMesh::subdomain_id_type> allowed_subdomains;
+    regions_mesh.subdomain_ids(allowed_subdomains);
+    libMesh::PointLocatorTree point_locator(regions_mesh);
+    int c = 0;
     for (; el != end_el; ++el)
     {
-        const libMesh::Elem * elem = *el;
+        c++;
+        libMesh::Elem * elem = *el;
         dof_map.dof_indices(elem, dof_indices);
         dof_map_p.dof_indices(elem, dof_indices_p);
+        dof_map_phi.dof_indices(elem, dof_indices_phi);
         auto elID = elem->id();
-        Point centroid = elem->centroid();
-        const auto blockID = regions_mesh.elem_ptr(elID)->subdomain_id();
+        const Point centroid = elem->centroid();
+        const Elem * subregion_element = point_locator(centroid);
+        unsigned int blockID = 0;
+        if(subregion_element) blockID = subregion_element->subdomain_id();
+        else
+        {
+            //std::cout << "Subregion Element NOT FOUND! " << elID << " " << c << " performing linear search: " << std::endl;
+            const Elem * subregion_element_linear_search = point_locator.perform_linear_search(centroid, &allowed_subdomains, true, 5e-1);
+            if(subregion_element_linear_search) blockID = subregion_element_linear_search->subdomain_id();
+            else
+            {
+                //std::cout << "Subregion Element NOT FOUND! " << elID << " " << c << "performing fuzzy linear search:" <<   std::endl;
+                std::set<const libMesh::Elem*> subregion_element_fuzzy_linear_search = point_locator.perform_fuzzy_linear_search(centroid, &allowed_subdomains, 5);
+                if(subregion_element_fuzzy_linear_search.size() > 0)
+                {
+                    double distance = 1e9;
+                    for(auto && found_elem : subregion_element_fuzzy_linear_search)
+                    {
+                        Point ptest(centroid);
+                        ptest -= found_elem->centroid();
+                        double new_distance = ptest.norm();
+                        if( new_distance < distance )
+                            blockID = found_elem->subdomain_id();
+                    }
+                }
+                else
+                {
+                    std::cout << "Subregion Element NOT FOUND! " << elID << " " << c << "NOT FOUND!" <<   std::endl;
+                    throw std::runtime_error("subregion element not found");
+                }
+            }
+        }
 
     	for (int k = 0; k < N; ++k)
 		{
@@ -221,41 +388,285 @@ int main(int argc, char ** argv)
     		dphi[k][2] = (*es.get_system<libMesh::ExplicitSystem>(pois[k]+"_gradient").solution)(dof_indices[2]);
 		}
 
-    	evaluate(f, s, n, phi, dphi, blockID, centroid);
-    	// change subdomain ID Pulmonary Veins and Vena Cava:
-		if(blockID == 127 || blockID == 128 || blockID == 131 || blockID == 137
-		|| blockID == 118 || blockID == 119)
-		{
-			double threshold = 0.75;
-			double potential = phi[5];
-			if(blockID == 127) threshold = 0.15;
-			if(blockID == 128) threshold = 0.2;
-			int new_blockID = 10;
-			if(blockID == 118 || blockID == 119)
-			{
-				threshold = 0.6;
-				potential = phi[2];
-				new_blockID = 20;
-			}
+    	evaluate(f, s, n, phi, dphi, blockID);
 
-			bool change_blockID = false;
-			if(blockID == 127 || blockID == 128)
-				if(potential < threshold)
-					change_blockID = true;
+        // simplify subdomains
+        bool left_side = true;
+        std::string subdomain_name = "";
+    	{
 
-			if(blockID == 131 || blockID == 137)
-				if(potential > threshold)
-					change_blockID = true;
+    	    unsigned int new_block_ID = 666;
+    	    switch(blockID)
+    	    {
+                // LV
+                case 103:
+                {
+                    subdomain_name = "left_ventricle";
+                    new_block_ID = 1;
+                    break;
+                }
+                // LV Pap
+                case 63:
+                case 64:
+                {
+                    subdomain_name = "left_ventricle_papillary_muscles";
+                    new_block_ID = 10;
+                    break;
+                }
+                // RV
+                case 114:
+                {
+                    subdomain_name = "right_ventricle";
+                    left_side = false;
+                    new_block_ID = 2;
+                    break;
+                }
+                // RV Pap
+                case 74:
+                case 75:
+                case 76:
+                {
+                    subdomain_name = "right_ventricle_papillary_muscles";
+                    left_side = false;
+                    new_block_ID = 20;
+                    break;
+                }
+                // LA
+                case 202:
+                case 212:
+                case 216:
+                {
+                    subdomain_name = "left_atrium";
+                    new_block_ID = 3;
+                    break;
+                }
+                // PVs
+                case 213:
+                case 218:
+                case 219:
+                case 220:
+                {
+                    subdomain_name = "pulmonary_veins";
+                    double threshold = 0.2;
+                    if(blockID == 220 )
+                        threshold = 0.15;
+                    double potential = phi[5];
+                    if(potential <= threshold)
+                        new_block_ID = 30;
+                    else
+                        new_block_ID = 3;
+                    break;
+                }
+                // RA
+                case 301:
+                case 305:
+                case 308:
+                case 309:
+                case 317:
+                case 321:
+                {
+                    subdomain_name = "right_atrium";
+                    left_side = false;
+                    new_block_ID = 4;
+                    break;
+                }
+                // IVC + SVC
+                case 306:
+                {
+                    subdomain_name = "vena_cava";
+                    left_side = false;
+                    double potential = phi[5];
+                    // use phi 1 for s and phi 1 for n
+                    if(potential >= 0.35)
+                    {
+                        new_block_ID = 4;
+                    }
+                    else
+                    {
+                        new_block_ID = 40;
+                    }
+                    break;
+                }
+                case 307:
+                {
+                    subdomain_name = "vena_cava";
+                    left_side = false;
+                    double potential = phi[5];
+                    // use phi 1 for s and phi 1 for n
+                    if(potential >= 0.3)
+                    {
+                        new_block_ID = 4;
+                    }
+                    else
+                    {
+                        new_block_ID = 40;
+                    }
+                    break;
+                }
+                // Aorta
+                case 40:
+                {
+                    subdomain_name = "aorta";
+                    new_block_ID = 5;
+                    break;
+                }
+                // AV
+                case 41:
+                case 42:
+                case 43:
+                {
+                    subdomain_name = "aortic_valve";
+                    new_block_ID = 50;
+                    break;
+                }
+                // Pulmonary Artery
+                case 50:
+                {
+                    subdomain_name = "pulmonary_artery";
+                    left_side = false;
+                    new_block_ID = 6;
+                    break;
+                }
+                // PV
+                case 51:
+                case 52:
+                case 53:
+                {
+                    subdomain_name = "pulmonic_valve";
+                    left_side = false;
+                    new_block_ID = 60;
+                    break;
+                }
+                // MV
+                case 60:
+                {
+                    subdomain_name = "mitral_valve";
+                    new_block_ID = 13;
 
-			if(blockID == 118 || blockID == 119)
-				if(potential > threshold)
-					change_blockID = true;
+                    // leaflet close to the AV
+                    if (centroid(0)*0.16+centroid(1)*0.8-centroid(2)*0.58 < 111*0.16+101*0.8-74*0.58)
+                    {
+                        subdomain_name = "anterior_mitral_leaflet";
+                        new_block_ID = 13;
+                    }
+                    else
+                    {
+                        subdomain_name = "posterior_mitral_leaflet";
+                        new_block_ID = 14;
+                    }
+                    break;
+                }
+                // TV
+                case 70:
+                {
+                    subdomain_name = "tricuspid_valve";
+                    left_side = false;
+                    new_block_ID = 24;
+                    break;
+                }
+                // Skeleton
+                case 112:
+                {
+                    subdomain_name = "left_cardiac_skeleton";
+                    new_block_ID = 1234;
+                    break;
+                }
+                case 310:
+                {
+                    subdomain_name = "right_cardiac_skeleton";
+                    new_block_ID = 1235;
+                    break;
+                }
+                // Mitral Anterior Marginal Chordae
+                case 6504:
+                case 6510:
+                case 6511:
+                case 6518:
+                {
+                    subdomain_name = "mitral_anterior_marginal_chordae";
+                    new_block_ID = 661;
+                    break;
+                }
+                // Mitral Posterior Marginal Chordae
+                case 6502:
+                case 6503:
+                case 6505:
+                case 6508:
+                case 6509:
+                case 6512:
+                case 6513:
+                case 6514:
+                {
+                    subdomain_name = "mitral_posterior_marginal_chordae";
+                    new_block_ID = 662;
+                    break;
+                }
+                // Mitral Anterior Strut Chordae
+                case 6501:
+                case 6517:
+                {
+                    subdomain_name = "mitral_anterior_strut_chordae";
+                    new_block_ID = 663;
+                    break;
+                }
+                // Mitral Anterior Strut Chordae
+                case 6516:
+                {
+                    // if true we are on the marginal chordae
+                    if( centroid(0)*0.52+centroid(1)*0.28+centroid(2)*0.81 < 136.476*0.52+79.8388*0.28+61.3883*0.81 )
+                    {
+                        subdomain_name = "mitral_anterior_marginal_chordae";
+                        new_block_ID = 661;
+                    }
+                    // we are on the strut
+                    else
+                    {
+                        subdomain_name = "mitral_anterior_strut_chordae";
+                        new_block_ID = 663;
+                    }
+                    break;
+                }
+                // Mitral Posterior Basal Chordae
+                case 6506:
+                case 6507:
+                case 6515:
+                 {
+                     subdomain_name = "mitral_posterior_basal_chordae";
+                     new_block_ID = 665;
+                     break;
+                 }
+                 // Mitral Antterior Basal Chordae NOT AVAILABLE
+                // chordae
+                 // Mitral Posterior Basal Chordae
+                 case 7701:
+                 case 7702:
+                 case 7703:
+                 case 7704:
+                  {
+                      subdomain_name = "septal_tricuspid_chordae";
+                      new_block_ID = 667;
+                      break;
+                  }
+                default:
+                {
+                    subdomain_name = "tricuspid_chordae";
+                    break;
+                }
+    	    }
+    	    elem->subdomain_id() = new_block_ID;
+    	    heart_mesh.subdomain_name(new_block_ID) = subdomain_name;
+    	}
 
-			if(change_blockID)
-			{
-				final_mesh.elem_ptr(elID)->subdomain_id() = new_blockID;
-			}
-		}
+    	for(auto && dof : dof_indices_phi)
+    	{
+    	    double val = 0.0;
+            if( left_side )
+                val = (*es.get_system<libMesh::ExplicitSystem>(pois[0]).solution)(dof);
+            else
+                val = (*es.get_system<libMesh::ExplicitSystem>(pois[1]).solution)(dof);
+            l_v->set(dof, val);
+    	}
+
 
         f_v->set(dof_indices[0], f[0]);
         f_v->set(dof_indices[1], f[1]);
@@ -268,19 +679,21 @@ int main(int argc, char ** argv)
         n_v->set(dof_indices[0], n[0]);
         n_v->set(dof_indices[1], n[1]);
         n_v->set(dof_indices[2], n[2]);
-
     }
+    f_v->close();
+    s_v->close();
+    n_v->close();
+
 
     // Export the solution
-	typedef libMesh::ExodusII_IO EXOExporter;
     std::cout << "Calling exporter: ..."  << ". " << std::flush;
-	EXOExporter exporter(final_mesh);
+	EXOExporter exporter(heart_mesh);
 	// If we want to export only the fiber field without
 	// the solution of the poisson problems
 	bool export_only_fibers = data("only_fibers", false);
 	if(export_only_fibers)
 	{
-		std::vector<std::string> varname(9);
+		std::vector<std::string> varname(10);
 		varname[0] = "fibersx";
 		varname[1] = "fibersy";
 		varname[2] = "fibersz";
@@ -290,17 +703,75 @@ int main(int argc, char ** argv)
 		varname[6] = "xfibersx";
 		varname[7] = "xfibersy";
 		varname[8] = "xfibersz";
+        varname[9] = "lambda";
 		exporter.set_output_variables (varname);
 	}
-	exporter.write_equation_systems("new_heart_with_fibers.e", es);
+    heart_mesh.get_boundary_info().remove_id(440);
+    heart_mesh.get_boundary_info().remove_id(540);
+    heart_mesh.get_boundary_info().remove_id(640);
+    heart_mesh.get_boundary_info().remove_id(743);
+
+    std::string output = data("output", "new_heart_with_fibers.e");
+	exporter.write_equation_systems(output, es);
 	exporter.write_element_data(es);
 
 
+
+    EXOExporter exporter2(heart_mesh);
+    exporter2.write_equation_systems("complete_solution.e", es);
+    exporter2.write_element_data(es);
+
+
+    for(int i = 0; i < N; i++)
+    {
+        std::cout << "Deleting Poisson " << i << std::endl;
+        const int N = 1;
+        std::string pois1 = pois[i];
+        es.delete_system(pois1);
+
+    }
+
+    std::cout << "ES2 " << std::endl;
+    libMesh::EquationSystems es2(heart_mesh);
+    std::cout << "F2 " << std::endl;
+    FiberSystem& f_sys2 = es2.add_system<FiberSystem>("fibers");
+    f_sys2.add_variable( "fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+    f_sys2.add_variable( "fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    f_sys2.add_variable( "fibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    std::cout << "S2 " << std::endl;
+    FiberSystem& s_sys2 = es2.add_system<FiberSystem>("sheets");
+    s_sys2.add_variable( "sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
+    s_sys2.add_variable( "sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    s_sys2.add_variable( "sheetsz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    std::cout << "N2 " << std::endl;
+    FiberSystem& n_sys2 = es2.add_system<FiberSystem>("xfibers");
+    n_sys2.add_variable( "xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
+    n_sys2.add_variable( "xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
+    n_sys2.add_variable( "xfibersz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    std::cout << "L2 " << std::endl;
+    FiberSystem& l_sys2 = es2.add_system<FiberSystem>("lambda");
+    l_sys2.add_variable( "lambda", libMesh::FIRST, libMesh::LAGRANGE);
+    std::cout << "init " << std::endl;
+    es2.init();
+    auto& l_v2 = l_sys2.solution;
+    auto& f_v2 = f_sys2.solution;
+    auto& n_v2 = n_sys2.solution;
+    auto& s_v2 = s_sys2.solution;
+    std::cout << "copy " << std::endl;
+    *l_sys2.solution =  *l_sys.solution;
+    *f_sys2.solution =  *f_sys.solution;
+    *s_sys2.solution =  *s_sys.solution;
+    *n_sys2.solution =  *n_sys.solution;
+    std::cout << "Exporting to XDR " << std::endl;
+    std::string output_file = data("xdr_output", "new_heart_with_fibers.xdr");
+    XdrMODE xdr_mode =  WRITE;
+    const int write_mode = EquationSystems::WRITE_DATA;
+    es2.write(output_file, xdr_mode, write_mode, /*partition_agnostic*/ true);
     return 0;
 }
 
 void evaluate(double f[], double s[], double n[],
-              double phi[], double dphi[][3], int blockID, Point& x)
+              double phi[], double dphi[][3], int blockID)
 {
 
     auto normalize = [](double& x, double& y, double& z,
@@ -321,18 +792,19 @@ void evaluate(double f[], double s[], double n[],
         }
     };
 
+//    std::cout << "blockID: " << blockID << std::endl;
     switch(blockID)
     {
-		// Left Ventricle
-		case 116:
-		// right ventricle
-		case 117:
+		// Left Ventricle Checked
+		case 103:
+		// right ventricle Checked
+		case 114:
 		{
 			double potential = phi[0];
 			double sx = dphi[0][0];
 			double sy = dphi[0][1];
 			double sz = dphi[0][2];
-			if (blockID == 117)
+			if ( blockID == 114 || blockID == 74 || blockID == 75 || blockID == 76 )
 			{
 				potential = phi[1];
 				sx = dphi[1][0];
@@ -340,9 +812,9 @@ void evaluate(double f[], double s[], double n[],
 				sz = dphi[1][2];
 			}
 
-			double cx = 0.53393899516939; //data (section+"/centerline_x", 0.0);
-			double cy = -0.674105753868089; //data (section+"/centerline_y", 0.0);
-			double cz = -0.510382779920559; // (section+"/centerline_z", 1.0);
+			double cx = 0.6599407598247158; //data (section+"/centerline_x", 0.0);
+			double cy = -0.6674877611992615; //data (section+"/centerline_y", 0.0);
+			double cz = -0.3448742990876162; // (section+"/centerline_z", 1.0);
 
 			double epi_angle = -60;//data (section+"/epi_angle", -60.0);
 			double endo_angle = 60;//data (section+"/endo_angle", 60.0);
@@ -400,24 +872,24 @@ void evaluate(double f[], double s[], double n[],
 
 			break;
 		}
-        // left atrial appendage
-        case 130:
-        // right atria appendage
-        case 121:
+        // left atrial appendage Checked
+        case 216:
+        // right atria appendage Checked
+        case 308:
         {
-			double cx =0.34020660984721; //data (section+"/centerline_x", 0.0);
-			double cy = -0.823146463920235; //data (section+"/centerline_y", 0.0);
-			double cz =0.454631016926783; // (section+"/centerline_z", 1.0);
+			double cx =0.6742238029343747; //data (section+"/centerline_x", 0.0);
+			double cy = -0.7296511576681224; //data (section+"/centerline_y", 0.0);
+			double cz =0.11415538388651877; // (section+"/centerline_z", 1.0);
 
             double sx = dphi[0][0];
             double sy = dphi[0][1];
             double sz = dphi[0][2];
 
-            if(blockID == 121)
+            if(blockID == 308)
             {
-                cx = -0.726767523370148;
-                cy = 0.381478658634116;
-                cz = -0.571211869608061;
+                cx = 0.75314410973367;
+                cy = -0.49830792973321275;
+                cz = 0.42949174280593244;
                 sx = dphi[1][0];
                 sy = dphi[1][1];
                 sz = dphi[1][2];
@@ -440,185 +912,237 @@ void evaluate(double f[], double s[], double n[],
             n[0] = xfx; n[1] = xfy; n[2] = xfz;
             break;
         }
-        // Aortic Valve
+        // Left Ventricle Ppapillary muscles Checked
+        case 63:
+        case 64:
+        {
+            double sx = dphi[0][0];
+            double sy = dphi[0][1];
+            double sz = dphi[0][2];
+
+            double fx = -sy;
+            double fy = sx;
+            double fz = 0.0;
+            normalize(fx, fy, fz, 1.0, 0.0, 0.0);
+
+            double xfx = sy * fz - sz * fy;
+            double xfy = sz * fx - sx * fz;
+            double xfz = sx * fy - sy * fx;
+            normalize(xfx, xfy, xfz, 0.0, 0.0, 1.0);
+
+            f[0] = fx;  f[1] = fy;  f[2] = fz;
+            s[0] = sx;  s[1] = sy;  s[2] = sz;
+            n[0] = xfx; n[1] = xfy; n[2] = xfz;
+            break;
+        }
+        // Right Ventricle Ppapillary muscles Checked
+        case 74:
+        case 75:
+        case 76:
+        {
+            double sx = dphi[1][0];
+            double sy = dphi[1][1];
+            double sz = dphi[1][2];
+
+            double fx = -sy;
+            double fy = sx;
+            double fz = 0.0;
+            normalize(fx, fy, fz, 1.0, 0.0, 0.0);
+
+            double xfx = sy * fz - sz * fy;
+            double xfy = sz * fx - sx * fz;
+            double xfz = sx * fy - sy * fx;
+            normalize(xfx, xfy, xfz, 0.0, 0.0, 1.0);
+
+            f[0] = fx;  f[1] = fy;  f[2] = fz;
+            s[0] = sx;  s[1] = sy;  s[2] = sz;
+            n[0] = xfx; n[1] = xfy; n[2] = xfz;
+            break;
+        }
+        // Aortic Valve Checked
         case 41:
         case 42:
         case 43:
-		// Mitral Valve
+		// Mitral Valve Checked
 		case 60:
+        // Pulmonic Valve Checked
+        case 51:
+        case 52:
+        case 53:
+        // Tricuspid Valve Checked
+        case 70:
 		{
-			// use phi4 for s and phi 0 for n
-			cross(s, 4, n, 0, dphi, f);
+			// use phi2 for s and phi 7 for n
+			cross(s, 2, n, 7, dphi, f);
 			break;
 		}
-
-        // Pulmonic Valve
-		case 51:
-		case 52:
-		case 53:
-		// Tricuspid Valve
-		case 70:
-		// compute f as the cross product
-        {
-			// use phi4 for s and phi 1 for n
-			cross(s, 4, n, 1, dphi, f);
-			break;
-        }
-        // Aorta
+        // Aorta Checked
 		case 40:
 		// compute n as the cross product
 		{
-			// use phi4 for s and phi 1 for n
+			// use phi0 for s and phi 3 for f
 			cross(s, 0, f, 3, dphi, n);
 			break;
 		}
-		// Pulmonary Artery
+		// Pulmonary Artery Checked
 		case 50:
 		// compute n as the cross product
 		{
-			// use phi4 for s and phi 1 for n
+			// use phi1 for s and phi 3 for f
 			cross(s, 1, f, 3, dphi, n);
 			break;
 		}
-		// Mitral Valve Ring
-		case 129:
+		// Mitral Valve Ring Checked
+		case 112:
+        // Left atrial floor Checked
+        case 212:
+        // Tricuspid Valve Ring Checked
+        case 310:
 		{
-			// use phi4 for s and phi 1 for n
-			cross(s, 0, n, 2, dphi, f);
+			// use phi 0 for s and phi 3 for n
+			cross(s, 0, n, 8, dphi, f);
 			break;
 		}
-		// Tricuspid Valve Ring
-		case 120:
+		// ICV Checked
+		case 306:
+        {
+            // use phi 5 for f
+            double potential = phi[5];
+            // use phi 1 for s and phi 1 for n
+            if(potential >= 0.35)
+            {
+                cross(s, 1, n, 4, dphi, f);
+            }
+            else
+            {
+                cross(s, 1, f, 4, dphi, n);
+            }
+            break;
+        }
+        // SCV Checked
+		case 307:
 		{
-			// use phi4 for s and phi 1 for n
-			cross(s, 1, n, 2, dphi, f);
-			break;
-		}
-
-		// ICV + SCV
-		case 118:
-		case 119:
-		{
-			double potential = phi[2];
-			if(phi[2] <= 0.6)
+            // use phi 5 for f
+			double potential = phi[5];
+            // use phi 1 for s and phi 1 for n
+			if(potential >= 0.3)
 			{
-				cross(s, 1, n, 2, dphi, f);
+				cross(s, 1, n, 4, dphi, f);
 			}
 			else
 			{
-				cross(s, 1, f, 2, dphi, n);
+				cross(s, 1, f, 4, dphi, n);
 			}
 			break;
 		}
 		// Papillary Muscles
-		case 61:
-		case 62:
-		case 71:
-		case 72:
-		case 73:
+//		case 61:
+//		case 62:
+//		case 71:
+//		case 72:
+//		case 73:
+//		{
+//			f[0] = dphi[2][0];
+//			f[1] = dphi[2][1];
+//			f[2] = dphi[2][2];
+//			normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
+//
+//			s[0] =-dphi[2][1];
+//			s[1] = dphi[2][0];
+//			s[2] = 0.0;
+//			normalize(s[0], s[1], s[2], 0.0, 1.0, 0.0);
+//
+//			cross(f, s, n);
+//			break;
+//		}
+
+		//  (LA)
+		case 202:
 		{
-			f[0] = dphi[2][0];
-			f[1] = dphi[2][1];
-			f[2] = dphi[2][2];
-			normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
-
-			s[0] =-dphi[2][1];
-			s[1] = dphi[2][0];
-			s[2] = 0.0;
-			normalize(s[0], s[1], s[2], 0.0, 1.0, 0.0);
-
-			cross(f, s, n);
+		    double potential = phi[4];
+            double low_threshold = 0.4;
+            double high_threshold = 0.7;
+	        // Left + Right Carina (LA)
+            if(potential <= low_threshold || potential >= high_threshold)
+            {
+                // use phi4 for s and phi 1 for n
+                cross(s, 0, n, 6, dphi, f);
+            }
+            // use phi4 for s and phi 1 for n
+            else
+            {
+                potential = phi[3];
+                double threshold = 0.2565;
+                if(potential <= threshold)
+                {
+                    cross(s, 0, n, 8, dphi, f);
+                }
+                else
+                    cross(s, 0, n, 4, dphi, f);
+            }
 			break;
 		}
-		// Left + Right Carina (LA)
-		case 133:
-		case 135:
+    	// Pulmonary Veins Checked
+		case 213:
+		case 218:
+		case 219:
+		case 220:
 		{
-			// use phi4 for s and phi 1 for n
-			cross(s, 0, n, 4, dphi, f);
-			break;
-		}
-		default:
-		{
-			s[0] = dphi[0][0];
-			s[1] = dphi[0][1];
-			s[2] = dphi[0][2];
-			normalize(s[0], s[1], s[2], 1.0, 0.0, 0.0);
-
-			f[0] =-dphi[0][1];
-			f[1] = dphi[0][0];
-			f[2] = 0.0;
-			normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
-
-			n[0] = f[1] * s[2] - f[2] * s[1];
-			n[1] = f[2] * s[0] - f[0] * s[2];
-			n[2] = f[0] * s[1] - f[1] * s[0];
-			normalize(n[0], n[1], n[2], 0.0, 0.0, 1.0);
-			break;
-		}
-		// left atrium
-        case 132:
-		// Left + Right Antra (LA)
-		case 134:
-		case 136:
-        {
-			// use phi4 for s and phi 0 for n
-			cross(s, 0, n, 5, dphi, f);
-			break;
-        }
-    	// Pulmonary Veins
-		case 127:
-		case 128:
-		case 131:
-		case 137:
-		{
-			double threshold = 0.75;
+			double threshold = 0.2;
+            if(blockID == 220 )
+                threshold = 0.15;
 			double potential = phi[5];
-			if(blockID == 131 || blockID == 137)
-			{
-				if(phi[5] <= threshold)
-				{
-					cross(s, 0, n, 5, dphi, f);
-				}
-				else
-				{
-					cross(s, 0, f, 5, dphi, n);
-				}
-				break;
-			}
-
-			if(blockID == 127)
-			{
-				threshold = 0.15;
-			}
-			if(blockID == 128)
-			{
-				threshold = 0.2;
-			}
-			if(phi[5] >= threshold)
-			{
-				cross(s, 0, n, 5, dphi, f);
-			}
+			//std::cout << "Potential: " << potential << std::endl;
+            if(potential <= threshold)
+            {
+              //  std::cout << "cross(s, 0, f, 4, dphi, n): " << std::flush;
+                cross(s, 0, f, 4, dphi, n);
+//                std::cout << "done" << std::endl;
+            }
+            else
+            {
+//                std::cout << "cross(s, 0, f, 4, dphi, n): " << std::flush;
+                cross(s, 0, n, 4, dphi, f);
+//                std::cout << "done" << std::endl;
+            }
+			break;
+		}
+        // Eustachian Valve checked
+        case 305:
+        {
+            // use phi 1 for s and phi 5 for n
+            cross(s, 1, n, 5, dphi, f);
+            break;
+        }
+        // RA anterior wall checked
+        case 301:
+        {
+            // use phi 1 for s and phi 5 for n
+            cross(s, 1, f, 6, dphi, n);
+            break;
+        }
+        // RA superior wall checked
+        case 321:
+        {
+            // use phi 1 for s and phi 5 for n
+            cross(s, 1, n, 4, dphi, f);
+            break;
+        }
+        // right atrium pw checked
+        case 317:
+		{
+		    double potential = phi[1];
+            double threshold = 0.5;
+			if(potential > 0.5)
+			cross(s, 1, n, 3, dphi, f);
 			else
-			{
-				cross(s, 0, f, 5, dphi, n);
-			}
-
+            cross(s, 1, f, 5, dphi, n);
 			break;
 		}
-        // right atrium pw
-        case 124:
+		// right atrium roof checked
+		case 309:
 		{
-//			if(phi[1] > 0.5)
-			cross(s, 1, n, 6, dphi, f);
-//			else
-//			cross(s, 1, f, 6, dphi, n);
-			break;
-		}
-		// right atrium roof
-		case 126:
-		{
-			cross(s, 1, n, 6, dphi, f);
+			cross(s, 1, f, 4, dphi, n);
 			break;
 		}
 		//SAN
@@ -631,6 +1155,75 @@ void evaluate(double f[], double s[], double n[],
 			cross(s, 1, n, 2, dphi, f);
 			break;
 		}
+		// CHORDAE
+        case 6501:
+        case 6502:
+        case 6503:
+        case 6504:
+        case 6505:
+        case 6506:
+        case 6507:
+        case 6508:
+        case 6509:
+        case 6510:
+        case 6511:
+        case 6512:
+        case 6513:
+        case 6514:
+        case 6515:
+        case 6516:
+        case 6517:
+		case 6518:
+        case 7701:
+        case 7702:
+        case 7703:
+        case 7704:
+        case 7705:
+        case 7706:
+        case 7707:
+        case 7708:
+        case 7709:
+        case 7710:
+        case 7711:
+        case 7712:
+        {
+            // use phi 5 for f
+            f[0] = dphi[5][0];
+            f[1] = dphi[5][1];
+            f[2] = dphi[5][2];
+            normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
 
+            // Take any direction for s and n
+            // since it does not matter in the chordae
+            s[0] = f[1];
+            s[1] = -f[0];
+            s[2] = 0.0;
+            normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
+
+            n[0] = f[1] * s[2] - f[2] * s[1];
+            n[1] = f[2] * s[0] - f[0] * s[2];
+            n[2] = f[0] * s[1] - f[1] * s[0];
+            normalize(n[0], n[1], n[2], 0.0, 0.0, 1.0);
+            break;
+        }
+        default:
+        {
+            std::cout << "You should not be here!!!!" << blockID <<  std::endl;
+            s[0] = dphi[0][0];
+            s[1] = dphi[0][1];
+            s[2] = dphi[0][2];
+            normalize(s[0], s[1], s[2], 1.0, 0.0, 0.0);
+
+            f[0] =-dphi[0][1];
+            f[1] = dphi[0][0];
+            f[2] = 0.0;
+            normalize(f[0], f[1], f[2], 1.0, 0.0, 0.0);
+
+            n[0] = f[1] * s[2] - f[2] * s[1];
+            n[1] = f[2] * s[0] - f[0] * s[2];
+            n[2] = f[0] * s[1] - f[1] * s[0];
+            normalize(n[0], n[1], n[2], 0.0, 0.0, 1.0);
+            break;
+        }
     }
 }

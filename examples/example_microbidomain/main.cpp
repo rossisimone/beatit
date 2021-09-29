@@ -46,6 +46,7 @@
 #include "libmesh/mesh_modification.h"
 #include "Electrophysiology/IonicModels/IonicModel.hpp"
 #include "Electrophysiology/IonicModels/Fabbri17.hpp"
+#include "Util/IO/io.hpp"
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
@@ -94,7 +95,45 @@ namespace MeshUtility
 
     static std::unordered_map< unsigned int, Elem * > intracellular_elements_connectivity;
 
+    // cells are rectangles
+    struct Cell
+    {
+        Cell( double a, double b, double c, double d) : xmin(a), ymin(b), xmax(c), ymax(d) {}
+        double xmin;
+        double ymin;
+        double xmax;
+        double ymax;
+    };
+
+    struct Cells
+    {
+        void setup(GetPot& data)
+        {
+            std::string xmins = data("xmins", "0.0");
+            std::string ymins = data("ymins", "0.0");
+            std::string xmaxs = data("xmaxs", "1.0");
+            std::string ymaxs = data("ymaxs", "1.0");
+
+            std::vector<double> xmin, ymin, xmax, ymax;
+            BeatIt::readList(xmins, xmin);
+            BeatIt::readList(ymins, ymin);
+            BeatIt::readList(xmaxs, xmax);
+            BeatIt::readList(ymaxs, ymax);
+            // settin up number of cells
+            N = xmin.size();
+
+            for ( int k = 0; k < N; ++k)
+            {
+                cells.emplace_back(xmin[k], ymin[k], xmax[k], ymax[k]);
+            }
+
+        }
+        std::vector<Cell> cells;
+        int N;
+    }
 }
+
+
 
 namespace IonicModel
 {
@@ -124,9 +163,44 @@ int main(int argc, char ** argv) {
     
     std::string meshname = data("input_mesh", "NONE");
     
-    if(meshname == "NONE") throw std::runtime_error("Specify Mesh Name in input file!");
-    std::cout << "Reading mesh: " << std::endl;
-    mesh.read(meshname);
+    if(meshname == "NONE")
+    {
+        std::cout << "Creating mesh: " << std::endl;
+                  double xmin = data("xmin", 0.0);
+        double ymin = data("ymin", 0.0);
+        double xmax = data("xmax", 1.0);
+        double ymax = data("ymax", 1.0);
+        int elx = data("elx", 10);
+        int ely = data("ely", 10);
+
+        MeshUtility::Cells cells;
+        cells.setup(data);
+
+        libMesh::MeshTools::build_square(mesh, elx, ely, xmin, xmax, ymin, ymax, QUAD4);
+        for(auto & elem : mesh.local_active_element_ptr_range)
+        {
+            libMesh::Point X = elem->centroid();
+            int extracellullar_blockID = 1;
+            int intracellullar_blockID = 2;
+
+            elem->subdomain_id() = extracellullar_blockID;
+            for( int k = 0; k < cells.N ; ++k)
+            {
+                if( X(0) > cells.cells[k].xmin &&
+                    X(0) < cells.cells[k].xmax &&
+                    X(1) > cells.cells[k].ymin &&
+                    X(1) < cells.cells[k].xmax )
+                {
+                    elem->subdomain_id() = intracellullar_blockID;
+                }
+            }
+        }
+    }
+    else
+    {
+        std::cout << "Reading mesh: " << std::endl;
+        mesh.read(meshname);
+    }
     double scale = data("scale", 1.0);
     MeshTools::Modification::scale(mesh, scale, scale, scale);
     

@@ -117,6 +117,8 @@ public:
     std::string M_myName;
     std::string M_myNameGradient;
     std::string M_myNameP0;
+    std::set<libMesh::subdomain_id_type> M_active_subdomains;
+    double M_D;
 
 private:
     void apply_BC( const libMesh::Elem*& elem,

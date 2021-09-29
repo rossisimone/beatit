@@ -63,6 +63,8 @@ public:
 
 	void showMe(std::ostream& ofstream = std::cout );
 
+	void clear();
+
 	std::vector<std::shared_ptr<BCData> > M_bcs;
 	std::vector<std::string> M_bcNames;
 	typedef std::multimap<unsigned int, std::shared_ptr<BCData> > BCMap;

@@ -51,6 +51,15 @@ BCHandler::~BCHandler()
 }
 
 void
+BCHandler::clear()
+{
+    M_bcs.clear();
+    M_bcNames.clear();
+    M_bcMap.clear();
+}
+
+
+void
 BCHandler::readBC(const GetPot& data,  const std::string& section)
 {
 	std::string BCList = data(section+"/BC/list", "");

@@ -68,9 +68,11 @@
 #include "libmesh/enum_solver_type.h"
 
 #include "libmesh/perf_log.h"
+#include "Util/IO/io.hpp"
 
 #include <sys/stat.h>
 #include "BoundaryConditions/BCData.hpp"
+#include "libmesh/dirichlet_boundaries.h"
 
 namespace BeatIt {
 
@@ -100,6 +102,8 @@ Poisson::Poisson( libMesh::EquationSystems& es, std::string system_name )
     , M_myName(system_name)
 	, M_myNameGradient(system_name+"_gradient")
 	, M_myNameP0(system_name+"_P0")
+    , M_D(1.0)
+    , M_active_subdomains()
 {
 
 }
@@ -134,26 +138,85 @@ Poisson::setup(const GetPot& data, std::string section )
     std::cout << "* POISSON: Creating new System for the Poisson Solver" << std::endl;
     PoissonSystem& system  =  M_equationSystems.add_system<PoissonSystem>(M_myName);
     // TO DO: Generalize to higher order
-    system.add_variable( M_myName+"_phi", libMesh::FIRST);
-    libMesh::ExplicitSystem& grad_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>(M_myNameGradient);
-    grad_system.add_variable( M_myName+"_dphix", libMesh::CONSTANT, libMesh::MONOMIAL);
-    grad_system.add_variable( M_myName+"_dphiy", libMesh::CONSTANT, libMesh::MONOMIAL);
-    grad_system.add_variable( M_myName+"_dphiz", libMesh::CONSTANT, libMesh::MONOMIAL);
+    if( !system.is_initialized() )
+    {
+        std::string blockIDs_list = data(section+"/blockIDs","666");
+        BeatIt::readList(blockIDs_list, M_active_subdomains);
+        if( *M_active_subdomains.begin() != 666)
+            system.add_variable( M_myName+"_phi", libMesh::FIRST, libMesh::LAGRANGE, &M_active_subdomains );
+        else
+        {
+            M_active_subdomains.clear();
+            system.add_variable( M_myName+"_phi", libMesh::FIRST);
+        }
+    }
 
-    libMesh::ExplicitSystem& sol_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>(M_myNameP0);
-    sol_system.add_variable( M_myName+"_phi_p0", libMesh::CONSTANT, libMesh::MONOMIAL);
-
-	system.init();
-	grad_system.init();
-	sol_system.init();
-    M_equationSystems.print_info();
+    std::cout << "* POISSON: Setup Homogenuous Dirichlet BC ... " << std::flush;
     /// Setting up BC
+    // remove dirichlet boundaries if they were already stored
+    auto * dirichlet_boundaries = system.get_dof_map().get_dirichlet_boundaries();
+    if(dirichlet_boundaries)
+    {
+        for (auto& d : *dirichlet_boundaries )
+        {
+            system.get_dof_map().remove_dirichlet_boundary(*d);
+        }
+    }
+    M_bch.clear();
     M_bch.readBC(data, section);
     M_bch.showMe();
+    for (auto&& bc_ptr : M_bch.M_bcs)
+    {
+        auto bc_type = bc_ptr->get_type();
+        if (bc_type == BCType::Dirichlet)
+        {
+            std::set<libMesh::boundary_id_type> dirichlet_boundary_ids;
+            std::vector<unsigned int> variables;
+            variables.push_back(0);
+
+            auto num_flags = bc_ptr->size();
+            for (int nflag = 0; nflag < num_flags; nflag++)
+            {
+                dirichlet_boundary_ids.insert(bc_ptr->get_flag(nflag));
+            }
+
+            libMesh::DirichletBoundary dirichlet_bc(dirichlet_boundary_ids, variables, &(bc_ptr->get_function()));
+            system.get_dof_map().add_dirichlet_boundary(dirichlet_bc);
+        } // end if Dirichlet
+    } // end for loop on BC
+    if( !system.is_initialized() ) system.init();
+    else system.reinit();
+
+    libMesh::ExplicitSystem& grad_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>(M_myNameGradient);
+    if( !grad_system.is_initialized() )
+    {
+        grad_system.add_variable( M_myName+"_dphix", libMesh::CONSTANT, libMesh::MONOMIAL);
+        grad_system.add_variable( M_myName+"_dphiy", libMesh::CONSTANT, libMesh::MONOMIAL);
+        grad_system.add_variable( M_myName+"_dphiz", libMesh::CONSTANT, libMesh::MONOMIAL);
+        grad_system.init();
+    }
+
+
+    libMesh::ExplicitSystem& sol_system  =  M_equationSystems.add_system<libMesh::ExplicitSystem>(M_myNameP0);
+    if( !sol_system.is_initialized() )
+    {
+        sol_system.add_variable( M_myName+"_phi_p0", libMesh::CONSTANT, libMesh::MONOMIAL);
+        sol_system.init();
+    }
+
+    M_equationSystems.print_info();
+
+
+      //std::cout << " done " << std::endl;
+      //system.get_dof_map().print_info();
+
 
     std::string rhs = data(section+"/rhs", "0.0");
     M_rhsFunction.read(rhs);
     M_rhsFunction.showMe();
+
+    // diffusion coefficient
+    M_D = data(section+"/D", 1.0);
 //    std::map<std::string, libMesh::SolverType> solver_map;
 //    solver_map["cg"] = libMesh::CG;
 //    solver_map["cgs"] = libMesh::CGS;
@@ -205,7 +268,7 @@ Poisson::get_solution_norm()
 void
 Poisson::solve_system()
 {
-	    PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
+    PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
 
     double tol = 1e-12;
     double max_iter = 2000;
@@ -267,6 +330,7 @@ Poisson::get_gradient()
 void
 Poisson::assemble_system()
 {
+    std::cout << "\n* Poisson: assemble_system" << std::endl;
      using std::unique_ptr;
 
      const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
@@ -274,6 +338,7 @@ Poisson::assemble_system()
 
       PoissonSystem& system  =  M_equationSystems.get_system<PoissonSystem>(M_myName);
      system.matrix->zero();
+     system.rhs->zero();
           // A reference to the  DofMap object for this system.  The  DofMap
      // object handles the index translation from node and element numbers
      // to degree of freedom numbers.  We will talk more about the  DofMap
@@ -345,9 +410,14 @@ Poisson::assemble_system()
      // elements; hence we use a variant of the active_elem_iterator.
      libMesh::MeshBase::const_element_iterator el =
              mesh.active_local_elements_begin();
-     const libMesh::MeshBase::const_element_iterator end_el =
+     libMesh::MeshBase::const_element_iterator end_el =
              mesh.active_local_elements_end();
 
+     if(M_active_subdomains.size() > 0)
+     {
+         el = mesh.active_subdomain_set_elements_begin (M_active_subdomains);
+         end_el = mesh.active_subdomain_set_elements_end (M_active_subdomains);
+     }
      double ftxyzi = 0.0;
 
      for (; el != end_el; ++el)
@@ -380,7 +450,7 @@ Poisson::assemble_system()
                  for (unsigned int j = 0; j < phi_qp.size(); j++)
                  {
                      // stiffness term
-                     Ke(i, j) += JxW_qp[qp] * dphi_qp[i][qp] * dphi_qp[j][qp];
+                     Ke(i, j) += JxW_qp[qp] * M_D * dphi_qp[i][qp] * dphi_qp[j][qp];
                  }
                  ftxyzi = M_rhsFunction(0.0,  q_point_qp[qp](0),  q_point_qp[qp](0),  q_point_qp[qp](0), 0);
                  Fe(i) +=  JxW_qp[qp] * ftxyzi * phi_qp[i][qp];
@@ -388,12 +458,54 @@ Poisson::assemble_system()
          }
 
           apply_BC(elem, Ke, Fe, fe_face, qface, mesh);
+          //dof_map.heterogenously_constrain_element_matrix_and_vector (Ke, Fe, dof_indices);
 
 
          system.matrix->add_matrix(Ke, dof_indices);
          system.rhs->add_vector    (Fe, dof_indices);
 
      }
+
+     system.matrix->close();
+     system.rhs->close();
+
+     std::cout << "Setting up Nodal Dirichlet BC ..." << std::endl;
+     mesh.comm().barrier();
+     for(auto & node : mesh.local_node_ptr_range() )
+     {
+         for(auto & bc : M_bch.M_bcs)
+         {
+             auto bc_type = bc->get_type();
+             if(bc_type == BCType::NodalDirichlet)
+             {
+                 for(int k = 0; k < bc->size(); ++k)
+                 {
+                     if( mesh.get_boundary_info().has_boundary_id(node, bc->get_flag(k)) )
+                     {
+//                         std::cout << "Adding Penalty " << std::endl;
+                         unsigned int dn = node->dof_number(system.number(), 0, 0);
+//                         std::cout << "on node " << dn  << std::endl;
+                         double value = bc->get_function()(0.0, (*node)(0), (*node)(1), (*node)(2), 0);
+//                         std::cout << "value " << value  << std::endl;
+                         double penalty = 1e8;
+//                         std::cout << "Adding to rhs " << value*penalty  << std::endl;
+                         system.rhs->add(dn, value*penalty);
+//                         std::cout << "Adding to matrix " << penalty  << std::endl;
+                         system.matrix->add(dn, dn, penalty);
+//                         std::cout << "Done "  << std::endl;
+//                         std::vector<unsigned int> rows(1, dn);
+//                         system.matrix->zero_rows(rows, 1.0);
+//                         system.rhs->set(dn, value);
+
+                     }
+                 }
+             }
+         }
+     }
+     mesh.comm().barrier();
+     std::cout << "Done Setting up Nodal Dirichlet BC ..." << std::endl;
+
+
 }
 
 void
@@ -430,10 +542,12 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
                     auto bc_type = bc->get_type();
                     switch(bc_type)
                     {
-                        case BCType::Dirichlet:
+                        case BCType::Penalty:
                         {
-                            double beta = 1e6;
 
+                            double R = bc->get_sphere_radius();
+                            libMesh::Point center;
+                            bc->get_sphere_center(center);
 
                             for (unsigned int qp=0; qp<qface.n_points(); qp++)
                             {
@@ -443,6 +557,16 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
                                 const double yf = qface_point[qp](1);
                                 const double zf = qface_point[qp](2);
                                 const double value = bc->get_function()(0.0, xf, yf, zf, 0);
+
+                                double beta = 1e8;
+                                if(R > 0)
+                                {
+                                    libMesh::Point distance(qface_point[qp] - center);
+                                    if( distance.norm() > R)
+                                    {
+                                        beta = 0;
+                                    }
+                                }
                                 for (unsigned int i=0; i<phi_face.size(); i++)
                                 {
                                     double nabla_test_normal = normals[qp]* dphi_face[i][qp];
@@ -551,8 +675,14 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
                             }
                             break;
                         }
+                        case BCType::Dirichlet:
+                        case BCType::NodalDirichlet:
+                        {
+                            break;
+                        }
                         default:
                         {
+                            std::cout << "* Poisson: - Error - Wrong BC Type for Poisson" << std::endl;
                             throw std::runtime_error("- Error - Wrong BC Type for Poisson");
                             break;
                         }

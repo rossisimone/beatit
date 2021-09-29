@@ -102,6 +102,46 @@ void normalize( Vector& vec, double X = 1.0, double Y = 0.0, double Z = 0.0 )
 
 }
 
+template< class Vector >
+void cross( Vector& vec1, Vector& vec2, Vector& vec_cross )
+{
+    auto first = vec_cross.first_local_index();
+    auto last = vec_cross.last_local_index();
+
+    double v1[3];
+    double v2[3];
+    double cross_product[3];
+
+    for(int i = first; i < last; )
+    {
+        int j = i;
+        v1[0] = vec1(i);
+        v2[0] = vec2(i);
+        i++;
+        v1[0] = vec1(i);
+        v2[0] = vec2(i);
+        i++;
+        v1[0] = vec1(i);
+        v2[0] = vec2(i);
+        i++;
+
+        cross_product[0] = v1[1] * v2[2] - v1[2] * v2[1];
+        cross_product[1] = v1[2] * v2[0] - v1[0] * v2[2];
+        cross_product[2] = v1[0] * v2[1] - v1[1] * v2[0];
+
+
+
+        normalize(cross_product[0],cross_product[1],cross_product[2],1.0,0.0,0.0);
+        vec_cross.set(j,cross_product[0]);
+        j++;
+        vec_cross.set(j,cross_product[1]);
+        j++;
+        vec_cross.set(j,cross_product[2]);
+    }
+
+}
+
+
 
 }
 

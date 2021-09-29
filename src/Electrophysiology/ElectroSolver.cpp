@@ -50,6 +50,8 @@
 #include "Electrophysiology/IonicModels/Grandi11.hpp"
 #include "Electrophysiology/IonicModels/ORd.hpp"
 #include "Electrophysiology/IonicModels/TP06.hpp"
+#include "Electrophysiology/IonicModels/Lombardo2016.hpp"
+#include "Electrophysiology/IonicModels/passive.hpp"
 #include "Electrophysiology/ElectroSolver.hpp"
 #include "Util/SpiritFunction.hpp"
 
@@ -61,7 +63,6 @@
 
 namespace BeatIt
 {
-
 // ///////////////////////////////////////////////////////////////////////
 // ///////////////////////////////////////////////////////////////////////
     typedef libMesh::TransientLinearImplicitSystem ElectroSystem;
@@ -91,7 +92,11 @@ namespace BeatIt
         M_section = section;
 
         std::string tissueBlockID = M_datafile(section + "/tissue_blockIDs", "");
+        std::cout << " * ElectroSolver::setup: setting up tissue on block IDs: " << tissueBlockID << std::endl;
         BeatIt::readList(tissueBlockID, M_tissueBlockIDs);
+        std::cout << " * ElectroSolver::setup: found block IDs: " << std::flush;
+        for(auto & b : M_tissueBlockIDs) std::cout << b << " " << std::flush;
+        std::cout << std::endl;
         secret_blockID_key = 0;
         //Read output folder from datafile
         std::string output_folder = M_datafile(M_section + "/output_folder", "Output");
@@ -183,10 +188,12 @@ namespace BeatIt
         M_exporterNames.insert("istim");
 
         std::cout << "* ElectroSolver: Creating parameters spaces " << std::endl;
+        std::cout << "* ElectroSolver: Creating activation times system " << std::endl;
         ParameterSystem& activation_times_system = M_equationSystems.add_system < ParameterSystem > ("activation_times");
         activation_times_system.add_variable("activation_times", M_order, M_FEFamily);
         activation_times_system.init();
         // CV = Conduction Velocity
+        std::cout << "* ElectroSolver: Creating conduction velocity system " << std::endl;
         ParameterSystem& CV_system = M_equationSystems.add_system < ParameterSystem > ("CV");
         CV_system.add_variable("cvx", libMesh::CONSTANT, libMesh::MONOMIAL);
         CV_system.add_variable("cvy", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -195,6 +202,7 @@ namespace BeatIt
 
         if (!M_equationSystems.has_system("fibers"))
         {
+            std::cout << "* ElectroSolver: Creating fiber system " << std::endl;
             ParameterSystem& fiber_system = M_equationSystems.add_system < ParameterSystem > ("fibers");
             fiber_system.add_variable("fibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
             fiber_system.add_variable("fibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -205,6 +213,7 @@ namespace BeatIt
 
         if (!M_equationSystems.has_system("sheets"))
         {
+            std::cout << "* ElectroSolver: Creating sheet system " << std::endl;
             ParameterSystem& sheets_system = M_equationSystems.add_system < ParameterSystem > ("sheets");
             sheets_system.add_variable("sheetsx", libMesh::CONSTANT, libMesh::MONOMIAL);
             sheets_system.add_variable("sheetsy", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -214,6 +223,7 @@ namespace BeatIt
 
         if (!M_equationSystems.has_system("xfibers"))
         {
+            std::cout << "* ElectroSolver: Creating xfiber system " << std::endl;
             ParameterSystem& xfiber_system = M_equationSystems.add_system < ParameterSystem > ("xfibers");
             xfiber_system.add_variable("xfibersx", libMesh::CONSTANT, libMesh::MONOMIAL);
             xfiber_system.add_variable("xfibersy", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -221,6 +231,7 @@ namespace BeatIt
             xfiber_system.init();
         }
 
+        std::cout << "* ElectroSolver: Creating proc ID system " << std::endl;
         ParameterSystem& procID_system = M_equationSystems.add_system < ParameterSystem > ("ProcID");
         procID_system.add_variable("ProcID", libMesh::CONSTANT, libMesh::MONOMIAL);
         procID_system.init();
@@ -230,12 +241,15 @@ namespace BeatIt
         M_parametersExporterNames.insert("sheets");
         M_parametersExporterNames.insert("xfibers");
         M_parametersExporterNames.insert("ProcID");
+
+        std::cout << "* ElectroSolver: Creating model map system " << std::endl;
         IonicModelSystem& model_map_system = M_equationSystems.add_system < IonicModelSystem > ("model_map");
         model_map_system.add_variable("ionic_model_map", M_order, M_FEFamily);
         model_map_system.init();
         M_parametersExporterNames.insert("model_map");
         ///////////
         // Time integrator
+        std::cout << "* ElectroSolver: Setting up time integrators " << std::endl;
         int time_integrator_order = data(M_section + "/time_integrator_order", 1);
         bool isSecondORderImplemented = true;
         for (auto && map : M_ionicModelPtrMap)
@@ -274,6 +288,7 @@ namespace BeatIt
 
         M_symmetricOperator = M_datafile(M_section + "/symmetric_operator", false);
         std::cout << "* ElectroSolver: Using Symmetric Operator: " << M_symmetricOperator << std::endl;
+        std::cout << "* ElectroSolver: setup completed! " << std::endl;
     }
 
     void ElectroSolver::init(double time)
@@ -291,6 +306,7 @@ namespace BeatIt
         IonicModelSystem& model_map_system = M_equationSystems.get_system < IonicModelSystem > ("model_map");
         M_parametersExporterNames.insert("model_map");
 
+        std::cout << "* ElectroSolver: Setting element block IDs: " << std::endl;
         for (; el != end_el; ++el)
         {
             const libMesh::Elem * elem = *el;
@@ -300,12 +316,22 @@ namespace BeatIt
                 auto it_bid = M_tissueBlockIDs.find(bid);
                 if (it_bid != M_tissueBlockIDs.end())
                 {
+                    //std::cout << " setting: " << bid << std::endl;
                     iion_system.get_dof_map().dof_indices(elem, dofs);
                     for (auto && d : dofs)
                     {
+                       //mesh.node_ptr(d)->print_info();
                         iion_system.get_vector("ionic_model_map").set(d, bid);
                         model_map_system.solution->set(d, bid);
                     }
+                }
+                else
+                {
+                    std::cout << "* ElectroSolver: Ionic model map could not be set for block ID " << bid << std::endl;
+                    std::cout << "  Available block IDs are: " << std::endl;
+                    for(auto & b : M_tissueBlockIDs) std::cout << b << std::endl;
+                    std::cout << " Tissue blockIDs vector size: " << M_tissueBlockIDs.size() << std::endl;
+                    throw std::runtime_error("ionic model map error");
                 }
             }
             else
@@ -329,6 +355,7 @@ namespace BeatIt
 
         }
 
+
         iion_system.get_vector("ionic_model_map").close();
         std::cout << "* ElectroSolver: Setup ionic model vector: " << std::endl;
 
@@ -344,21 +371,37 @@ namespace BeatIt
 
         std::vector < libMesh::dof_id_type > dof_indices_V;
         std::vector < libMesh::dof_id_type > dof_indices_Q;
+        std::vector < libMesh::dof_id_type > dof_indices_iion;
         std::vector < libMesh::dof_id_type > dof_indices_gating;
 
         int c = 0;
         // loop over nodes
-        for (; node != end_node; ++node)
+        //std::cout << "\n\n Show dof_map_V " << std::endl;
+        //dof_map_V.print_info();
+        //std::cout << std::endl << std::endl;
+
+        for (auto & nn : mesh.local_node_ptr_range() )
         {
-            const libMesh::Node * nn = *node;
+            //const libMesh::Node * nn = *node;
             // Are we in the bath?
             auto n_var = nn->n_vars(system.number());
             auto n_dofs = nn->n_dofs(system.number());
+            //std::cout << "\n\n New node: " << std::endl;
+            //nn->print();
+            //nn->print_dof_info();
+            //std::cout << std::endl << n_var << ", " << n_dofs << std::endl;
             if (n_var == n_dofs)
             {
                 dof_map.dof_indices(nn, dof_indices_Q, 0);
-                dof_map_V.dof_indices(nn, dof_indices_V, 0);
-                int key_iion = iion_system.get_vector("ionic_model_map")(dof_indices_V[0]);
+                dof_map_V.dof_indices(nn, dof_indices_V);
+                iion_system.get_dof_map().dof_indices(nn, dof_indices_iion);
+                //std::cout << dof_indices_iion[0] << std::endl;
+                //std::cout << dof_indices_V[0] << std::endl;
+                //std::cout << dof_indices_V[1] << std::endl;
+                //std::cout << dof_indices_Q[0] << std::endl;
+                int key_iion = iion_system.get_vector("ionic_model_map")(dof_indices_iion[0]);
+                //mesh.node_ptr(dof_indices_V[0])->print_info();
+                //std::cout << "key iion: " << key_iion << std::endl;
                 auto it_ionic_model = M_ionicModelPtrMap.find(key_iion);
                 auto it_ionic_model_name = M_ionicModelNameMap.find(key_iion);
                 IonicModel * ionicModelPtr = nullptr;
@@ -391,7 +434,7 @@ namespace BeatIt
                     {
                         std::cout << ionicModel.first << ", " << ionicModel.second->ionicModelName() << std::endl;
                     }
-                	std::cout << "NO IONIC MODEL PTR" << std::endl;
+                	std::cout << "* ElectroSolver::init: NO IONIC MODEL PTR found for key_iion: " << key_iion << std::endl;
                 	throw std::runtime_error("No ionic Model Ptr");
                 }
             }
@@ -987,6 +1030,20 @@ namespace BeatIt
         std::cout << "done " << std::endl;
     }
 
+    void ElectroSolver::save_activation_times_nemesis(int step)
+    {
+        std::cout << "* " << M_model << ": ExodusII_IO::Exporting activaton times: " << M_outputFolder << " ... " << std::flush;
+        NemesisIO nemesis(M_equationSystems.get_mesh());
+        std::set < std::string > output;
+        output.insert("activation_times");
+        std::ostringstream ss;
+        ss << std::setw(4) << std::setfill('0') << step;
+        std::string step_str = ss.str();
+        nemesis.write_equation_systems(M_outputFolder + "activation_times_" + step_str + ".nem", M_equationSystems, &output);
+        std::cout << "done " << std::endl;
+    }
+
+
     void ElectroSolver::save_conduction_velocity(int step)
     {
         std::cout << "* " << M_model << ": VTKIO::Exporting Conduction Velocity: " << M_outputFolder << " ... " << std::flush;
@@ -1081,8 +1138,8 @@ namespace BeatIt
             double grad_at_mag = std::sqrt(grad_at_mag2);
 
             double cv0 = 1000 * grad_at(0) / grad_at_mag2;
-            double cv1 = 1000 * grad_at(1) / grad_at_mag2;
-            double cv2 = 1000 * grad_at(2) / grad_at_mag2;
+            double cv1 = (dim > 1) ? 1000 * grad_at(1) / grad_at_mag2 : 0.0;;
+            double cv2 = (dim > 2) ? 1000 * grad_at(2) / grad_at_mag2 : 0.0;;
             // std::cout << "grad_at_mag2: " << grad_at_mag2 << ", cv = " << cv0 << ", " << cv1 << ", " << cv2 << std::endl;
 
             CV_system.solution->set(dof_indices_CV[0], cv0);
@@ -1136,10 +1193,10 @@ namespace BeatIt
                 {
                     activation_times_system.solution->set(dof_indices_at[0], time);
                 }
-                else if( v <= -40.0 && at > 0.0)
-                {
-                    activation_times_system.solution->set(dof_indices_at[0], -1.0);
-                }
+                //else if( v <= -40.0 && at > 0.0)
+                //{
+                //    activation_times_system.solution->set(dof_indices_at[0], -1.0);
+                //}
             }
         }
 

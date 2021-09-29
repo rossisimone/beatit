@@ -1,15 +1,18 @@
+
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
   set(CMAKE_BUILD_TYPE NONE)
 endif()
 string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE_UPPER)
 
-#if(${BUILD_TYPE_UPPER} MATCHES DEBUG)
-#  set(METHOD dbg)
-#else()
+if(${BUILD_TYPE_UPPER} MATCHES DEBUG)
+  set(METHOD dbg)
+else()
   set(METHOD opt)
-#endif()
+endif()
+
 message(STATUS "linking against ${METHOD} libmesh library")
 message(STATUS "MAKE SURE YOU ARE BUILDING BEATIT IN ${METHOD} MODE")
+message("LIBMESH DIR: ${LIBMESH_DIR}")
 
 find_package(PkgConfig QUIET)
 
@@ -42,7 +45,7 @@ find_path(LIBMESH_INCLUDE_DIR libmesh/libmesh.h
 message(STATUS "LIBMESH INCLUDE DIRECTORY: ${LIBMESH_INCLUDE_DIR}")
 
 find_library(LIBMESH_LIBRARY
-  NAMES mesh_${METHOD} libmesh
+  NAMES mesh_${METHOD} libmesh libmesh_${METHOD}.so
   HINTS ${PC_LIBMESH_LIBDIR} ${PC_LIBMESH_LIBARY_DIRS} ${LIBMESH_DIR}/lib
 )
 

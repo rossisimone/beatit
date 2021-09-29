@@ -39,6 +39,7 @@
 #include "Util/SpiritFunction.hpp"
 #include <fstream>
 #include <libmesh/mesh_function.h>
+#include <libmesh/point.h>
 
 class GetPot;
 
@@ -48,6 +49,7 @@ namespace BeatIt {
 enum class BCMode { Full, Component, Normal, Tangential };
 enum class BCComponent{ X, Y,  Z, All };
 enum class BCType   { Dirichlet,
+                      NodalDirichlet,
                       Neumann,
                       Robin,
                       NitscheSymmetric,
@@ -97,12 +99,29 @@ public:
 
 	double fe_function_component(double t, double x, double y, double z, int component);
 
+    struct Sphere
+    {
+        Sphere() : r(-1), x(0), y(0), z(0){}
+        double r,x,y,z;
+    };
+    double get_sphere_radius() const
+    {
+        return M_neighborhood.r;
+    }
+    void get_sphere_center(libMesh::Point& center) const
+    {
+        center(0) = M_neighborhood.x;
+        center(1) = M_neighborhood.y;
+        center(2) = M_neighborhood.z;
+    }
+
 protected:
 	std::vector<unsigned int>         M_flag;
 	SpiritFunction          M_function;
 	BCComponent        M_component;
     BCMode                   M_mode;
     BCType                    M_type;
+    Sphere M_neighborhood;
 
     typedef std::map<std::string, BCMode> ModeMap;
     typedef std::map<std::string, BCComponent> ComponentMap;
