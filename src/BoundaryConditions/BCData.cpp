@@ -60,6 +60,7 @@ BCData::ComponentMap  BCData::S_componentMap =
 BCData::TypeMap  BCData::S_typeMap =
 {
 		{"Dirichlet", BCType::Dirichlet},
+        {"NodalDirichlet", BCType::NodalDirichlet},
 		{"Neumann", BCType::Neumann},
 		{"Robin", BCType::Robin},
         {"NitscheSymmetric", BCType::NitscheSymmetric},
@@ -140,6 +141,14 @@ BCData::setup(const GetPot& data, const std::string& section )
 		throw std::runtime_error("BCData FUNCTION Error!");
 	}
 
+	// Sphere of radiu -1 if not used
+    std::string sphere = data(section+"/sphere", "-1.0, 0.0, 0.0, 0.0");
+    std::vector<double> sphere_data;
+    BeatIt::readList(sphere,sphere_data);
+    M_neighborhood.r = sphere_data[0];
+    M_neighborhood.x = sphere_data[1];
+    M_neighborhood.y = sphere_data[2];
+    M_neighborhood.z = sphere_data[3];
 }
 
 
@@ -159,6 +168,11 @@ BCData::showMe( std::ostream& ofstream  )
 			ofstream << " Dirichlet" << std::endl;
 			break;
 		}
+        case BCType::NodalDirichlet:
+        {
+            ofstream << " NodalDirichlet" << std::endl;
+            break;
+        }
 		case BCType::Neumann:
 		{
 			ofstream << " Neumann" << std::endl;

@@ -39,6 +39,7 @@
 #include "libmesh/libmesh.h"
 #include "libmesh/mesh.h"
 #include "libmesh/mesh_generation.h"
+#include "libmesh/mesh_refinement.h"
 #include "libmesh/vtk_io.h"
 #include "libmesh/linear_implicit_system.h"
 #include "libmesh/equation_systems.h"
@@ -88,6 +89,12 @@ Real exact_solution (const Real x,
 
 namespace Parameters
 {
+static int Nf = 1;
+static double gamma_noise = 0.5;
+static double s = 15.0;
+static double L_fibers = 10.0;
+static double PHI_fibers = 10.0*M_PI;
+
 static double sigma = 1.0;
 static double gamma = 1.0;
 static double beta = 0.0;
@@ -109,8 +116,11 @@ static int grid_el_y = 4;
 static int grid_el_z = 0;
 
 bool use_white_noise = false;
+bool use_fiber_noise = false;
 
 }
+
+static std::string mesh_file = "NONE";
 
 // NOISE
 static std::random_device rd;
@@ -143,7 +153,13 @@ int main (int argc, char ** argv)
   Parameters::grid_el_y = data("grid_el_y",4);
   Parameters::grid_el_z = data("grid_el_z",4);
   Parameters::use_white_noise = data("use_white_noise",false);
+  Parameters::use_fiber_noise = data("use_fiber_noise",false);
 
+  Parameters::gamma_noise = data("gamma_noise",0.5);
+  Parameters::Nf = data("Nf",1);
+  Parameters::s = data("s",15);
+  Parameters::L_fibers = data("L_fibers",10.0);
+  Parameters::PHI_fibers = data("PHI_fibers",10.0*M_PI);
 
   Parameters::sigma = data("sigma",1.0);
   Parameters::gamma = data("gamma",1.0);
@@ -233,6 +249,20 @@ int main (int argc, char ** argv)
   // to build a mesh of 15x15 QUAD9 elements.  Building QUAD9
   // elements instead of the default QUAD4's we used in example 2
   // allow us to use higher-order approximation.
+  mesh_file = data("mesh_file","NONE");
+  std::cout << std::endl << mesh_file << std::endl;
+
+  Mesh mesh(init.comm());
+  libMesh::ExodusII_IO importer(mesh);
+  if(mesh_file != "NONE")
+  { 
+      std::cout << "Importing mesh" << std::endl;
+      importer.read(mesh_file);
+      mesh.prepare_for_use();
+  }
+  else
+  {
+      std::cout << "Creating square" << std::endl;
   double mesh_min_x = data("mesh_min_x",-1.0);
   double mesh_min_y = data("mesh_min_y",-1.0);
   double mesh_min_z = data("mesh_min_z",-1.0);
@@ -242,9 +272,7 @@ int main (int argc, char ** argv)
   int mesh_el_x = data("mesh_el_x",64);
   int mesh_el_y = data("mesh_el_y",64);
   int mesh_el_z = data("mesh_el_z",0);
-
-
-  Mesh mesh(init.comm());
+  
   if(mesh_el_z <= 0)
   {
       MeshTools::Generation::build_square (mesh,
@@ -262,7 +290,7 @@ int main (int argc, char ** argv)
               mesh_min_z, mesh_max_z,
                TET4);
   }
-
+  }
 
 
   // Print information about the mesh to the screen.
@@ -294,6 +322,7 @@ int main (int argc, char ** argv)
   // will be approximated using second-order approximation.
   equation_systems.get_system("Noise").add_variable("w", CONSTANT, MONOMIAL);
   equation_systems.get_system("Noise").add_variable("p", CONSTANT, MONOMIAL);
+  equation_systems.get_system("Noise").add_variable("F", CONSTANT, MONOMIAL);
 
 
   ExplicitSystem & f_system = equation_systems.add_system<ExplicitSystem>("fibers");
@@ -307,6 +336,28 @@ int main (int argc, char ** argv)
   // Initialize the data structures for the equation system.
   equation_systems.init();
 
+  if("NONE" != mesh_file)
+  {
+      importer.copy_elemental_solution (f_system, "fx", "fibersx");
+      importer.copy_elemental_solution (f_system, "fy", "fibersy");
+      importer.copy_elemental_solution (f_system, "fz", "fibersz");
+  }
+
+  int nrefs = data("nr" , 0);
+  if ( nrefs > 0 )
+  {
+      std::cout << "refining: " << nrefs << " times" << std::endl;
+      for(int nr = 0; nr < nrefs; nr++)
+      {
+      libMesh::MeshRefinement refine(mesh);
+      std::cout << "refining uniformly #" << nr + 1 << std::endl;
+      refine.uniformly_refine();
+      std::cout << "mesh prepare for use"<< std::endl;
+      mesh.prepare_for_use(false);
+      std::cout << "reinit systems" << std::endl;
+      equation_systems.reinit();
+      }
+  }
   // Prints information about the system to the screen.
   equation_systems.print_info();
 
@@ -327,13 +378,20 @@ int main (int argc, char ** argv)
   // built PETSc.
   equation_systems.get_system("Poisson").solve();
 
+  double u_max =   equation_systems.get_system("Poisson").solution->max();
+  double u_min =   equation_systems.get_system("Poisson").solution->min();
+  double du = u_max - u_min;
+  equation_systems.get_system("Poisson").solution->add(-u_min);
+  (*equation_systems.get_system("Poisson").solution) /= du;
+	
 #if defined(LIBMESH_HAVE_VTK) && !defined(LIBMESH_ENABLE_PARMESH)
 
   // After solving the system write the solution
   // to a VTK-formatted plot file.
 //  VTKIO (mesh).write_equation_systems ("out.pvtu", equation_systems);
+  std::string output_file = data("output","out.e");
   ExodusII_IO exporter_lattice(mesh);
-  exporter_lattice.write_equation_systems("out.e",
+  exporter_lattice.write_equation_systems(output_file,
           equation_systems);
   exporter_lattice.write_element_data(equation_systems);
 
@@ -473,6 +531,7 @@ void assemble_poisson(EquationSystems & es,
       w_system.solution->set(w_dof_indices[0], W);
       // Perlin noise
       double P = 0.;
+      double FP = 0.0;
       libMesh::VectorValue<double> f0;
 
       {
@@ -483,44 +542,66 @@ void assemble_poisson(EquationSystems & es,
 
 
           P = 0.5;
-          for( auto & node : mapped_element->node_ref_range())
+          if(mapped_element)
           {
-              Parameters::g_system->get_dof_map().dof_indices(&node, g_dof_indices);
-              libMesh::Point xi(node);
-              libMesh::Point gi( (*Parameters::g_system->solution)(g_dof_indices[0]),
-                                (*Parameters::g_system->solution)(g_dof_indices[1]),
-                                (*Parameters::g_system->solution)(g_dof_indices[2]) );
-              libMesh::Point ri(x-xi);
-              double dX = 1-std::abs(ri(0)) / hx;
-              double dY = 1-std::abs(ri(1)) / hy;
-              double dZ = 1-std::abs(ri(2)) / hz;
+              for( auto & node : mapped_element->node_ref_range())
+              {
+                  Parameters::g_system->get_dof_map().dof_indices(&node, g_dof_indices);
+                  libMesh::Point xi(node);
+                  libMesh::Point gi( (*Parameters::g_system->solution)(g_dof_indices[0]),
+                                    (*Parameters::g_system->solution)(g_dof_indices[1]),
+                                    (*Parameters::g_system->solution)(g_dof_indices[2]) );
+                  double gc = 1.0;
+                  double PNf = 0.0;
+                  for(int cf = 0; cf < Parameters::Nf; ++cf)
+                  {
+                  libMesh::Point ri(x-xi);
+                  double dX = 1-std::abs(ri(0)) / hx;
+                  double dY = 1-std::abs(ri(1)) / hy;
+                  double dZ = 1-std::abs(ri(2)) / hz;
 
-              double aX = ((6*dX - 15)*dX + 10)*dX*dX*dX;
-              double aY = ((6*dY - 15)*dY + 10)*dY*dY*dY;
-              double aZ = ((6*dZ - 15)*dZ + 10)*dZ*dZ*dZ;
+                  double aX = ((6*dX - 15)*dX + 10)*dX*dX*dX;
+                  double aY = ((6*dY - 15)*dY + 10)*dY*dY*dY;
+                  double aZ = ((6*dZ - 15)*dZ + 10)*dZ*dZ*dZ;
 
 
-              if(Parameters::grid_el_z <= 0) P += std::sqrt(2.0) * 0.5 * aX * aY * gi.contract(ri);
-              else P += 1.0 / std::sqrt(3.0) * aX * aY * aZ* gi.contract(ri);
+                  //if(Parameters::grid_el_z <= 0) P += std::sqrt(2.0) * 0.5 * aX * aY * gi.contract(ri);
+                  //else P += 1.0 / std::sqrt(3.0) * aX * aY * aZ* gi.contract(ri);
+                  if(Parameters::grid_el_z <= 0) PNf += gc * aX * aY * gi.contract(ri);
+                  else PNf += gc * aX * aY * aZ* gi.contract(ri);
+                  gc *= Parameters::gamma_noise;
+                  }
+                  P += (1.0 - Parameters::gamma_noise) / (1.0 - std::pow(Parameters::gamma_noise, Parameters::Nf) ) /std::sqrt(dim) * PNf;
+              }
           }
           w_system.solution->set(w_dof_indices[1], P);
 
-          // fibers
-          x = elem->centroid();
-          f0(0) = -x(1);
-          f0(1) = x(0);
-          f0(2) = 0.0;
-          if(f0.norm() > 0) f0 /= f0.norm();
-          else
+          double Fcos = 0.5 + 0.5 * std::cos(2.0*M_PI/Parameters::L_fibers * x(1) + Parameters::PHI_fibers * P);
+          FP = std::pow(Fcos, Parameters::s);
+          w_system.solution->set(w_dof_indices[2], FP);
+
+
+          if(mesh_file == "NONE")
           {
+              // fibers
+              x = elem->centroid();
               f0(0) = 1.0;
               f0(1) = 0.0;
               f0(2) = 0.0;
+              //f0(0) = -x(1);
+              //f0(1) = x(0);
+              //f0(2) = 0.0;
+              if(f0.norm() > 0) f0 /= f0.norm();
+              else
+              {
+                  f0(0) = 1.0;
+                  f0(1) = 0.0;
+                  f0(2) = 0.0;
+              }
+              Parameters::f_system->solution->set(f_dof_indices[0], f0(0));
+              Parameters::f_system->solution->set(f_dof_indices[1], f0(1));
+              Parameters::f_system->solution->set(f_dof_indices[2], f0(2));
           }
-          Parameters::f_system->solution->set(f_dof_indices[0], f0(0));
-          Parameters::f_system->solution->set(f_dof_indices[1], f0(1));
-          Parameters::f_system->solution->set(f_dof_indices[2], f0(2));
-
       }
 
       // Cache the number of degrees of freedom on this element, for
@@ -554,6 +635,11 @@ void assemble_poisson(EquationSystems & es,
 
       Fe.resize (n_dofs);
 
+      f0(0) = (*Parameters::f_system->solution)(f_dof_indices[0]);
+      f0(1) = (*Parameters::f_system->solution)(f_dof_indices[1]);
+      f0(2) = (*Parameters::f_system->solution)(f_dof_indices[2]);
+
+
       // Now loop over the quadrature points.  This handles
       // the numeric integration.
       for (unsigned int qp=0; qp<qrule.n_points(); qp++)
@@ -564,7 +650,6 @@ void assemble_poisson(EquationSystems & es,
 
           libMesh::TensorValue<double> H;
           libMesh::TensorValue<double> I;
-//          libMesh::VectorValue<double> f0;
 
 //          f0(0) = -y;
 //          f0(1) = x;
@@ -598,6 +683,7 @@ void assemble_poisson(EquationSystems & es,
 
             Real fxy = Parameters::sigma * P;
             if(Parameters::use_white_noise) fxy = Parameters::sigma * W;
+            else if(Parameters::use_fiber_noise) fxy = Parameters::sigma * FP;
             for (unsigned int i=0; i != n_dofs; i++)
               Fe(i) += JxW[qp]*fxy*phi[i][qp];
           }

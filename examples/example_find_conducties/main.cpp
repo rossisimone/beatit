@@ -33,12 +33,17 @@
 #include "libmesh/mesh_generation.h"
 #include "libmesh/mesh_modification.h"
 #include "libmesh/mesh_refinement.h"
+#include "libmesh/mesh_generation.h"
+#include "libmesh/transient_system.h"
+#include "libmesh/explicit_system.h"
+#include "libmesh/linear_implicit_system.h"
 
 #include "Util/IO/io.hpp"
 #include "libmesh/mesh.h"
 #include "libmesh/elem.h"
 
 #include <random>
+
 
 int main(int argc, char ** argv)
 {
@@ -54,9 +59,6 @@ int main(int argc, char ** argv)
     ParallelMesh mesh(init.comm());
     mesh.allow_renumbering(false);
 
-    // Read mesh filename from input file
-    std::string mesh_name = data("mesh", "NONE");
-
     // If we want to import the fiber from the meshfile we need to create
     // I/O object we will use to import the data
     // Before reading the fibers we need to create the correct
@@ -66,34 +68,11 @@ int main(int argc, char ** argv)
     //libMesh::Nemesis_IO nemesis_importer(mesh);
 
     // Create mesh:
-    // If we passed a specific filename for the mesh let'd read that
-    if ("NONE" != mesh_name)
-    {
-        // Use the Importer to read
-        //importer.read(mesh_name);
-        // If we did not use the importer we would have done
-        mesh.read(mesh_name);
-
-        // We may want to refine this mesh n times
-        // if the original mesh is too coarse
-        // read the number of times we will refine the mesh, 0 by default
-        //int num_refs = data("refs", 0);
-        //BeatIt::serial_mesh_partition(init.comm(), mesh_name, &mesh, num_refs);
-        //if(num_refs > 0) {
-        //std::cout << "Refining the mesh " << num_refs << " times. " << std::endl;
-        // Refine the mesh
-        //MeshRefinement(mesh).uniformly_refine(num_refs);
-        // Finalize the mesh to run simulations
-        //mesh.prepare_for_use();
-        //}
-    }
-    // If no mesh file has been specified
     // we run on a cube
-    else
-    {
+//    {
         // number of elements in the x,y and z direction
         int nelx = data("nelx", 10);
-        int nely = data("nely", 10);
+        int nely = data("nely", 0);
         // if nelz = 0 we run in 2D
         int nelz = data("nelz", 10);
         // the cube dimensions are defined as [minx, maxx] x [miny, maxy] x [minz, maxz]
@@ -108,8 +87,14 @@ int main(int argc, char ** argv)
         // Create a tetrahedral mesh
         auto elType = TET4;
         // If we are in 2D, create a triangle mesh
-        if (nelz == 0)
-            elType = TRI3;
+        if (nely == 0)
+        {
+            elType = EDGE2;
+        }
+        else if (nelz == 0)
+        {
+             elType = TRI3;
+        }
 
         std::cout << "Creating the cube [" << minx << ", " << maxx << "] x ["
                                            << miny << ", " << maxy << "] x ["
@@ -117,15 +102,14 @@ int main(int argc, char ** argv)
         std::cout << "Using " << nelx << " x " << nely << " x " << nelz << " elements." << std::endl;
         if(TET4 == elType) std::cout << "Element type TET4" << std::endl;
         else if(TRI3 == elType) std::cout << "Element type TRI3" << std::endl;
+        else if(EDGE2 == elType) std::cout << "Element type EDGE2" << std::endl;
         else std::cout << "NO ELEMENT TYPE!!!" << std::endl;
 
         // Create mesh
         MeshTools::Generation::build_cube(mesh, nelx, nely, nelz, minx, maxx, miny, maxy, minz, maxz, elType);
         // Usually we run using cm as dimensions
         // use this part to scale the mesh if it exported in mm (or um)
-    }
-    double scale = data("scale", 1.0);
-    MeshTools::Modification::scale(mesh, scale, scale, scale);
+//    }
 
     // output the details about the mesh
     mesh.print_info();
@@ -185,32 +169,10 @@ int main(int argc, char ** argv)
     // Set up initial conditions at time
     solver->init(datatime.M_startTime);
     // Now read the fibers if wanted
-    bool read_fibers = data("read_fibers", false);
-    if(read_fibers)
-    {
-        // First show the elemental vcariables that can be imported
-        auto elemental_variables = importer.get_elem_var_names();
-        for (auto && var : elemental_variables) std::cout << var << std::endl;
-        solver->read_fibers(importer,1);
-    }
-    // Export simulation parameters
-    // This will also export the fiber field
-//    solver->save_parameters();
-    // Assemble matrices
-    std::cout << "Assembling matrices" << std::endl;
-    solver->assemble_matrices(datatime.M_dt);
+
+
     // output file counter
     int save_iter = 0;
-    // Export initial condition at time
-//    solver->save_exo_timestep(save_iter, datatime.M_time);
-    solver->save_potential(save_iter, datatime.M_startTime);
-//    solver->save_parameters();
-
-    // Parameters to save the activation times
-    // A node is activated if the transmembrane potential > threshold
-    double threshold = data("threshold", -10.0);
-    // We export the activation times every at_save_iter iterations
-    int at_save_iter = data("at_save_iter", 25);
 
     // Old parameters that define the method, not to be changed
     // TODO: clean this part
@@ -220,17 +182,52 @@ int main(int argc, char ** argv)
     int step0 = 0;
     int step1 = 1;
 
+    double cv_target = data("target_cv", 60.0);
+    double cv_tol_percentage = data("cv_tolerance", 5.0);
+    double current_cv = cv_target /2 ;
+    double res = std::abs( std::abs(cv_target - current_cv) / cv_target - 1.0 ) * 100;
 
-    // Start loop in time
-    std::cout << "Time loop starts:" << std::endl;
-    // Control the time loop using the TimeData object
-    for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
+
+    libMesh::ExplicitSystem& activation_times_system = es.get_system < libMesh::ExplicitSystem > ("activation_times");
+    libMesh::ExplicitSystem& conductivity_system = es.get_system<libMesh::ExplicitSystem>("conductivity");
+    libMesh::ExplicitSystem& CV_system = es.get_system < libMesh::ExplicitSystem > ("CV");
+    libMesh::TransientLinearImplicitSystem& monodomain_system = es.get_system<libMesh::TransientLinearImplicitSystem>("monowave");
+    libMesh::TransientLinearImplicitSystem& wave_system = es.add_system<libMesh::TransientLinearImplicitSystem>("wave");
+
+
+    int iter = 0;
+    int max_iter = data("max_iter",10);
+    double threshold = data("threshold", 0.9);
+
+    std::cout << "cv_target: " <<  cv_target << std::endl;
+    std::cout << "current_cv: " <<  current_cv << std::endl;
+    std::cout << "res: " <<  res <<  ", tol: " <<  cv_tol_percentage << std::endl;
+    double factor = 1.0;
+
+    while( res > cv_tol_percentage)
     {
+        if(iter > max_iter) break;
+        iter++;
+
+        // Set up initial conditions at time
+        solver->init(datatime.M_startTime);
+
+        conductivity_system.solution->close();
+        (*conductivity_system.solution) *= factor;
+
+        std::cout << "Assembling matrices, ITER: " << iter << std::endl;
+        solver->assemble_matrices(datatime.M_dt);
+
+        // Start loop in time
+        std::cout << "Time loop starts:" << std::endl;
+        // Control the time loop using the TimeData object
+        for (; datatime.M_iter < datatime.M_maxIter && datatime.M_time < datatime.M_endTime;)
+        {
         // We are doing a new iteration
         // let's update first the information in the TimeData object
         datatime.advance();
         // Ouput to screen the current time and the current iteration
-        std::cout << "Time:" << datatime.M_time << ", Iter: " << datatime.M_iter << std::endl;
+        //std::cout << "Time:" << datatime.M_time << ", Iter: " << datatime.M_iter << std::endl;
         // Advance the solution in time: u_n <- u_n+1
         solver->advance();
         // Solve ionic model and evaluate ionic currents
@@ -239,26 +236,57 @@ int main(int argc, char ** argv)
         solver->solve_diffusion_step(datatime.M_dt, datatime.M_time, useMidpointMethod, iion_mass);
         // Update the activation times
         solver->update_activation_time(datatime.M_time, threshold);
-        //Export the solution if at the right timestep
-        if (0 == datatime.M_iter % datatime.M_saveIter)
-        {
-            // update output file counter
-            save_iter++;
-            // export current solution
-            solver->save_potential(save_iter, datatime.M_time);
-//            solver->save_exo_timestep(save_iter, datatime.M_time);
-        }
-        // export the activation times if at the corresponding timestep
-        if (0 == datatime.M_iter % (at_save_iter * datatime.M_saveIter))
-        {
-            // export activation times
-            solver->save_activation_times(save_iter);
         }
 
+
+
+        double min_activation_time = activation_times_system.solution->min();
+        double max_activation_time = activation_times_system.solution->max();
+        std::cout << "Iter:" << iter << ", min activation time: " << min_activation_time << std::endl;
+        std::cout << "Iter:" << iter << ", max activation time: " << max_activation_time << std::endl;
+        double sigma = conductivity_system.solution->max();
+        double old_sigma = sigma;
+        if(min_activation_time > 0)
+        {
+            double cv_at = (maxx - minx) / (max_activation_time - min_activation_time) * 1000;
+            std::cout << "Iter:" << iter << ", average cv: " << cv_at << std::endl;
+            solver->evaluate_conduction_velocity();
+            double cv_min = CV_system.solution->min();
+            double cv_max = CV_system.solution->max();
+            double cv_mid = CV_system.solution->el( static_cast<int>( CV_system.solution->size()/6) );
+            current_cv = cv_at;
+
+            sigma *=  cv_target * cv_target / current_cv / current_cv;
+            factor *=  cv_target * cv_target / current_cv / current_cv;
+
+            std::cout << "Iter: " << iter << ", cv_min: " << cv_min << ", cv_max: " << cv_max << ", cv_mid: " << cv_mid << ", factor: " << factor << std::endl;
+            res = std::abs( std::abs(cv_target - current_cv) / cv_target ) * 100;
+        }
+        else
+        {
+            current_cv = 0.0;
+            res = 100.0;
+            factor *= 1.5;
+            sigma *= 1.5;
+        }
+        std::cout << "Iter: " << iter << ", CV: " << current_cv << ". old_sigma: " << old_sigma << ", sigma: " << sigma << std::endl;
+        // reset
+        activation_times_system.solution->close();
+        (*activation_times_system.solution) = -1.0;
+        activation_times_system.update();
+        std::cout << "Resetting: " << std::endl;
+
+        monodomain_system.solution->zero();
+        ( *monodomain_system.old_local_solution ) = ( *monodomain_system.solution );
+        monodomain_system.update();
+
+        wave_system.solution->zero();
+        ( *wave_system.old_local_solution ) = ( *wave_system.solution );
+        wave_system.update();
+
+        datatime.reset();
+        std::cout << "res: " <<  res <<  ", tol: " <<  cv_tol_percentage << std::endl;
     }
-
-    // // export activation times again
-    solver->save_activation_times(save_iter);
 
     // delete solver before ending the simulation
     // avoiding memory leaks

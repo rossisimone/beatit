@@ -64,6 +64,7 @@ public:
     void setup(const GetPot& data, const std::string& section = "");
     void advance() { ++M_iter; M_time += M_dt; }
     void print();
+    void reset();
     double M_dt;
     double M_startTime;
     double M_time;

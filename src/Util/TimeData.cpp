@@ -90,5 +90,13 @@ TimeData::print()
     std::cout << "\tsave_iter = " << M_saveIter << std::endl;
 }
 
+void
+TimeData::reset()
+{
+    M_time = M_startTime;
+    M_iter = 0;
+}
+
+
 
 } /* namespace BeatIt */

@@ -100,6 +100,7 @@ public:
     void save_potential_nemesis(int step, double time = 0.0);
     void save_parameters();
     void save_activation_times(int step = 1);
+    void save_activation_times_nemesis(int step = 1);
     void save_conduction_velocity(int step = 1);
 
     virtual void amr( libMesh:: MeshRefinement& mesh_refinement, const std::string& type = "kelly" ) {}

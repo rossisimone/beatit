@@ -30,7 +30,7 @@ int main (int argc, char ** argv)
       LibMeshInit init (argc, argv, MPI_COMM_WORLD);
       libMesh::Mesh mesh(init.comm());
       libMesh::GmshIO importer(mesh);
-      std::string meshfile = "sphere.msh";
+      std::string meshfile = "ellipsoid_0.005.msh";
       importer.read(meshfile);
       //libMesh::ExodusII_IO(mesh).write("heart.e");
     return 0;
