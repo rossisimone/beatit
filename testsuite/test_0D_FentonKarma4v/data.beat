@@ -1,0 +1,7 @@
+
+[model]
+    [./FentonKarma]
+        param_set = 1
+    [../]
+[../]
+
