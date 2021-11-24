@@ -46,6 +46,8 @@
 #include "libmesh/analytic_function.h"
 #include "libmesh/dirichlet_boundaries.h"
 #include "libmesh/transient_system.h"
+#include "Util/IO/io.hpp"
+#include "libmesh/getpot.h"
 
 // For systems of equations the DenseSubMatrix
 // and DenseSubVector provide convenient ways for
@@ -60,9 +62,14 @@
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
+std::map<boundary_id_type, double> pressure_bc;
+double mu;
+double tau;
+
 // Function prototype.  This function will assemble the system
 // matrix and right-hand-side.
 void assemble_poisson(EquationSystems & es, const std::string & system_name);
+ // this fun is called in 110 in main, so dont delete!
 
 void zf(DenseVector<Number> & output, const Point & p, const Real)
 {
@@ -70,26 +77,14 @@ void zf(DenseVector<Number> & output, const Point & p, const Real)
 }
 // Function prototype.  This function will assemble the system
 // matrix and right-hand-side.
-void assemble_stokes(EquationSystems & es, const std::string & system_name);
+void assemble_stokes(EquationSystems & es, const std::string & system_name); // I think I can delete this??
 
 // The main program.
 int main(int argc, char ** argv)
 {
     // Initialize libMesh.
     LibMeshInit init(argc, argv);
-
-    // This example requires a linear solver package.
-//    libmesh_example_requires(libMesh::default_solver_package() != INVALID_SOLVER_PACKAGE, "--enable-petsc, --enable-trilinos, or --enable-eigen");
-
-    // Skip this 2D example if libMesh was compiled as 1D-only.
-    libmesh_example_requires(2 <= LIBMESH_DIM, "2D support");
-
-    // This example NaNs with the Eigen sparse linear solvers and
-    // Trilinos solvers, but should work OK with either PETSc or
-    // Laspack.
-//    libmesh_example_requires(libMesh::default_solver_package() != EIGEN_SOLVERS, "--enable-petsc or --enable-laspack");
-//    libmesh_example_requires(libMesh::default_solver_package() != TRILINOS_SOLVERS, "--enable-petsc or --enable-laspack");
-
+    GetPot input = BeatIt::readInputFile(argc, argv);
     // Create a mesh, with dimension to be overridden later, distributed
     // across the default MPI communicator.
     Mesh mesh(init.comm());
@@ -104,37 +99,11 @@ int main(int argc, char ** argv)
 //                                       0., 1.,
 //                                       0., 1.,
 //                                       TRI3);
-    mesh.read("lumen_vol.e");
-    double scale = 1.0e-4;
+    std::string filename = input("MESH_FILE", "default_meshname");
+    mesh.read(filename);
+    double scale = input("SCALE", 1.0e-4); // or could set to one
     MeshTools::Modification::scale(mesh, scale, scale, scale);
-
-    for (auto & elem : mesh.active_element_ptr_range())
-    {
-        int n_sides = elem->n_sides();
-        for (int side = 0; side < n_sides; ++side)
-        {
-            if (elem->neighbor_ptr(side) == nullptr)
-            {
-                auto s = elem->side_ptr(side);
-                Point c = s->centroid();
-                std::unique_ptr<const Elem> side_el(elem->build_side_ptr(side));
-                const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
-                if( boundary_id == 1 ||
-                    boundary_id == 2 ||
-                    boundary_id == 3 ||
-                    boundary_id == 4 ||
-                    boundary_id == 5 ||
-                    boundary_id == 6     )
-                {
-                    // do nothing
-                }
-                else
-                {
-                    mesh.boundary_info->add_side(elem, side, 7);
-                }
-            }
-        }
-    }
+    //mesh.all_second_order();
 
     // Print information about the mesh to the screen.
     mesh.print_info();
@@ -146,22 +115,25 @@ int main(int argc, char ** argv)
     system_profile.add_variable("phi", FIRST);
     system_profile.attach_assemble_function(assemble_poisson);
     std::set<libMesh::boundary_id_type> dirichlet_poisson;
-    dirichlet_poisson.insert(7);
+    int dirichletID= input("dirID", 0); // second arg is default
+    dirichlet_poisson.insert(dirichletID); // was for ID 7
     std::vector<unsigned int> vars_p(1);
     vars_p[0] = 0;
     AnalyticFunction<> bcz(zf);
     libMesh::DirichletBoundary dirichlet_bc_poisson(dirichlet_poisson, vars_p, bcz);
-    system_profile.get_dof_map().add_dirichlet_boundary(dirichlet_bc_poisson);
+    system_profile.get_dof_map().add_dirichlet_boundary(dirichlet_bc_poisson); // add sidesets and un comment this
 
     // Declare the system and its variables.
     // Create a transient system named "Stokes"
     TransientLinearImplicitSystem & system = equation_systems.add_system<TransientLinearImplicitSystem>("Stokes");
 
     // Add the variables "u" & "v" to "Stokes".  They
-    // will be approximated using second-order approximation.
+    // will be approximated using first order ( instead of second) approximation. For p1 p1
     system.add_variable("ux", FIRST);
     system.add_variable("uy", FIRST);
     system.add_variable("uz", FIRST);
+
+    // still keeping ux, uy, uz since pressure doesnt vary spatially
 
     // Add the variable "p" to "Stokes". This will
     // be approximated with a first-order basis,
@@ -172,28 +144,60 @@ int main(int argc, char ** argv)
     // function.
     system.attach_assemble_function(assemble_stokes);
 
-    ExplicitSystem & system_mu = equation_systems.add_system<ExplicitSystem>("MU");
+    // adding pressure_BC stuff here
+
+// chanign defaults of the below to test if it's reading it from the input
+    std::string p_bc_id = input("PRESS_BC_IDS", "8,9"); // default was 1,3 testing that it's actually reading input
+    //std::string p_bc_id = "1,3"; //data("p_bc_id", "NONE");
+    std::string p_bc_amp = input("PRESS_BC_AMP", "8, 10"); // also testing, want to read 0,2 from input this will just be the amp that they do //data("p_bc_amp", "NONE");
+    std::vector<libMesh::boundary_id_type> p_bc_id_vec;
+    BeatIt::readList(p_bc_id, p_bc_id_vec);
+    std::vector<double> p_bc_vec;
+    BeatIt::readList(p_bc_amp, p_bc_vec);
+    for(unsigned int k = 0; k< p_bc_vec.size(); ++k)
+    {
+        pressure_bc[p_bc_id_vec[k]] = p_bc_vec[k];
+    }
+
+
+    ExplicitSystem & system_mu = equation_systems.add_system<ExplicitSystem>("MU"); // Mu viscosity
+      ExplicitSystem & system_tau = equation_systems.add_system<ExplicitSystem>("TAU"); // Tau shear stress
     system_mu.add_variable("mu", CONSTANT, MONOMIAL);
+    system_tau.add_variable("tau", CONSTANT, MONOMIAL);
     // Initialize the data structures for the equation system.
     equation_systems.init();
     system_mu.solution->close();
-    equation_systems.parameters.set<unsigned int>("linear solver maximum iterations") = 250;
+    system_tau.solution->close();
+
+    equation_systems.parameters.set<unsigned int>("linear solver maximum iterations") = 250;// may edit with input file
     equation_systems.parameters.set<Real>("linear solver tolerance") = TOLERANCE;
-    const Real dt = 0.015;
-    system.time     = 0.0;
-    const unsigned int n_timesteps = 60;
+    const Real dt = input("DT", 0.015);
+    system.time   = 0.0; // current time
+    auto n_timesteps = input("N_TS", 10); // may want to change
     equation_systems.parameters.set<Real> ("dt")   = dt;
-    equation_systems.parameters.set<Real> ("rho")   = 1.06;
-    equation_systems.parameters.set<Real> ("mu") = 0.0037*1e3;
+    equation_systems.parameters.set<Real> ("rho")   = input("RHO", 1.06); // may want to get density from input
+    equation_systems.parameters.set<Real> ("mu") = input("MU", 0.0037*1e3); // also mu
+    equation_systems.parameters.set<Real> ("tau") = 0; // also mu
+
+
+    equation_systems.parameters.set<Real> ("penalty") = input("PENALTY", 1.e10);
+    equation_systems.parameters.set<Real> ("radius") = input("RADIUS", 50);
+    equation_systems.parameters.set<Real> ("scale")   = scale;
+
+    equation_systems.parameters.set<Real> ("v_wall_id") = input("V_WALL_IDS", 2);
+    equation_systems.parameters.set<Real> ("inflow_id") = input("INFLOW_ID", 3);
+    equation_systems.parameters.set<Real> ("outflow_id") = input("OUTFLOW_ID", 4);
+
 
     // Prints information about the system to the screen.
     equation_systems.print_info();
 
+
     // Assemble & solve the linear system,
     // then write the solution.
-    equation_systems.get_system("Poisson").solve();
+    equation_systems.get_system("Poisson").solve(); // to get BCs // do I still need Poisson??
 
-    ExodusII_IO exporter(mesh);
+    ExodusII_IO exporter(mesh); // maybe scaled
 
     for (unsigned int t_step=1; t_step<=n_timesteps; ++t_step)
     {
@@ -207,28 +211,27 @@ int main(int argc, char ** argv)
                      << ", time = "
                      << system.time
                      << " ***"
-                     << std::endl;
+                    << std::endl;
 
         // Now we need to update the solution vector from the
         // previous time step.  This is done directly through
         // the reference to the Stokes system.
-        *system.old_local_solution = *system.current_local_solution;
+        *system.old_local_solution = *system.current_local_solution; // updating
 
         // At the beginning of each solve, reset the linear solver tolerance
         // to a "reasonable" starting value.
-        const Real initial_linear_solver_tol = 1.e-6;
+        const Real initial_linear_solver_tol = input("LIN_SOLV_TOL", 1.e-6);
         equation_systems.get_system("Stokes").solve();
 
-        const unsigned int write_interval = 1;
-
+        const unsigned int write_interval = input("WRITE_ITER", 2); // writing for every iteration
+        std::string output_filename = input("Output_FILENAME", "carreau_def.e");
         if ((t_step+1)%write_interval == 0)
           {
-            exporter.write_timestep("carreau.e",
+            exporter.write_timestep(output_filename,
                                   equation_systems,
                                   t_step+1, // we're off by one since we wrote the IC and the Exodus numbering is 1-based.
                                   system.time);
           }
-
 
     }
 
@@ -243,12 +246,12 @@ int main(int argc, char ** argv)
 
 void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(system_name))
 {
-    double scale = 1.0e-4;
+    double scale = es.parameters.get<Real> ("scale");
     // It is a good idea to make sure we are assembling
     // the proper system.
     libmesh_assert_equal_to(system_name, "Stokes");
 
-    double inflow_director_x = 0.5312;
+    double inflow_director_x = 0.5312; // where did these values come from?
     double inflow_director_z =-0.2540;
     double inflow_director_y = 0.8083;
 
@@ -262,6 +265,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     TransientLinearImplicitSystem & system = es.get_system<TransientLinearImplicitSystem>("Stokes");
     LinearImplicitSystem & system_phi = es.get_system<LinearImplicitSystem>("Poisson");
     ExplicitSystem & system_mu = es.get_system<ExplicitSystem>("MU");
+    ExplicitSystem & system_tau = es.get_system<ExplicitSystem>("TAU");
 
     // Numeric ids corresponding to each variable in the system
     const unsigned int u_var = system.variable_number("ux");
@@ -314,6 +318,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     const DofMap & dof_map = system.get_dof_map();
     const DofMap & dof_map_phi = system_phi.get_dof_map();
     const DofMap & dof_map_mu = system_mu.get_dof_map();
+    const DofMap & dof_map_tau = system_tau.get_dof_map();
 
     // Define data structures to contain the element matrix
     // and right-hand-side vector contribution.  Following
@@ -337,11 +342,37 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     std::vector<dof_id_type> dof_indices_p;
     std::vector<dof_id_type> dof_indices_phi;
     std::vector<dof_id_type> dof_indices_mu;
+    std::vector<dof_id_type> dof_indices_tau;
+
+    // Adding BC stuff from stokes example
+    libMesh::UniquePtr < libMesh::FEBase > fe_face(libMesh::FEBase::build(dim, fe_vel_type));
+    libMesh::QGauss qface(dim - 1, libMesh::FIFTH);
+    fe_face->attach_quadrature_rule(&qface);
+    const std::vector<libMesh::Real> &JxW_face = fe_face->get_JxW();
+    const std::vector<std::vector<libMesh::Real> > &phi_face = fe_face->get_phi();
+    int n_phi = phi_face.size();
+    const std::vector<libMesh::Point> &qface_point = fe_face->get_xyz();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_face = fe_face->get_dphi();
+    const std::vector<libMesh::Point> &normals = fe_face->get_normals();
 
 
     double mu_inf = es.parameters.get<Real> ("mu");
+    double tau_not = es.parameters.get<Real> ("tau");
+
     double rho = es.parameters.get<Real> ("rho");
     double dt = es.parameters.get<Real> ("dt");
+    double penalty = es.parameters.get<Real> ("penalty");
+    double radius = es.parameters.get<Real> ("radius");
+    double v_wall_id = es.parameters.get<Real> ("v_wall_id");
+    double inflow_id = es.parameters.get<Real> ("inflow_id");
+    double outflow_id = es.parameters.get<Real> ("outflow_id");
+
+
+
+    libMesh::out << " ***** Mu:"
+                  << mu_inf
+                  <<  std::endl;
+
     double time = system.time;
     double sint = std::sin(3*3.1415*(time+0.025));
 
@@ -368,6 +399,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
         dof_map.dof_indices(elem, dof_indices_w, w_var);
         dof_map.dof_indices(elem, dof_indices_p, p_var);
         dof_map_mu.dof_indices(elem, dof_indices_mu);
+        dof_map_tau.dof_indices(elem, dof_indices_tau);
 
         const unsigned int n_dofs = dof_indices.size();
         const unsigned int n_u_dofs = dof_indices_u.size();
@@ -460,11 +492,12 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
             }
 
             double mu0 = 0.0074*1e3;
-            double lambda = 0.033;
+            double lambda = 0.033; // both from rheology
             auto D = grad_vel + grad_vel.transpose();
             auto g2 = 0.5*D.contract(D);
-            double mu = mu_inf + (mu0-mu_inf)/std::sqrt(1+lambda*lambda*g2);
+            mu = mu_inf + (mu0-mu_inf)/std::sqrt(1+lambda*lambda*g2);
             mu_average += mu;
+
             // Assemble the u-velocity row
             // uu coupling
             for (unsigned int i = 0; i < n_u_dofs; i++)
@@ -544,67 +577,150 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
             // The following loops over the sides of the element.
             // If the element has no neighbor on a side then that
             // side MUST live on a boundary of the domain.
-            for (auto s : elem->side_index_range())
+            for (auto s : elem->side_index_range()) // boundary condition section
             {
                 if (elem->neighbor_ptr(s) == libmesh_nullptr)
                 {
-                    std::unique_ptr<const Elem> side(elem->build_side_ptr(s));
+                    std::unique_ptr<const Elem> side(elem->build_side_ptr(s)); //
                     const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, s);
-                    if (boundary_id != 7)
-                    {
-                        std::cout << "bID: " << boundary_id << std::endl;
-                    }
 
-                    if (boundary_id != 3 || boundary_id != 4 || boundary_id != 5 || boundary_id != 6)
+                // force u=0 on vessel sides
+              for (auto ns : side->node_index_range())
+              {
+
+                    if ( boundary_id == v_wall_id)
                     {
-//                        std::cout << "bID: " << boundary_id << std::endl;
-                        // Loop over the nodes on the side.
-                        for (auto ns : side->node_index_range())
+                      const Real penalty =1.e10;
+                      const Real u_f=0.0;
+                      const Real v_f= 0.0;
+                      const Real w_f= 0.0;
+
+                    for( auto n : elem -> node_index_range())
+                      if ( elem -> node_id(n) ==side -> node_id(ns))
+                      {
+                      // Matrix contribution.
+                        Kuu(n,n) += penalty;
+                        Kvv(n,n) += penalty;
+                        Kww(n,n) += penalty;
+
+                        // Right-hand-side contribution.
+                        Fu(n) += penalty*u_f;
+                        Fv(n) += penalty*v_f;
+                        Fw(n) += penalty*w_f;
+                      }
+// adding this in for tau maybe??
+                      for (unsigned int qp = 0; qp < qface.n_points(); qp++)
+                      {
+                          // const double xq = qface_point[qp](0);
+                          // const double yq = qface_point[qp](1);
+                          // const double zq = qface_point[qp](2);
+
+                          // begin mu stuff
+                          veln *= 0.0;
+                          grad_vel *= 0.0;
+                          for (unsigned int l = 0; l < n_u_dofs; ++l)
+                          {
+                              for (int jdim = 0; jdim < dim; jdim++)
+                              {
+                                  grad_vel(0, jdim) += dphi[l][qp](jdim) * un[l];
+                                  grad_vel(1, jdim) += dphi[l][qp](jdim) * vn[l];
+                                  grad_vel(2, jdim) += dphi[l][qp](jdim) * wn[l];
+                              }
+                          }
+
+                          // for (unsigned int i = 0; i < n_u_dofs; i++)
+                          // {
+                          //     veln(0) += un[i] * phi[i][qp];
+                          //     veln(1) += vn[i] * phi[i][qp];
+                          //     veln(2) += wn[i] * phi[i][qp];
+                          // }
+
+                          double mu0 = 0.0074*1e3;
+                          double lambda = 0.033; // both from rheology
+                          auto D = grad_vel + grad_vel.transpose();
+                          auto g2 = 0.5*D.contract(D);
+                          mu = mu_inf + (mu0-mu_inf)/std::sqrt(1+lambda*lambda*g2);
+                          auto tau= mu*D*normals[qp];
+                  }
+                }
+
+
+                    if(pressure_bc.find(boundary_id) != pressure_bc.end() )
+                    {
+                        double pressure_amp = pressure_bc.find(boundary_id)->second;
+                        double pressure= pressure_amp;
+                         // grabbing pressure constant as second arg
+                        if (boundary_id == inflow_id)
+                        { double inflow_freq = 1;
+                          pressure = pressure_amp*std::sin(2*3.1415*(time/inflow_freq))*std::sin(2*3.1415*(time/inflow_freq));
+                        }
+                        else if (boundary_id == outflow_id)
                         {
-                            // The location on the boundary of the current
-                            // node.
+                          double inflow_freq = 4;
+                          pressure = pressure_amp*std::sin(2*3.1415*(time/inflow_freq))*std::sin(2*3.1415*(time/inflow_freq));
 
-                            const Real xf = side->point(ns)(0);
-                            const Real yf = side->point(ns)(1);
-                            const Real zf = side->point(ns)(2);
+                        }
 
-                            if (yf < 1074 * scale)
+                        fe_face->reinit(elem, s);
+                        // Loop over face qp
+                        for (unsigned int qp = 0; qp < qface.n_points(); qp++)
+                        {
+                            const double xq = qface_point[qp](0);
+                            const double yq = qface_point[qp](1);
+                            const double zq = qface_point[qp](2);
+
+                            // begin mu stuff
+                            veln *= 0.0;
+                            grad_vel *= 0.0;
+                            for (unsigned int l = 0; l < n_u_dofs; ++l)
                             {
-
-                                auto node = side->node_ptr(ns);
-                                dof_map_phi.dof_indices(node, dof_indices_phi);
-                                double phi = (*system_phi.current_local_solution)(dof_indices_phi[0]);
-                                // The penalty value.  \f$ \frac{1}{\epsilon \f$
-                                Real penalty = 1.e10;
-
-                                // The boundary values.
-
-                                double mag = 1e5*(sint*sint-0.05);
-                                if(boundary_id == 2)  mag *= 2.0 / 1.2;
-                                const Real u_value = phi * mag * inflow_director_x;
-
-                                // Set v = 0 everywhere
-                                const Real v_value =  phi * mag * inflow_director_y;
-                                const Real w_value =  phi * mag * inflow_director_z;
-
-                                // Find the node on the element matching this node on
-                                // the side.  That defined where in the element matrix
-                                // the boundary condition will be applied.
-                                for (auto n : elem->node_index_range())
-                                    if (elem->node_id(n) == side->node_id(ns))
-                                    {
-                                        // Matrix contribution.
-                                        Kuu(n, n) += penalty;
-                                        Kvv(n, n) += penalty;
-                                        Kww(n, n) += penalty;
-
-                                        // Right-hand-side contribution.
-                                        Fu(n) += penalty * u_value;
-                                        Fv(n) += penalty * v_value;
-                                        Fw(n) += penalty * w_value;
-                                    }
+                                for (int jdim = 0; jdim < dim; jdim++)
+                                {
+                                    grad_vel(0, jdim) += dphi[l][qp](jdim) * un[l];
+                                    grad_vel(1, jdim) += dphi[l][qp](jdim) * vn[l];
+                                    grad_vel(2, jdim) += dphi[l][qp](jdim) * wn[l];
+                                }
                             }
-                        } // end face node loop
+
+                            for (unsigned int i = 0; i < n_u_dofs; i++)
+                            {
+                                veln(0) += un[i] * phi[i][qp];
+                                veln(1) += vn[i] * phi[i][qp];
+                                veln(2) += wn[i] * phi[i][qp];
+                            }
+
+                            double mu0 = 0.0074*1e3;
+                            double lambda = 0.033; // both from rheology
+                            auto D = grad_vel + grad_vel.transpose();
+                            auto g2 = 0.5*D.contract(D);
+                            mu = mu_inf + (mu0-mu_inf)/std::sqrt(1+lambda*lambda*g2);
+                            auto tau= mu*D*normals[qp];
+                            // end mu stuff
+                            // Assemble Matrix BC
+                            for (unsigned int l = 0; l < phi_face.size(); l++)
+                            {
+                              // put mu stuff here like extra for loop for grad etc.
+
+
+                                for (unsigned int k = 0; k < phi_face.size(); k++)
+                                {
+                                    Kuu(l, k) += JxW_face[qp] * mu * (dphi_face[k][qp] * normals[qp]) * phi_face[l][qp];
+                                    Kvv(l, k) += JxW_face[qp] * mu * (dphi_face[k][qp] * normals[qp]) * phi_face[l][qp];
+                                    Kww(l, k) += JxW_face[qp] * mu * (dphi_face[k][qp] * normals[qp]) * phi_face[l][qp];
+                                }
+                            } // Assemble Matrix BC since mu dynamic, for now making 1
+                            for (unsigned int l = 0; l < phi_face.size(); l++)
+                            {
+                                Fu(l) -= JxW_face[qp] * pressure * normals[qp](0) * phi_face[l][qp];
+                                Fv(l) -= JxW_face[qp] * pressure * normals[qp](1) * phi_face[l][qp];
+                                Fw(l) -= JxW_face[qp] * pressure * normals[qp](2) * phi_face[l][qp];
+                            } // Assemble RHS BC
+
+//// Can delete everything below ///////
+                          }
+
+                    } // end face node loop
+
                     } // end if (elem->neighbor(side) == libmesh_nullptr)
                 } // end boundary condition section
             }
@@ -620,6 +736,8 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
             system.matrix->add_matrix(Ke, dof_indices);
             system.rhs->add_vector(Fe, dof_indices);
             system_mu.solution->set(dof_indices_mu[0],mu_average);
+            system_tau.solution->set(dof_indices_tau[0],mu_average);
+
         } // end of element loop
 }
 
@@ -803,4 +921,3 @@ void assemble_poisson(EquationSystems & es, const std::string & libmesh_dbg_var(
     std::cout << "End Poisson Assembly" << std::endl;
 
 }
-
