@@ -1,0 +1,28 @@
+// input file for main3
+
+// mesh file that will be used for CFD sims
+MESH_FILE= /nas/longleaf/home/kirsteng/BeatIt/build/examples/playground/OFT_m0.e //OFT_m0.e
+
+// Giving output a file name
+Output_FILENAME= OFT_m0_explic_convect_dte-2_400TS_01.e //OFT_01_velo_input_dtdec.e
+
+// model parameters
+SCALE= 1.0e-4
+dirID= 3 // not sure if used
+RHO= 1.06
+MU= 3.7 // wont read e
+RADIUS= 50
+PENALTY= 1.e10
+
+// Boundary IDs
+V_WALL_IDS= 2
+INFLOW_ID=3
+OUTFLOW_ID=4
+PRESS_BC_IDS= 3,4
+PRESS_BC_AMP= 3,2
+
+// solver parameters
+DT=1.0e-2
+N_TS=400.0// wont read e
+LIN_SOLV_TOL= 1.e-6
+WRITE_ITER= 1
