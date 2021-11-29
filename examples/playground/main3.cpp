@@ -524,28 +524,35 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
             // Assemble the u-velocity row
             // uu coupling
             for (unsigned int i = 0; i < n_u_dofs; i++)
-            {
+                      {
 
-                Fu(i) += rho / dt * veln(0) * JxW[qp] * phi[i][qp];
-                Fv(i) += rho / dt * veln(1) * JxW[qp] * phi[i][qp];
-                Fw(i) += rho / dt * veln(2) * JxW[qp] * phi[i][qp];
+                          Fu(i) += rho / dt * veln(0) * JxW[qp] * phi[i][qp];
+                          Fv(i) += rho / dt * veln(1) * JxW[qp] * phi[i][qp];
+                          Fw(i) += rho / dt * veln(2) * JxW[qp] * phi[i][qp];
 
-                for (unsigned int j = 0; j < n_u_dofs; j++)
-                {
-                    Kuu(i, j) += mu * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
-                    Kuu(i, j) += rho / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
-                    Kuu(i, j) += rho * JxW[qp] * phi[i][qp]  * (veln * dphi[j][qp]);
+        // Making convective term explicit for to stabilize
+                          Fu(i) -= rho * JxW[qp] * phi[i][qp]  * (veln(0) * dphi[j][qp]);
+                          Fv(i) -= rho * JxW[qp] * phi[i][qp]  * (veln(1) * dphi[j][qp]);
+                          Fw(i) -= rho * JxW[qp] * phi[i][qp]  * (veln(2) * dphi[j][qp]);
 
-                    Kvv(i, j) += mu * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
-                    Kvv(i, j) += rho / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
-                    Kvv(i, j) += rho * JxW[qp] * phi[i][qp]  * (veln * dphi[j][qp]);
 
-                    Kww(i, j) += mu * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
-                    Kww(i, j) += rho / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
-                    Kww(i, j) += rho * JxW[qp] * phi[i][qp]  * (veln * dphi[j][qp]);
+                          for (unsigned int j = 0; j < n_u_dofs; j++)
+                          {
+                              Kuu(i, j) += mu * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+                              Kuu(i, j) += rho / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                            //  Kuu(i, j) += rho * JxW[qp] * phi[i][qp]  * (veln * dphi[j][qp]);
 
-                }
-            }
+                              Kvv(i, j) += mu * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+                              Kvv(i, j) += rho / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                            //  Kvv(i, j) += rho * JxW[qp] * phi[i][qp]  * (veln * dphi[j][qp]);
+
+                              Kww(i, j) += mu * JxW[qp] * (dphi[i][qp] * dphi[j][qp]);
+                              Kww(i, j) += rho / dt * JxW[qp] * (phi[i][qp] * phi[j][qp]);
+                          //    Kww(i, j) += rho * JxW[qp] * phi[i][qp]  * (veln * dphi[j][qp]);
+
+                          }
+                      }
+
 
             // up coupling
             for (unsigned int i = 0; i < n_u_dofs; i++)
