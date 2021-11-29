@@ -47,6 +47,7 @@
 #include "libmesh/dirichlet_boundaries.h"
 #include "libmesh/transient_system.h"
 #include "Util/IO/io.hpp"
+#include "Util/Timer.hpp"
 #include "libmesh/getpot.h"
 
 // For systems of equations the DenseSubMatrix
@@ -205,6 +206,7 @@ int main(int argc, char ** argv)
 
     ExodusII_IO exporter(mesh); // maybe scaled
 
+    BeatIt::Timer timer;
     for (unsigned int t_step=1; t_step<=n_timesteps; ++t_step)
     {
         // Increment the time counter, set the time step size as
@@ -227,7 +229,22 @@ int main(int argc, char ** argv)
         // At the beginning of each solve, reset the linear solver tolerance
         // to a "reasonable" starting value.
         const Real initial_linear_solver_tol = input("LIN_SOLV_TOL", 1.e-6);
-        equation_systems.get_system("Stokes").solve();
+
+        //equation_systems.get_system("Stokes").solve();
+        {
+            system.assemble();
+            const Real tol = equation_systems.parameters.get<Real>("linear solver tolerance");
+            const unsigned int maxits = equation_systems.parameters.get<unsigned int>("linear solver maximum iterations");
+
+            // Solve the linear system.
+            std::pair<unsigned int, Real> rval = std::make_pair(0,0.0);
+            timer.reset();
+            timer.start();
+            rval = system.get_linear_solver()->solve (*system.matrix, system.request_matrix("Preconditioner"), *system.solution, *system.rhs, tol, maxits);
+            timer.stop();
+            timer.print(std::cout);
+            system.update();
+        }
 
         const unsigned int write_interval = input("WRITE_ITER", 2); // writing for every iteration
         std::string output_filename = input("Output_FILENAME", "carreau_def.e");
