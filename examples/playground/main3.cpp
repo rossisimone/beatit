@@ -59,6 +59,12 @@
 // The definition of a geometric element
 #include "libmesh/elem.h"
 
+#include "petscmat.h"
+#include "petscksp.h"
+#include <petsc/private/kspimpl.h>
+#include "libmesh/petsc_linear_solver.h"
+#include "libmesh/petsc_vector.h"
+#include "libmesh/petsc_matrix.h"
 // Bring in everything from the libMesh namespace
 using namespace libMesh;
 
@@ -739,6 +745,50 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
             system_tau.solution->set(dof_indices_tau[0],mu_average);
 
         } // end of element loop
+
+    // SET UP IS for FIELDSPLIT: we should do this only once,
+    //                           but since  the matrix is reassmebled at every timestep
+    //                             I will put it here for now
+    {
+        std::cout << "* Assigning field split information ... " << std::flush;
+
+        IS is_v_local;
+        IS is_p_local;
+        std::vector<libMesh::dof_id_type> v_indices;
+        std::vector<libMesh::dof_id_type> vx_indices;
+        std::vector<libMesh::dof_id_type> vy_indices;
+        std::vector<libMesh::dof_id_type> vz_indices;
+        std::vector<libMesh::dof_id_type> p_indices;
+        int var_num = 0;
+        dof_map.local_variable_indices(vx_indices, mesh, var_num);
+        dof_map.local_variable_indices(vy_indices, mesh, var_num+1);
+        dof_map.local_variable_indices(vz_indices, mesh, var_num+2);
+        dof_map.local_variable_indices(p_indices, mesh, var_num+3);
+        v_indices.insert(v_indices.end(), vx_indices.begin(), vx_indices.end());
+        v_indices.insert(v_indices.end(), vy_indices.begin(), vy_indices.end());
+        v_indices.insert(v_indices.end(), vz_indices.begin(), vz_indices.end());
+
+        ISCreateGeneral(PETSC_COMM_SELF, v_indices.size(), reinterpret_cast<int*>(&v_indices[0]),PETSC_COPY_VALUES,&is_v_local);
+        ISCreateGeneral(PETSC_COMM_SELF, p_indices.size(), reinterpret_cast<int*>(&p_indices[0]),PETSC_COPY_VALUES,&is_p_local);
+
+        typedef libMesh::PetscMatrix<libMesh::Number> PetscMatrix;
+        typedef libMesh::PetscLinearSolver<libMesh::Number> PetscLinearSolver;
+        auto linear_solver = dynamic_cast<PetscLinearSolver *>(system.get_linear_solver());
+        linear_solver->init(dynamic_cast<PetscMatrix *>(system.matrix), "ns_");
+        KSPAppendOptionsPrefix(linear_solver->ksp(),"ns_");
+        KSPSetFromOptions(linear_solver->ksp());
+        PCFieldSplitSetIS(linear_solver->ksp()->pc,"v",is_v_local);
+        PCFieldSplitSetIS(linear_solver->ksp()->pc,"p",is_p_local);
+        KSPSetFromOptions(linear_solver->ksp());
+       std::cout << "  done! " << std::flush;
+
+       int size;
+       ISGetSize(is_v_local, &size);
+       std::cout << " is_v_local size: " << size << std::flush;
+       ISGetSize(is_p_local, &size);
+       std::cout << ", is_p_local size: " << size << std::flush;
+    }
+
 }
 
 void assemble_poisson(EquationSystems & es, const std::string & libmesh_dbg_var(system_name))
