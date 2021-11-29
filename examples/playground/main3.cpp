@@ -159,8 +159,14 @@ int main(int argc, char ** argv)
     std::string p_bc_amp = input("PRESS_BC_AMP", "8, 10"); // also testing, want to read 0,2 from input this will just be the amp that they do //data("p_bc_amp", "NONE");
     std::vector<libMesh::boundary_id_type> p_bc_id_vec;
     BeatIt::readList(p_bc_id, p_bc_id_vec);
+    std::cout << "p_bc_id: " << std::flush;
+    for(auto && p_bc :  p_bc_id_vec) std::cout << p_bc << ", "<< std::flush;
+    std::cout << std::endl;
     std::vector<double> p_bc_vec;
     BeatIt::readList(p_bc_amp, p_bc_vec);
+    std::cout << "p_bc_amp: " << std::flush;
+    for(auto && p_bc :  p_bc_vec) std::cout << p_bc << ", "<< std::flush;
+    std::cout << std::endl;
     for(unsigned int k = 0; k< p_bc_vec.size(); ++k)
     {
         pressure_bc[p_bc_id_vec[k]] = p_bc_vec[k];
@@ -188,7 +194,7 @@ int main(int argc, char ** argv)
 
 
     equation_systems.parameters.set<Real> ("penalty") = input("PENALTY", 1.e10);
-    equation_systems.parameters.set<Real> ("radius") = input("RADIUS", 50);
+    equation_systems.parameters.set<Real> ("radius") = input("RADIUS", 50.0);
     equation_systems.parameters.set<Real> ("scale")   = scale;
 
     equation_systems.parameters.set<Real> ("v_wall_id") = input("V_WALL_IDS", 2);
@@ -232,7 +238,12 @@ int main(int argc, char ** argv)
 
         //equation_systems.get_system("Stokes").solve();
         {
+            timer.reset();
+            timer.start();
+            std::cout << "Assembly: " << std::endl;
             system.assemble();
+            timer.stop();
+            timer.print(std::cout);
             const Real tol = equation_systems.parameters.get<Real>("linear solver tolerance");
             const unsigned int maxits = equation_systems.parameters.get<unsigned int>("linear solver maximum iterations");
 
@@ -240,6 +251,7 @@ int main(int argc, char ** argv)
             std::pair<unsigned int, Real> rval = std::make_pair(0,0.0);
             timer.reset();
             timer.start();
+            std::cout << "Linear Solver: " << std::endl;
             rval = system.get_linear_solver()->solve (*system.matrix, system.request_matrix("Preconditioner"), *system.solution, *system.rhs, tol, maxits);
             timer.stop();
             timer.print(std::cout);
@@ -810,7 +822,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
        ISGetSize(is_v_local, &size);
        std::cout << " is_v_local size: " << size << std::flush;
        ISGetSize(is_p_local, &size);
-       std::cout << ", is_p_local size: " << size << std::flush;
+       std::cout << ", is_p_local size: " << size << ". " << std::flush;
     }
 
 }
