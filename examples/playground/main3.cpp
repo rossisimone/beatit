@@ -803,7 +803,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
         v_indices.insert(v_indices.end(), vx_indices.begin(), vx_indices.end());
         v_indices.insert(v_indices.end(), vy_indices.begin(), vy_indices.end());
         v_indices.insert(v_indices.end(), vz_indices.begin(), vz_indices.end());
-
+        std::sort(v_indices.begin(), v_indices.end());
         ISCreateGeneral(PETSC_COMM_SELF, v_indices.size(), reinterpret_cast<int*>(&v_indices[0]),PETSC_COPY_VALUES,&is_v_local);
         ISCreateGeneral(PETSC_COMM_SELF, p_indices.size(), reinterpret_cast<int*>(&p_indices[0]),PETSC_COPY_VALUES,&is_p_local);
 
@@ -811,7 +811,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
         typedef libMesh::PetscLinearSolver<libMesh::Number> PetscLinearSolver;
         auto linear_solver = dynamic_cast<PetscLinearSolver *>(system.get_linear_solver());
         linear_solver->init(dynamic_cast<PetscMatrix *>(system.matrix), "ns_");
-        KSPAppendOptionsPrefix(linear_solver->ksp(),"ns_");
+//        KSPAppendOptionsPrefix(linear_solver->ksp(),"ns_");
         KSPSetFromOptions(linear_solver->ksp());
         PCFieldSplitSetIS(linear_solver->ksp()->pc,"v",is_v_local);
         PCFieldSplitSetIS(linear_solver->ksp()->pc,"p",is_p_local);
