@@ -785,6 +785,7 @@ void assemble_stokes(EquationSystems & es, const std::string & libmesh_dbg_var(s
     // SET UP IS for FIELDSPLIT: we should do this only once,
     //                           but since  the matrix is reassmebled at every timestep
     //                             I will put it here for now
+    if(system.time < 1.5 * dt)
     {
         std::cout << "* Assigning field split information ... " << std::flush;
 
