@@ -1266,8 +1266,10 @@ std::cout << "* MONODOMAIN: WARNING:  set_potential_on_boundary works only for T
         {
 			if (elem->neighbor_ptr(side) == libmesh_nullptr)
             {
-                const unsigned int boundary_id =
-                mesh.boundary_info->boundary_id (elem, side);
+                unsigned int n_boundary_ids=mesh.boundary_info->n_boundary_ids(elem,side);
+                std::vector<short int> boundary_ids_vec(n_boundary_ids);
+                mesh.boundary_info->boundary_ids(elem,side, boundary_ids_vec);
+                const unsigned int boundary_id = boundary_ids_vec[0];
                 if(boundary_id == boundID)
                 {
                 	monodomain_system.solution->set(dof_indices[0],value);

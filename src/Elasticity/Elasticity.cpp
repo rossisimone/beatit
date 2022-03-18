@@ -151,7 +151,7 @@ void Elasticity::save_exo(const std::string& output_filename, int step, double t
 
 void Elasticity::deleteSystems()
 {
-    M_equationSystems.delete_system(M_myName);
+    M_equationSystems.get_system(M_myName).clear();
 }
 
 void Elasticity::setup(const GetPot& data, std::string section)
@@ -831,7 +831,10 @@ void Elasticity::apply_BC(const libMesh::Elem*& elem, libMesh::DenseMatrix<libMe
     {
         if (elem->neighbor_ptr(side) == libmesh_nullptr)
         {
-            const unsigned int boundary_id = mesh.boundary_info->boundary_id(elem, side);
+            unsigned int n_boundary_ids=mesh.boundary_info->n_boundary_ids(elem,side);
+            std::vector<short int> boundary_ids_vec(n_boundary_ids);
+            mesh.boundary_info->boundary_ids(elem,side, boundary_ids_vec);
+            const unsigned int boundary_id = boundary_ids_vec[0];
 
 //			auto bc = M_bch.get_bc(boundary_id);
             auto& bc_map = M_bch.get_bc_map();

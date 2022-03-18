@@ -111,9 +111,9 @@ Poisson::~Poisson() {
 void
 Poisson::deleteSystems()
 {
-	M_equationSystems.delete_system(M_myName);
-	M_equationSystems.delete_system(M_myNameGradient);
-	M_equationSystems.delete_system(M_myNameP0);
+	M_equationSystems.get_system(M_myName).clear();
+	M_equationSystems.get_system(M_myNameGradient).clear();
+	M_equationSystems.get_system(M_myNameP0).clear();
 }
 
 void
@@ -410,8 +410,10 @@ Poisson::apply_BC( const libMesh::Elem*& elem,
 //            if (elem->neighbor(side) == libmesh_nullptr)
 
             {
-                const unsigned int boundary_id =
-                mesh.boundary_info->boundary_id (elem, side);
+                 unsigned int n_boundary_ids=mesh.boundary_info->n_boundary_ids(elem,side);
+                 std::vector<short int> boundary_ids_vec(n_boundary_ids);
+                 mesh.boundary_info->boundary_ids(elem,side, boundary_ids_vec);
+                 const unsigned int boundary_id = boundary_ids_vec[0];
                 //std::cout << "BID: " << boundary_id << std::endl;
 
                 auto bc = M_bch.get_bc(boundary_id);
