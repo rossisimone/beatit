@@ -532,6 +532,7 @@ namespace BeatIt
     void ElectroSolver::init_systems(double time)
     {
         // WAVE
+        std::cout << "* ElectroSolver: Init Systems: " << std::endl;
         ElectroSystem& wave_system = M_equationSystems.get_system<ElectroSystem>("wave");
 
         std::string v_ic = M_datafile(M_section + "/ic", "");

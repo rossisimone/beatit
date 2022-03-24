@@ -145,3 +145,18 @@ target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
 target_link_libraries(${TESTNAMEV} ${VTK_LIBRARY_DIRS})
 
 SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)
+
+SET(TESTNAMEV read_exodus_fibers)
+message("=== Adding Example : ${TESTNAMEV}")
+add_executable(${TESTNAMEV} read_exodus_fibers.cpp)
+
+set_target_properties(${TESTNAMEV} PROPERTIES  OUTPUT "read_exodus_fibers")
+
+include_directories ("${PROJECT_SOURCE_DIR}/src")
+include_directories ("${LIBMESH_DIR}/include")
+
+target_link_libraries(${TESTNAMEV} beatit)
+target_link_libraries(${TESTNAMEV} ${LIBMESH_LIB})
+target_link_libraries(${TESTNAMEV} ${VTK_LIBRARY_DIRS})
+
+SET_TARGET_PROPERTIES(${TESTNAME} PROPERTIES LINKER_LANGUAGE CXX)

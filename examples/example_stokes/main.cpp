@@ -105,13 +105,16 @@ int main(int argc, char **argv)
         std::cout << "Creating mesh" << std::endl;
         double maxx = data("maxx", 1.0);
         double maxy = data("maxy", 1.0);
+        double maxz = data("maxz", 1.0);
         int nelx = data("nelx", 0);
         int nely = data("nely", 0);
+        int nelz = data("nelz", 0);
         MeshTools::Generation::build_square (mesh,
-                                           nelx, nely,
+                                           nelx, nely, nelz,
                                            0., maxx,
                                            0., maxy,
-                                           TRI3);
+                                           0., maxz,
+                                           TET4);
     }
     else
     {

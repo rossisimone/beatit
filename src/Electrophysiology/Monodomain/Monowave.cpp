@@ -46,7 +46,7 @@
  * Created on: Aug 11, 2016
  *
  */
-
+#include <exception>
 // Basic include files needed for the mesh functionality.
 #include "libmesh/mesh.h"
 #include "libmesh/type_tensor.h"
@@ -106,7 +106,6 @@
 
 #include <cstdlib>
 
-
 namespace BeatIt
 {
 
@@ -117,13 +116,13 @@ typedef libMesh::TransientLinearImplicitSystem ElectroSystem;
 typedef libMesh::TransientExplicitSystem IonicModelSystem;
 typedef libMesh::ExplicitSystem ParameterSystem;
 
-ElectroSolver* createMonowave(libMesh::EquationSystems& es)
+ElectroSolver* createMonowave(libMesh::EquationSystems &es)
 {
     return new Monowave(es);
 }
 
-Monowave::Monowave(libMesh::EquationSystems& es)
-        : ElectroSolver(es, "monowave")
+Monowave::Monowave(libMesh::EquationSystems &es) :
+        ElectroSolver(es, "monowave")
 {
 
 }
@@ -132,7 +131,7 @@ Monowave::~Monowave()
 {
 }
 
-void Monowave::setup_systems(GetPot& data, std::string section)
+void Monowave::setup_systems(GetPot &data, std::string section)
 {
     std::cout << "* MONOWAVE: Setting up data from section " << section << std::endl;
     // ///////////////////////////////////////////////////////////////////////
@@ -140,7 +139,7 @@ void Monowave::setup_systems(GetPot& data, std::string section)
     // Starts by creating the equation systems
     // 1) ADR
     std::cout << "* MONOWAVE: Creating new System for the monowave diffusion reaction equation" << std::endl;
-    ElectroSystem& monodomain_system = M_equationSystems.add_system<ElectroSystem>(M_model);
+    ElectroSystem &monodomain_system = M_equationSystems.add_system < ElectroSystem > (M_model);
     // TO DO: Generalize to higher order
     monodomain_system.add_variable("Q", M_order, M_FEFamily);
     // Add 3 matrices
@@ -158,7 +157,7 @@ void Monowave::setup_systems(GetPot& data, std::string section)
     monodomain_system.init();
 
     // WAVE
-    ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
+    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
     wave_system.add_variable("V", M_order, M_FEFamily);
     M_exporterNames.insert("wave");
     wave_system.init();
@@ -171,7 +170,7 @@ void Monowave::setup_systems(GetPot& data, std::string section)
     std::cout << "* MONOWAVE: Creating auxiliary explicit systems " << std::endl;
 
 //    M_ionicModelExporterNames.insert("istim");
-    IonicModelSystem& cut_system = M_equationSystems.add_system<IonicModelSystem>("cut");
+    IonicModelSystem &cut_system = M_equationSystems.add_system < IonicModelSystem > ("cut");
     cut_system.add_variable("cut", M_order, M_FEFamily);
     cut_system.init();
 
@@ -179,7 +178,7 @@ void Monowave::setup_systems(GetPot& data, std::string section)
     // ///////////////////////////////////////////////////////////////////////
     // Distributed Parameters
     std::cout << "* MONOWAVE: Creating parameters spaces " << std::endl;
-    ParameterSystem& conductivity_system = M_equationSystems.add_system<ParameterSystem>("conductivity");
+    ParameterSystem &conductivity_system = M_equationSystems.add_system < ParameterSystem > ("conductivity");
     conductivity_system.add_variable("Dff", libMesh::CONSTANT, libMesh::MONOMIAL);
     conductivity_system.add_variable("Dss", libMesh::CONSTANT, libMesh::MONOMIAL);
     conductivity_system.add_variable("Dnn", libMesh::CONSTANT, libMesh::MONOMIAL);
@@ -209,9 +208,16 @@ void Monowave::setup_systems(GetPot& data, std::string section)
         M_equationType = EquationType::Wave;
     std::string anisotropy = M_datafile(section + "/anisotropy", "orhotropic");
     std::map<std::string, Anisotropy> aniso_map;
+
     aniso_map["orthotropic"] = Anisotropy::Orthotropic;
     aniso_map["isotropic"] = Anisotropy::Isotropic;
     aniso_map["transverse"] = Anisotropy::TransverselyIsotropic;
+
+    auto it = aniso_map.find(anisotropy);
+    if( it != aniso_map.end())
+    {
+        M_anisotropy = it->second;
+    }
     std::cout << "* MONOWAVE: Parameters: " << std::endl;
     std::cout << "              Chi = " << Chi << std::endl;
     std::cout << "              Dff = " << Dff << std::endl;
@@ -219,7 +225,6 @@ void Monowave::setup_systems(GetPot& data, std::string section)
     std::cout << "              Dnn = " << Dnn << std::endl;
     std::cout << "              tau = " << tau << std::endl;
     std::cout << "              anisotropy = " << anisotropy << std::endl;
-
 }
 
 void Monowave::init_systems(double time)
@@ -307,15 +312,15 @@ void Monowave::cut(double time, std::string f)
     SpiritFunction func;
     func.read(f);
     // Add the applied current to this system
-    IonicModelSystem& cut_system = M_equationSystems.get_system<IonicModelSystem>("cut");
+    IonicModelSystem &cut_system = M_equationSystems.get_system < IonicModelSystem > ("cut");
     cut_system.time = time;
     cut_system.project_solution(&func);
     cut_system.solution->close();
 //    cut_system.update();
-    IonicModelSystem& ionic_model_system = M_equationSystems.get_system<IonicModelSystem>("ionic_model");
+    IonicModelSystem &ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
     // WAVE
-    ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
-    ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
+    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
+    ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
 
     auto first = cut_system.solution->first_local_index();
     auto last = cut_system.solution->last_local_index();
@@ -363,7 +368,7 @@ void Monowave::cut(double time, std::string f)
 
 }
 
-void Monowave::generate_fibers(const GetPot& data, const std::string& section)
+void Monowave::generate_fibers(const GetPot &data, const std::string &section)
 {
     std::cout << "* MONOWAVE: Creating fiber fields" << std::endl;
 
@@ -378,11 +383,11 @@ void Monowave::generate_fibers(const GetPot& data, const std::string& section)
     p.compute_elemental_solution_gradient();
     p.save_exo();
 
-    const auto& sol_ptr = p.get_P0_solution();
+    const auto &sol_ptr = p.get_P0_solution();
 
-    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
-    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
-    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
+    ParameterSystem &fiber_system = M_equationSystems.get_system < ParameterSystem > ("fibers");
+    ParameterSystem &sheets_system = M_equationSystems.get_system < ParameterSystem > ("sheets");
+    ParameterSystem &xfiber_system = M_equationSystems.get_system < ParameterSystem > ("xfibers");
 
     *sheets_system.solution = *p.get_gradient();
 
@@ -438,8 +443,7 @@ void Monowave::generate_fibers(const GetPot& data, const std::string& section)
     double f0y = 0.0;
     double f0z = 0.0;
 
-    auto normalize = [](double& x, double& y, double& z,
-            double X, double Y, double Z)
+    auto normalize = [](double &x, double &y, double &z, double X, double Y, double Z)
     {
         double norm = std::sqrt( x * x + y * y + z * z);
         if(norm >= 1e-12 )
@@ -566,7 +570,7 @@ void Monowave::generate_fibers(const GetPot& data, const std::string& section)
 
 }
 
-void Monowave::amr(libMesh::MeshRefinement& mesh_refinement, const std::string& type)
+void Monowave::amr(libMesh::MeshRefinement &mesh_refinement, const std::string &type)
 {
 //	std::cout << "* MONODOMAIN: starting AMR ... " << std::flush;
 //	BeatIt:Timer timer;
@@ -577,7 +581,7 @@ void Monowave::amr(libMesh::MeshRefinement& mesh_refinement, const std::string& 
 //	timer.print(std::cout);
 //	std::cout << "Creating Error Estimator " << std::endl;
 //	timer.restart();
-    libMesh::ErrorEstimator * p_error_estimator;
+    libMesh::ErrorEstimator *p_error_estimator;
     if ("kelly" == type)
         p_error_estimator = new libMesh::KellyErrorEstimator;
     else if ("disc" == type)
@@ -588,9 +592,9 @@ void Monowave::amr(libMesh::MeshRefinement& mesh_refinement, const std::string& 
 //	timer.print(std::cout);
 //	 libMesh::KellyErrorEstimator error_estimator;
 //	 libMesh::LaplacianErrorEstimator error_estimator;
-    ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
+    ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
     // WAVE
-    ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
+    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
 
 //	std::cout << "Estimating Monodomain Error  " << std::endl;
 //	timer.restart();
@@ -636,14 +640,14 @@ void Monowave::assemble_cg_matrices(double dt)
     std::cout << "* MONODOMAIN: Assembling CG matrices ... " << std::endl;
     using std::unique_ptr;
 
-    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+    const libMesh::MeshBase &mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
     const unsigned int max_dim = 3;
-    const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
+    const libMesh::Real Chi = M_equationSystems.parameters.get < libMesh::Real > ("Chi");
 
     // Get a reference to the LinearImplicitSystem we are solving
-    ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
+    ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
+    IonicModelSystem &ionic_model_system = M_equationSystems.add_system < IonicModelSystem > ("ionic_model");
 
     monodomain_system.get_matrix("mass").zero();
     monodomain_system.get_matrix("lumped_mass").zero();
@@ -654,17 +658,17 @@ void Monowave::assemble_cg_matrices(double dt)
 //     MatSetOption( (dynamic_cast<libMesh::PetscMatrix<libMesh::Number> >(monodomain_system.get_matrix("stiffness"))).mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
 //     MatSetOption( (dynamic_cast<libMesh::PetscMatrix<libMesh::Number> * >(monodomain_system.matrix))->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
 
-    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
-    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
-    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
-    ParameterSystem& conductivity_system = M_equationSystems.get_system<ParameterSystem>("conductivity");
+    ParameterSystem &fiber_system = M_equationSystems.get_system < ParameterSystem > ("fibers");
+    ParameterSystem &sheets_system = M_equationSystems.get_system < ParameterSystem > ("sheets");
+    ParameterSystem &xfiber_system = M_equationSystems.get_system < ParameterSystem > ("xfibers");
+    ParameterSystem &conductivity_system = M_equationSystems.get_system < ParameterSystem > ("conductivity");
 
     // A reference to the  DofMap object for this system.  The  DofMap
     // object handles the index translation from node and element numbers
     // to degree of freedom numbers.  We will talk more about the  DofMap
     // in future examples.
-    const libMesh::DofMap & dof_map_monodomain = monodomain_system.get_dof_map();
-    const libMesh::DofMap & dof_map_fibers = fiber_system.get_dof_map();
+    const libMesh::DofMap &dof_map_monodomain = monodomain_system.get_dof_map();
+    const libMesh::DofMap &dof_map_fibers = fiber_system.get_dof_map();
 
     // Get a constant reference to the Finite Element type
     // for the first (and only) variable in the system.
@@ -677,8 +681,8 @@ void Monowave::assemble_cg_matrices(double dt)
     // of as a pointer that will clean up after itself.  Introduction Example 4
     // describes some advantages of  std::unique_ptr's in the context of
     // quadrature rules.
-    std::unique_ptr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
-    std::unique_ptr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
+    std::unique_ptr < libMesh::FEBase > fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr < libMesh::FEBase > fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
 
     // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule_stiffness(dim, libMesh::SECOND);
@@ -692,27 +696,27 @@ void Monowave::assemble_cg_matrices(double dt)
     // will be used to assemble the linear system.
     //
     // The element Jacobian * quadrature weight at each integration point.
-    const std::vector<libMesh::Real> & JxW_qp1 = fe_qp1->get_JxW();
-    const std::vector<libMesh::Real> & JxW_qp2 = fe_qp2->get_JxW();
+    const std::vector<libMesh::Real> &JxW_qp1 = fe_qp1->get_JxW();
+    const std::vector<libMesh::Real> &JxW_qp2 = fe_qp2->get_JxW();
 
     // The physical XY locations of the quadrature points on the element.
     // These might be useful for evaluating spatially varying material
     // properties at the quadrature points.
-    const std::vector<libMesh::Point> & q_point_qp1 = fe_qp1->get_xyz();
-    const std::vector<libMesh::Point> & q_point_qp2 = fe_qp2->get_xyz();
+    const std::vector<libMesh::Point> &q_point_qp1 = fe_qp1->get_xyz();
+    const std::vector<libMesh::Point> &q_point_qp2 = fe_qp2->get_xyz();
 
     // The element shape functions evaluated at the quadrature points.
-    const std::vector<std::vector<libMesh::Real> > & phi_qp1 = fe_qp1->get_phi();
-    const std::vector<std::vector<libMesh::Real> > & phi_qp2 = fe_qp2->get_phi();
+    const std::vector<std::vector<libMesh::Real> > &phi_qp1 = fe_qp1->get_phi();
+    const std::vector<std::vector<libMesh::Real> > &phi_qp2 = fe_qp2->get_phi();
 
     // The element shape function gradients evaluated at the quadrature
     // points.
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp1 = fe_qp1->get_dphi();
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp2 = fe_qp2->get_dphi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_qp1 = fe_qp1->get_dphi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_qp2 = fe_qp2->get_dphi();
 
-    const std::vector<std::vector<libMesh::Real> > & dphidx_qp1 = fe_qp1->get_dphidx();
-    const std::vector<std::vector<libMesh::Real> > & dphidy_qp1 = fe_qp1->get_dphidy();
-    const std::vector<std::vector<libMesh::Real> > & dphidz_qp1 = fe_qp1->get_dphidz();
+    const std::vector<std::vector<libMesh::Real> > &dphidx_qp1 = fe_qp1->get_dphidx();
+    const std::vector<std::vector<libMesh::Real> > &dphidy_qp1 = fe_qp1->get_dphidy();
+    const std::vector<std::vector<libMesh::Real> > &dphidz_qp1 = fe_qp1->get_dphidz();
 
     // Define data structures to contain the element matrix
     // and right-hand-side vector contribution.  Following
@@ -728,8 +732,8 @@ void Monowave::assemble_cg_matrices(double dt)
     // This vector will hold the degree of freedom indices for
     // the element.  These define where in the global system
     // the element degrees of freedom get mapped.
-    std::vector<libMesh::dof_id_type> dof_indices;
-    std::vector<libMesh::dof_id_type> dof_indices_fibers;
+    std::vector < libMesh::dof_id_type > dof_indices;
+    std::vector < libMesh::dof_id_type > dof_indices_fibers;
 
     // Now we will loop over all the elements in the mesh.
     // We will compute the element matrix and right-hand-side
@@ -758,20 +762,21 @@ void Monowave::assemble_cg_matrices(double dt)
     /* for coduction block */
     // Declare a special finite element object for
     // boundary integration.
-    std::unique_ptr<libMesh::FEBase> fe_face (libMesh::FEBase::build(dim, fe_type_qp2));
-    libMesh::QGauss qface(dim-1, libMesh::FOURTH);
-    fe_face->attach_quadrature_rule (&qface);
+    std::unique_ptr < libMesh::FEBase > fe_face(libMesh::FEBase::build(dim, fe_type_qp2));
+    libMesh::QGauss qface(dim - 1, libMesh::FOURTH);
+    fe_face->attach_quadrature_rule(&qface);
 
-    std::unique_ptr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr < libMesh::FEBase > fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
     fe_neighbor_face->attach_quadrature_rule(&qface);
-    const std::vector<std::vector<libMesh::Real> > & phi_neighbor_face = fe_neighbor_face->get_phi();
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_neighbor_face = fe_neighbor_face->get_dphi();
+    const std::vector<std::vector<libMesh::Real> > &phi_neighbor_face = fe_neighbor_face->get_phi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_neighbor_face = fe_neighbor_face->get_dphi();
 
     std::srand(std::time(0));
+    std::cout << "* \t looping over elements ...  " << std::endl;
 
     for (; el != end_el; ++el)
     {
-        const libMesh::Elem * elem = *el;
+        const libMesh::Elem *elem = *el;
         const unsigned int elem_id = elem->id();
         dof_map_monodomain.dof_indices(elem, dof_indices);
         dof_map_fibers.dof_indices(elem, dof_indices_fibers);
@@ -800,24 +805,63 @@ void Monowave::assemble_cg_matrices(double dt)
 
         //        std::cout << "Fibers" << std::endl;
         // fiber direction
-        f0[0] = (*fiber_system.solution)(dof_indices_fibers[0]);
-        f0[1] = (*fiber_system.solution)(dof_indices_fibers[1]);
-        f0[2] = (*fiber_system.solution)(dof_indices_fibers[2]);
-        // sheet direction
-        s0[0] = (*sheets_system.solution)(dof_indices_fibers[0]);
-        s0[1] = (*sheets_system.solution)(dof_indices_fibers[1]);
-        s0[2] = (*sheets_system.solution)(dof_indices_fibers[2]);
-        // crossfiber direction
-        n0[0] = (*xfiber_system.solution)(dof_indices_fibers[0]);
-        n0[1] = (*xfiber_system.solution)(dof_indices_fibers[1]);
-        n0[2] = (*xfiber_system.solution)(dof_indices_fibers[2]);
+        try
+        {
+            dof_indices_fibers.at(2);
+        }
+        catch (std::exception &e)
+        {
+            std::cout << "dof indices fibers 2 not found: " << e.what() << std::endl;
+        }
+
+
+        switch (M_anisotropy)
+        {
+            case Anisotropy::Isotropic:
+            {
+                break;
+            }
+            case Anisotropy::TransverselyIsotropic:
+            {
+                std::cout << "f0, " << std::flush;
+                f0[0] = (*fiber_system.solution)(dof_indices_fibers[0]);
+                std::cout << "f1, " << std::flush;
+                f0[1] = (*fiber_system.solution)(dof_indices_fibers[1]);
+                std::cout << "f2, " << std::flush;
+                f0[2] = (*fiber_system.solution)(dof_indices_fibers[2]);
+                std::cout << "done.  " << std::flush;
+                break;
+            }
+            case Anisotropy::Orthotropic:
+            default:
+            {
+                f0[0] = (*fiber_system.solution)(dof_indices_fibers[0]);
+                f0[1] = (*fiber_system.solution)(dof_indices_fibers[1]);
+                f0[2] = (*fiber_system.solution)(dof_indices_fibers[2]);
+                // sheet direction
+                s0[0] = (*sheets_system.solution)(dof_indices_fibers[0]);
+                s0[1] = (*sheets_system.solution)(dof_indices_fibers[1]);
+                s0[2] = (*sheets_system.solution)(dof_indices_fibers[2]);
+                // crossfiber direction
+                n0[0] = (*xfiber_system.solution)(dof_indices_fibers[0]);
+                n0[1] = (*xfiber_system.solution)(dof_indices_fibers[1]);
+                n0[2] = (*xfiber_system.solution)(dof_indices_fibers[2]);
+                break;
+            }
+        }
+
         // Conductivity tensor
+        std::cout << "Dff, " << std::flush;
         double Dff = (*conductivity_system.solution)(dof_indices_fibers[0]);
+        std::cout << "Dss, " << std::flush;
         double Dss = (*conductivity_system.solution)(dof_indices_fibers[1]);
+        std::cout << "Dnn, " << std::flush;
         double Dnn = (*conductivity_system.solution)(dof_indices_fibers[2]);
+        std::cout << "done.  " << std::flush;
 
         setup_local_conductivity(D0, Dff, Dss, Dnn, f0, s0, n0);
         D0 /= Chi;
+        std::cout << "loop over qps  " << std::endl;
 
 //        int random_el = std::rand() % 100 + 1;
 //        if(random_el <= 60)
@@ -904,6 +948,7 @@ void Monowave::assemble_cg_matrices(double dt)
 
         monodomain_system.get_matrix("stiffness").add_matrix(Ke, dof_indices);
     }
+    std::cout << "* \t looping over elements done. Closing ...  " << std::endl;
 
     // closing matrices and vectors
     monodomain_system.get_matrix("mass").close();
@@ -918,48 +963,48 @@ void Monowave::assemble_cg_matrices(double dt)
     form_system_matrix(dt, false, "lumped_mass");
 }
 
-void Monowave::setup_local_conductivity(libMesh::TensorValue<double>& D0, double Dff, double Dss, double Dnn, double * f0, double * s0, double * n0)
+void Monowave::setup_local_conductivity(libMesh::TensorValue<double> &D0, double Dff, double Dss, double Dnn, double *f0, double *s0, double *n0)
 {
     const unsigned int max_dim = 3;
     switch (M_anisotropy)
     {
-        case Anisotropy::Isotropic:
+    case Anisotropy::Isotropic:
+    {
+        for (int idim = 0; idim < max_dim; ++idim)
         {
-            for (int idim = 0; idim < max_dim; ++idim)
-            {
-                D0(idim, idim) = Dff;
-            }
-
-            break;
+            D0(idim, idim) = Dff;
         }
 
-        case Anisotropy::TransverselyIsotropic:
+        break;
+    }
+
+    case Anisotropy::TransverselyIsotropic:
+    {
+        for (int idim = 0; idim < max_dim; ++idim)
         {
-            for (int idim = 0; idim < max_dim; ++idim)
+            for (int jdim = 0; jdim < max_dim; ++jdim)
             {
-                for (int jdim = 0; jdim < max_dim; ++jdim)
-                {
 
-                    D0(idim, jdim) = (Dff - Dss) * f0[idim] * f0[jdim];
-                }
-                D0(idim, idim) += Dss;
+                D0(idim, jdim) = (Dff - Dss) * f0[idim] * f0[jdim];
             }
-            break;
+            D0(idim, idim) += Dss;
         }
+        break;
+    }
 
-        case Anisotropy::Orthotropic:
-        default:
+    case Anisotropy::Orthotropic:
+    default:
+    {
+        for (int idim = 0; idim < max_dim; ++idim)
         {
-            for (int idim = 0; idim < max_dim; ++idim)
+            for (int jdim = 0; jdim < max_dim; ++jdim)
             {
-                for (int jdim = 0; jdim < max_dim; ++jdim)
-                {
-                    D0(idim, jdim) = Dff * f0[idim] * f0[jdim] + Dss * s0[idim] * s0[jdim] + Dnn * n0[idim] * n0[jdim];
+                D0(idim, jdim) = Dff * f0[idim] * f0[jdim] + Dss * s0[idim] * s0[jdim] + Dnn * n0[idim] * n0[jdim];
 
-                }
             }
-            break;
         }
+        break;
+    }
     }
 }
 
@@ -968,14 +1013,14 @@ void Monowave::assemble_dg_matrices(double dt)
     std::cout << "* MONODOMAIN: Assembling DG matrices ... " << std::endl;
     using std::unique_ptr;
 
-    const libMesh::MeshBase & mesh = M_equationSystems.get_mesh();
+    const libMesh::MeshBase &mesh = M_equationSystems.get_mesh();
     const unsigned int dim = mesh.mesh_dimension();
     const unsigned int max_dim = 3;
-    const libMesh::Real Chi = M_equationSystems.parameters.get<libMesh::Real>("Chi");
+    const libMesh::Real Chi = M_equationSystems.parameters.get < libMesh::Real > ("Chi");
 
 // Get a reference to the LinearImplicitSystem we are solving
-    ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
-    IonicModelSystem& ionic_model_system = M_equationSystems.add_system<IonicModelSystem>("ionic_model");
+    ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
+    IonicModelSystem &ionic_model_system = M_equationSystems.add_system < IonicModelSystem > ("ionic_model");
 
     monodomain_system.get_matrix("mass").zero();
     monodomain_system.get_matrix("lumped_mass").zero();
@@ -986,17 +1031,17 @@ void Monowave::assemble_dg_matrices(double dt)
 //     MatSetOption( (dynamic_cast<libMesh::PetscMatrix<libMesh::Number> >(monodomain_system.get_matrix("stiffness"))).mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
 //     MatSetOption( (dynamic_cast<libMesh::PetscMatrix<libMesh::Number> * >(monodomain_system.matrix))->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
 
-    ParameterSystem& fiber_system = M_equationSystems.get_system<ParameterSystem>("fibers");
-    ParameterSystem& sheets_system = M_equationSystems.get_system<ParameterSystem>("sheets");
-    ParameterSystem& xfiber_system = M_equationSystems.get_system<ParameterSystem>("xfibers");
-    ParameterSystem& conductivity_system = M_equationSystems.get_system<ParameterSystem>("conductivity");
+    ParameterSystem &fiber_system = M_equationSystems.get_system < ParameterSystem > ("fibers");
+    ParameterSystem &sheets_system = M_equationSystems.get_system < ParameterSystem > ("sheets");
+    ParameterSystem &xfiber_system = M_equationSystems.get_system < ParameterSystem > ("xfibers");
+    ParameterSystem &conductivity_system = M_equationSystems.get_system < ParameterSystem > ("conductivity");
 
 // A reference to the  DofMap object for this system.  The  DofMap
 // object handles the index translation from node and element numbers
 // to degree of freedom numbers.  We will talk more about the  DofMap
 // in future examples.
-    const libMesh::DofMap & dof_map_monodomain = monodomain_system.get_dof_map();
-    const libMesh::DofMap & dof_map_fibers = fiber_system.get_dof_map();
+    const libMesh::DofMap &dof_map_monodomain = monodomain_system.get_dof_map();
+    const libMesh::DofMap &dof_map_fibers = fiber_system.get_dof_map();
 
 // Get a constant reference to the Finite Element type
 // for the first (and only) variable in the system.
@@ -1009,8 +1054,8 @@ void Monowave::assemble_dg_matrices(double dt)
 // of as a pointer that will clean up after itself.  Introduction Example 4
 // describes some advantages of  std::unique_ptr's in the context of
 // quadrature rules.
-    std::unique_ptr<libMesh::FEBase> fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
-    std::unique_ptr<libMesh::FEBase> fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
+    std::unique_ptr < libMesh::FEBase > fe_qp1(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr < libMesh::FEBase > fe_qp2(libMesh::FEBase::build(dim, fe_type_qp2));
 
 // A 5th order Gauss quadrature rule for numerical integration.
     libMesh::QGauss qrule_stiffness(dim, libMesh::SECOND);
@@ -1024,27 +1069,27 @@ void Monowave::assemble_dg_matrices(double dt)
 // will be used to assemble the linear system.
 //
 // The element Jacobian * quadrature weight at each integration point.
-    const std::vector<libMesh::Real> & JxW_qp1 = fe_qp1->get_JxW();
-    const std::vector<libMesh::Real> & JxW_qp2 = fe_qp2->get_JxW();
+    const std::vector<libMesh::Real> &JxW_qp1 = fe_qp1->get_JxW();
+    const std::vector<libMesh::Real> &JxW_qp2 = fe_qp2->get_JxW();
 
 // The physical XY locations of the quadrature points on the element.
 // These might be useful for evaluating spatially varying material
 // properties at the quadrature points.
-    const std::vector<libMesh::Point> & q_point_qp1 = fe_qp1->get_xyz();
-    const std::vector<libMesh::Point> & q_point_qp2 = fe_qp2->get_xyz();
+    const std::vector<libMesh::Point> &q_point_qp1 = fe_qp1->get_xyz();
+    const std::vector<libMesh::Point> &q_point_qp2 = fe_qp2->get_xyz();
 
 // The element shape functions evaluated at the quadrature points.
-    const std::vector<std::vector<libMesh::Real> > & phi_qp1 = fe_qp1->get_phi();
-    const std::vector<std::vector<libMesh::Real> > & phi_qp2 = fe_qp2->get_phi();
+    const std::vector<std::vector<libMesh::Real> > &phi_qp1 = fe_qp1->get_phi();
+    const std::vector<std::vector<libMesh::Real> > &phi_qp2 = fe_qp2->get_phi();
 
 // The element shape function gradients evaluated at the quadrature
 // points.
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp1 = fe_qp1->get_dphi();
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_qp2 = fe_qp2->get_dphi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_qp1 = fe_qp1->get_dphi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_qp2 = fe_qp2->get_dphi();
 
-    const std::vector<std::vector<libMesh::Real> > & dphidx_qp1 = fe_qp1->get_dphidx();
-    const std::vector<std::vector<libMesh::Real> > & dphidy_qp1 = fe_qp1->get_dphidy();
-    const std::vector<std::vector<libMesh::Real> > & dphidz_qp1 = fe_qp1->get_dphidz();
+    const std::vector<std::vector<libMesh::Real> > &dphidx_qp1 = fe_qp1->get_dphidx();
+    const std::vector<std::vector<libMesh::Real> > &dphidy_qp1 = fe_qp1->get_dphidy();
+    const std::vector<std::vector<libMesh::Real> > &dphidz_qp1 = fe_qp1->get_dphidz();
 
 // Define data structures to contain the element matrix
 // and right-hand-side vector contribution.  Following
@@ -1058,22 +1103,22 @@ void Monowave::assemble_dg_matrices(double dt)
     libMesh::DenseVector<libMesh::Number> Fe;
 
 // for interior penalty
-    std::unique_ptr<libMesh::FEBase> fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
-    std::unique_ptr<libMesh::FEBase> fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr < libMesh::FEBase > fe_elem_face(libMesh::FEBase::build(dim, fe_type_qp1));
+    std::unique_ptr < libMesh::FEBase > fe_neighbor_face(libMesh::FEBase::build(dim, fe_type_qp1));
 // Tell the finite element object to use our quadrature rule.
     libMesh::QGauss qface(dim - 1, fe_type_qp1.default_quadrature_order());
 
     fe_elem_face->attach_quadrature_rule(&qface);
     fe_neighbor_face->attach_quadrature_rule(&qface);
 // Data for surface integrals on the element boundary
-    const std::vector<std::vector<libMesh::Real> > & phi_face = fe_elem_face->get_phi();
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_face = fe_elem_face->get_dphi();
-    const std::vector<libMesh::Real> & JxW_face = fe_elem_face->get_JxW();
-    const std::vector<libMesh::Point> & qface_normals = fe_elem_face->get_normals();
-    const std::vector<libMesh::Point> & qface_points = fe_elem_face->get_xyz();
+    const std::vector<std::vector<libMesh::Real> > &phi_face = fe_elem_face->get_phi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_face = fe_elem_face->get_dphi();
+    const std::vector<libMesh::Real> &JxW_face = fe_elem_face->get_JxW();
+    const std::vector<libMesh::Point> &qface_normals = fe_elem_face->get_normals();
+    const std::vector<libMesh::Point> &qface_points = fe_elem_face->get_xyz();
 // Data for surface integrals on the neighbor boundary
-    const std::vector<std::vector<libMesh::Real> > & phi_neighbor_face = fe_neighbor_face->get_phi();
-    const std::vector<std::vector<libMesh::RealGradient> > & dphi_neighbor_face = fe_neighbor_face->get_dphi();
+    const std::vector<std::vector<libMesh::Real> > &phi_neighbor_face = fe_neighbor_face->get_phi();
+    const std::vector<std::vector<libMesh::RealGradient> > &dphi_neighbor_face = fe_neighbor_face->get_dphi();
 // Data structures to contain the element and neighbor boundary matrix
 // contribution. This matrices will do the coupling beetwen the dofs of
 // the element and those of his neighbors.
@@ -1089,8 +1134,8 @@ void Monowave::assemble_dg_matrices(double dt)
 // This vector will hold the degree of freedom indices for
 // the element.  These define where in the global system
 // the element degrees of freedom get mapped.
-    std::vector<libMesh::dof_id_type> dof_indices;
-    std::vector<libMesh::dof_id_type> dof_indices_fibers;
+    std::vector < libMesh::dof_id_type > dof_indices;
+    std::vector < libMesh::dof_id_type > dof_indices_fibers;
 
 // Now we will loop over all the elements in the mesh.
 // We will compute the element matrix and right-hand-side
@@ -1119,7 +1164,7 @@ void Monowave::assemble_dg_matrices(double dt)
 
     for (; el != end_el; ++el)
     {
-        const libMesh::Elem * elem = *el;
+        const libMesh::Elem *elem = *el;
         const unsigned int elem_id = elem->id();
         dof_map_monodomain.dof_indices(elem, dof_indices);
         dof_map_fibers.dof_indices(elem, dof_indices_fibers);
@@ -1210,10 +1255,9 @@ void Monowave::assemble_dg_matrices(double dt)
             {
                 // Store a pointer to the neighbor we are currently
                 // working on.
-                const libMesh::Elem * neighbor = elem->neighbor_ptr(side);
+                const libMesh::Elem *neighbor = elem->neighbor_ptr(side);
                 // Get the global id of the element and the neighbor
                 const unsigned int neighbor_id = neighbor->id();
-
 
                 // WARNING!!!! NOTE!!!!
                 // Here I should use some check for amr:
@@ -1234,10 +1278,10 @@ void Monowave::assemble_dg_matrices(double dt)
                     const double h_elem = elem->hmax();
 
                     // The quadrature point locations on the neighbor side
-                    std::vector<libMesh::Point> qface_neighbor_point;
+                    std::vector < libMesh::Point > qface_neighbor_point;
 
                     // The quadrature point locations on the element side
-                    std::vector<libMesh::Point> qface_point;
+                    std::vector < libMesh::Point > qface_point;
 
                     // Reinitialize shape functions on the element side
                     fe_elem_face->reinit(elem, side);
@@ -1253,8 +1297,8 @@ void Monowave::assemble_dg_matrices(double dt)
                     // Get the degree of freedom indices for the
                     // neighbor.  These define where in the global
                     // matrix this neighbor will contribute to.
-                    std::vector<libMesh::dof_id_type> neighbor_dof_indices;
-                    std::vector<libMesh::dof_id_type> neighbor_fiber_dof_indices;
+                    std::vector < libMesh::dof_id_type > neighbor_dof_indices;
+                    std::vector < libMesh::dof_id_type > neighbor_fiber_dof_indices;
                     dof_map_monodomain.dof_indices(neighbor, neighbor_dof_indices);
                     dof_map_fibers.dof_indices(neighbor, neighbor_fiber_dof_indices);
 
@@ -1291,16 +1335,15 @@ void Monowave::assemble_dg_matrices(double dt)
                     setup_local_conductivity(D0_neighbor, Dff, Dss, Dnn, f0, s0, n0);
                     D0_neighbor /= Chi;
 
-
                     for (unsigned int qp = 0; qp < qface.n_points(); qp++)
                     {
-                        double deltaKn = qface_normals[qp] * ( D0 * qface_normals[qp] );
-                        double deltaKn_neighbor = qface_normals[qp] * ( D0_neighbor * qface_normals[qp] );
+                        double deltaKn = qface_normals[qp] * (D0 * qface_normals[qp]);
+                        double deltaKn_neighbor = qface_normals[qp] * (D0_neighbor * qface_normals[qp]);
 
                         // e stands for elem
                         // n for neighbor
-                        double we = deltaKn_neighbor / (deltaKn_neighbor+deltaKn);
-                        double wn = deltaKn / (deltaKn_neighbor+deltaKn);
+                        double we = deltaKn_neighbor / (deltaKn_neighbor + deltaKn);
+                        double wn = deltaKn / (deltaKn_neighbor + deltaKn);
                         double gamma_K = we * deltaKn;
                         double alpha = 1.0;
                         double penalty = alpha * gamma_K / h_elem;
@@ -1333,10 +1376,8 @@ void Monowave::assemble_dg_matrices(double dt)
 //                                  (phi_neighbor_face[j][qp]*(qface_normals[qp]*dphi_neighbor_face[i][qp]) +
 //                                   phi_neighbor_face[i][qp]*(qface_normals[qp]*dphi_neighbor_face[j][qp]));
 
-                                Knn(i, j) -= JxW_face[qp] * wn * (qface_normals[qp] * (D0_neighbor * dphi_neighbor_face[i][qp]))
-                                        * phi_neighbor_face[j][qp];
-                                Knn(i, j) -= JxW_face[qp] * wn * (qface_normals[qp] * (D0_neighbor * dphi_neighbor_face[j][qp]))
-                                        * phi_neighbor_face[i][qp];
+                                Knn(i, j) -= JxW_face[qp] * wn * (qface_normals[qp] * (D0_neighbor * dphi_neighbor_face[i][qp])) * phi_neighbor_face[j][qp];
+                                Knn(i, j) -= JxW_face[qp] * wn * (qface_normals[qp] * (D0_neighbor * dphi_neighbor_face[j][qp])) * phi_neighbor_face[i][qp];
                                 // stability
                                 Knn(i, j) += JxW_face[qp] * penalty * phi_neighbor_face[j][qp] * phi_neighbor_face[i][qp];
                             }
@@ -1403,9 +1444,8 @@ void Monowave::assemble_dg_matrices(double dt)
                 const double h_elem = elem->hmax();
                 //(elem->volume() / elem_side->volume()) / std::pow(side_order, 2.);
 
-
                 // The quadrature point locations on the element side
-                std::vector<libMesh::Point> qface_point;
+                std::vector < libMesh::Point > qface_point;
 
                 // Reinitialize shape functions on the element side
                 fe_elem_face->reinit(elem, side);
@@ -1423,7 +1463,7 @@ void Monowave::assemble_dg_matrices(double dt)
 
                 for (unsigned int qp = 0; qp < qface.n_points(); qp++)
                 {
-                    double deltaKn = qface_normals[qp] * ( D0 * qface_normals[qp] );
+                    double deltaKn = qface_normals[qp] * (D0 * qface_normals[qp]);
                     double gamma_K = deltaKn;
                     double we = 1.0;
                     double alpha = 1.0;
@@ -1460,15 +1500,15 @@ void Monowave::assemble_dg_matrices(double dt)
     form_system_matrix(dt, false, "lumped_mass");
 }
 
-void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::string& mass)
+void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::string &mass)
 {
-    ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
+    ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
 // WAVE
     std::cout << "* MONOWAVE: forming system matrix using the " << mass << " matrix" << std::endl;
     M_systemMass = mass;
-    double Cm =1.0; // M_ionicModelPtr->membraneCapacitance();
+    double Cm = 1.0; // M_ionicModelPtr->membraneCapacitance();
 
-    const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau");
+    const libMesh::Real tau = M_equationSystems.parameters.get < libMesh::Real > ("tau");
 
     monodomain_system.matrix->zero();
     monodomain_system.matrix->close();
@@ -1495,28 +1535,28 @@ void Monowave::form_system_matrix(double dt, bool /*useMidpoint */, const std::s
 //    }
 }
 
-void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& mass)
+void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string &mass)
 {
-    MonodomainSystem& monodomain_system = M_equationSystems.get_system<MonodomainSystem>(M_model);
+    MonodomainSystem &monodomain_system = M_equationSystems.get_system < MonodomainSystem > (M_model);
 // WAVE
-    ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
-    IonicModelSystem& iion_system = M_equationSystems.get_system<IonicModelSystem>("iion");
-    IonicModelSystem& istim_system = M_equationSystems.get_system<IonicModelSystem>("istim");
+    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
+    IonicModelSystem &iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
+    IonicModelSystem &istim_system = M_equationSystems.get_system < IonicModelSystem > ("istim");
 
     double Cm = 1.0; //M_ionicModelPtr->membraneCapacitance();
-    const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau"); // time constant
+    const libMesh::Real tau = M_equationSystems.parameters.get < libMesh::Real > ("tau"); // time constant
 
     monodomain_system.rhs->zero();
     monodomain_system.rhs->close();
 
-    auto& aux1 = monodomain_system.get_vector("aux1");
+    auto &aux1 = monodomain_system.get_vector("aux1");
     aux1.zero();
     aux1.close();
-    auto& aux2 = monodomain_system.get_vector("aux2");
+    auto &aux2 = monodomain_system.get_vector("aux2");
     aux2.zero();
     aux2.close();
 
-    auto& total_current = iion_system.get_vector("total_current");
+    auto &total_current = iion_system.get_vector("total_current");
     total_current.zero();
     total_current.close();
 // RHS part:
@@ -1658,14 +1698,14 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string& m
 
 }
 
-void Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string& mass, bool reassemble)
+void Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, const std::string &mass, bool reassemble)
 {
 // FORM RHS
-    ElectroSystem& monodomain_system = M_equationSystems.get_system<ElectroSystem>(M_model);
+    ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
 //std::cout << "form_system_rhs" << std::endl;
     form_system_rhs(dt, useMidpoint, mass);
 //std::cout << "form_system_rhs done" << std::endl;
-    const libMesh::Real tau = M_equationSystems.parameters.get<libMesh::Real>("tau"); // time constant
+    const libMesh::Real tau = M_equationSystems.parameters.get < libMesh::Real > ("tau"); // time constant
 
 // If we are using SBDF2, we need to compute the system matrix again
 // In fact we do a first step with Forward-Backward Euler
@@ -1691,7 +1731,7 @@ void Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, co
 
 // std::cout << "solve done" << std::endl;
 // WAVE
-    ElectroSystem& wave_system = M_equationSystems.add_system<ElectroSystem>("wave");
+    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
 //   if (M_equationType == EquationType::Wave)
 //   {
 //if(tau>0)
