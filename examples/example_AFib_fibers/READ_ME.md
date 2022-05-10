@@ -1,3 +1,3 @@
-| Symbol paper |	Name code |
-|--------------|------------|
-| <img src="https://render.githubusercontent.com/render/math?math=$\alpha_\textsc{(ENDO_EPI)}$"> | hard coded | 
+| Symbol paper |	Name of varible in the code |
+|--------------|------------------------------|
+| ![Figure](https://latex.codecogs.com/png.image?\dpi{110}&space;\bg_white&space;\alpha_{(ENDO_EPI)) | hard coded | 
