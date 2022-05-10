@@ -647,7 +647,7 @@ void Monowave::assemble_cg_matrices(double dt)
 
     // Get a reference to the LinearImplicitSystem we are solving
     ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
-    IonicModelSystem &ionic_model_system = M_equationSystems.add_system < IonicModelSystem > ("ionic_model");
+    IonicModelSystem &ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
 
     monodomain_system.get_matrix("mass").zero();
     monodomain_system.get_matrix("lumped_mass").zero();
@@ -1020,7 +1020,7 @@ void Monowave::assemble_dg_matrices(double dt)
 
 // Get a reference to the LinearImplicitSystem we are solving
     ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
-    IonicModelSystem &ionic_model_system = M_equationSystems.add_system < IonicModelSystem > ("ionic_model");
+    IonicModelSystem &ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
 
     monodomain_system.get_matrix("mass").zero();
     monodomain_system.get_matrix("lumped_mass").zero();
@@ -1539,7 +1539,7 @@ void Monowave::form_system_rhs(double dt, bool useMidpoint, const std::string &m
 {
     MonodomainSystem &monodomain_system = M_equationSystems.get_system < MonodomainSystem > (M_model);
 // WAVE
-    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
+    ElectroSystem &wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
     IonicModelSystem &iion_system = M_equationSystems.get_system < IonicModelSystem > ("iion");
     IonicModelSystem &istim_system = M_equationSystems.get_system < IonicModelSystem > ("istim");
 
@@ -1731,7 +1731,7 @@ void Monowave::solve_diffusion_step(double dt, double time, bool useMidpoint, co
 
 // std::cout << "solve done" << std::endl;
 // WAVE
-    ElectroSystem &wave_system = M_equationSystems.add_system < ElectroSystem > ("wave");
+    ElectroSystem &wave_system = M_equationSystems.get_system < ElectroSystem > ("wave");
 //   if (M_equationType == EquationType::Wave)
 //   {
 //if(tau>0)
