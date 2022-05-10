@@ -4,5 +4,5 @@
 
 
 Test 
-<img src="https://render.githubusercontent.com/render/math?math={\\alpha_{(ENDO_EPI)}}#gh-light-mode-only">
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{(ENDO_EPI)}}#gh-dark-mode-only">
+<img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{(ENDO_EPI)}}}#gh-light-mode-only">
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only">
