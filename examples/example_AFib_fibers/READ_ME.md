@@ -5,7 +5,7 @@ Symbol paper	Name code
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{(ENDO_EPI)}}}#gh-light-mode-only">
 <img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> | hard coded | 
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\text{AF}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_\text{AF}}}#gh-dark-mode-only">|	t_anterior_floor |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{AF}}}#gh-dark-mode-only">|	t_anterior_floor |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\text{PF}}#gh-light-mode-only"> |	t_anterior_posterior|
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\text{RA}}#gh-light-mode-only"> |	t_antra_rsvp or t_antra_ripv|
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\text{AP}}#gh-light-mode-only"> |	t_anterior_posterior |
