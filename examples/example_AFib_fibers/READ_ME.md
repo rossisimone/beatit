@@ -2,7 +2,8 @@
 |--------------|------------------------------|
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{(ENDO_EPI)}}}#gh-light-mode-only">
 <img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> | hard coded | 
-| <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\textsc{AF}}#gh-light-mode-only"> |	t_anterior_floor |
+| <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\textsc{AF}}#gh-light-mode-only"> 
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_\textsc{AF}}}#gh-dark-mode-only">|	t_anterior_floor |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\textsc{PF}}#gh-light-mode-only"> |	t_anterior_posterior|
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\textsc{RA}}#gh-light-mode-only"> |	t_antra_rsvp or t_antra_ripv|
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_\textsc{AP}}#gh-light-mode-only"> |	t_anterior_posterior |
