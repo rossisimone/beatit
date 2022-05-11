@@ -34,9 +34,9 @@
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{FO}}#gh-light-mode-only"> 
 <img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{FO}}}#gh-dark-mode-only"> |	t_fo |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{S}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{S}}}#gh-dark-mode-only"> |	T_septum_ripv_1 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{S}}}#gh-dark-mode-only"> |	t_septum_ripv_1 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{L}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{L}}}#gh-dark-mode-only"> |	T_lateral |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{L}}}#gh-dark-mode-only"> |	t_lateral |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LAA}}#gh-light-mode-only"> 
 <img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LAA}}}#gh-dark-mode-only"> |	t_laa |
 
