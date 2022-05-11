@@ -12,33 +12,33 @@
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{AP}}#gh-light-mode-only"> 
 <img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{AP}}}#gh-dark-mode-only"> |	t_anterior_posterior |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{RIPV}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_septum_ripv_2 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{RIPV}}}#gh-dark-mode-only"> |	t_septum_ripv_2 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LR}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_left_right |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LR}}}#gh-dark-mode-only"> |	t_left_right |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LA}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_antra_left |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LA}}}#gh-dark-mode-only"> |	t_antra_left |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{BB}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_bachmann |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{BB}}}#gh-dark-mode-only"> |	t_bachmann |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LLR}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_left_lateral_ridge |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LLR}}}#gh-dark-mode-only"> |	t_left_lateral_ridge |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{AL}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_anterior_lateral |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{AL}}}#gh-dark-mode-only"> |	t_anterior_lateral |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{AR}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_anterior_top_1 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{AR}}}#gh-dark-mode-only"> |	t_anterior_top_1 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{EL}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_lateral_u5 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{EL}}}#gh-dark-mode-only"> |	t_lateral_u5 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LAL}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_anterior_bottom_1 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LAL}}}#gh-dark-mode-only"> |	t_anterior_bottom_1 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LE}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	1-t_anterior_top_2 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LE}}}#gh-dark-mode-only"> |	t_anterior_top_2 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{FO}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_fo |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{FO}}}#gh-dark-mode-only"> |	t_fo |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{S}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	T_septum_ripv_1 |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{S}}}#gh-dark-mode-only"> |	T_septum_ripv_1 |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{L}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	T_lateral |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{L}}}#gh-dark-mode-only"> |	T_lateral |
 | <img src="https://render.githubusercontent.com/render/math?math={\\alpha_{\text{LAA}}#gh-light-mode-only"> 
-<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{(ENDO_EPI)}}}#gh-dark-mode-only"> |	t_laa |
+<img src="https://render.githubusercontent.com/render/math?math={\color{white}\alpha_{\text{LAA}}}#gh-dark-mode-only"> |	t_laa |
 
 
 
