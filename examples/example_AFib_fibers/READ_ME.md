@@ -25,6 +25,14 @@ Making sure that there are no overlapping structures.
 ### Input file format, boundary sets and landmark points
 The method requires the definition of common boundary sets (endocardium, epicardium, mitral valve ring, pulmonary veins) and two landmark points, one for the left atrial appendage and one for the fossa ovalis.
 
+The landmark points should be added to the input file data.beat: 
+```
+nodeset_x = '-0.3, 3.14'
+nodeset_y = '-2.94, -3.61'
+nodeset_z = '-0.59, 3.27'
+nodeset_r = '0.02, 0.02'
+nodeset_id = '321, 123'
+```
 
 In case you need to assign your sidesets and soes not have an easy way to do so, you can use the brute_force.cpp? number of stl files + one volumetric exodus file
 
