@@ -37,7 +37,7 @@ nodeset_y = '-2.94, -3.61'
 nodeset_z = '-0.59, 3.27'
 nodeset_r = '0.02, 0.02'
 ```
-
+In case you want your Bachmann's Bundle to cross the septum in a higher position, you can decrease the value set for `t_bachmann`.
 
 ## Thresholds 
 
