@@ -38,8 +38,18 @@ In case you need to assign your sidesets and soes not have an easy way to do so,
 
  --- under construction ----
 
+### Input variables 
+The variable `common_left_trunk` should be set to `true` if the anatomy has one common left pulmonary vein. 
 
 
+# Landmarks FO, LAA
+nodeset_x = '-0.3, 3.14'
+nodeset_y = '-2.94, -3.61'
+nodeset_z = '-0.59, 3.27'
+nodeset_r = '0.02, 0.02'
+nodeset_id = '321, 123'
+# export fields or only the fibers?
+only_fibers = 
 
 ## Thresholds 
 
