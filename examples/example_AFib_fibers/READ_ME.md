@@ -1,3 +1,32 @@
+## Dependencies
+To install and run this code, you need:
+- VTK (https://vtk.org/)
+- Libmesh (https://libmesh.github.io/)
+
+
+## Install BeatIt
+We use CMake to configure the BeatIt library.
+```
+git clone https://github.com/rossisimone/beatit.git
+
+```
+
+<under construction>
+
+## Preprocessing steps
+
+### Segmentation of images
+Making sure that there are no overlapping structures. 
+
+###
+
+## Thresholds 
+
+### Video Tutorial
+
+<under construction>
+
+### Correspondence of threshold symbols in the paper and in the code
 
 | Symbol paper |	Name of varible in the code |
 |--------------|------------------------------|
