@@ -11,7 +11,8 @@ git clone https://github.com/rossisimone/beatit.git
 
 ```
 
-<under construction>
+ --- under construction ----
+
 
 ## Preprocessing steps
 
@@ -24,16 +25,17 @@ The method requires the definition of common boundary sets (endocardium, epicard
 
 In case you need to assign your sidesets and soes not have an easy way to do so, you can use the brute_force.cpp? number of stl files + one volumetric exodus file
 
-<Under construction>
+ --- under construction ----
+
 
 ### Output file format
-The output file will be an exodus file format called `<input-file-name>_afib_fibers.e'.  
+The output file will be an exodus file format called `input-file-name_afib_fibers.e'.  
 
 ## Thresholds 
 
 ### Video Tutorial
 
-<under construction>
+ --- under construction ----
 
 ### Correspondence of threshold symbols in the paper and in the code
 
