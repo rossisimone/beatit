@@ -2,6 +2,9 @@
 To install and run this code, you need:
 - VTK (https://vtk.org/)
 - Libmesh (https://libmesh.github.io/)
+- Boost (https://www.boost.org/) 
+- Eigen (https://eigen.tuxfamily.org/)
+- PETSC (https://petsc.org/release/)
 
 
 ## Install BeatIt
@@ -29,7 +32,7 @@ In case you need to assign your sidesets and soes not have an easy way to do so,
 
 
 ### Output file format
-The output file will be an exodus file format called `input-file-name_afib_fibers.e'.  
+The output file will be an Exodu0s II file called `input-file-name_afib_fibers.e'.  
 
 ## Thresholds 
 
