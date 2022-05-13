@@ -8,7 +8,7 @@ To install and run this code, you need:
 
 
 ## Install BeatIt
-We use CMake to configure the BeatIt library.
+
 ```
 git clone https://github.com/rossisimone/beatit.git
 
