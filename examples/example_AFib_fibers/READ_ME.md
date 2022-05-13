@@ -23,33 +23,21 @@ git clone https://github.com/rossisimone/beatit.git
 Making sure that there are no overlapping structures. 
 
 ### Input file format, boundary sets and landmark points
-The method requires the definition of common boundary sets (endocardium, epicardium, mitral valve ring, pulmonary veins) and two landmark points, one for the left atrial appendage and one for the fossa ovalis.
+The method requires the definition of common boundary sets (endocardium, epicardium, mitral valve ring, pulmonary veins) and two landmark points, one for the left atrial appendage and one for the fossa ovalis. The landmark points should be added to the input file data.beat and is explained in the section "Input variables" below.
 
-The landmark points should be added to the input file data.beat: 
-```
-nodeset_x = '-0.3, 3.14'
-nodeset_y = '-2.94, -3.61'
-nodeset_z = '-0.59, 3.27'
-nodeset_r = '0.02, 0.02'
-nodeset_id = '321, 123'
-```
-
-In case you need to assign your sidesets and soes not have an easy way to do so, you can use the brute_force.cpp? number of stl files + one volumetric exodus file
+In case you need to assign your sidesets and does not have an easy way to do so, you can use the brute_force.cpp? number of stl files + one volumetric exodus file
 
  --- under construction ----
 
-### Input variables 
-The variable `common_left_trunk` should be set to `true` if the anatomy has one common left pulmonary vein. 
-
-
-# Landmarks FO, LAA
+## Input variables 
+The variable `common_left_trunk` should be set to `true` if the anatomy has one common left pulmonary vein. Say the landmark points for the LAA and FO are (-0.3, -2.94, -0.59) with radius 0.02 (chosen such that it encolses one mesh node) and (3.14, 3.61, 3.27) with radius 0.02 (chosen such that it encolses one mesh node), then this is how they should be set in the data.beat input file:
+```
 nodeset_x = '-0.3, 3.14'
 nodeset_y = '-2.94, -3.61'
 nodeset_z = '-0.59, 3.27'
 nodeset_r = '0.02, 0.02'
-nodeset_id = '321, 123'
-# export fields or only the fibers?
-only_fibers = 
+```
+
 
 ## Thresholds 
 
