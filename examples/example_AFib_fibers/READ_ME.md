@@ -31,8 +31,7 @@ In case you need to assign your sidesets and soes not have an easy way to do so,
  --- under construction ----
 
 
-### Output file format
-The output file will be an Exodu0s II file called `input-file-name_afib_fibers.e'.  
+
 
 ## Thresholds 
 
@@ -85,4 +84,5 @@ The output file will be an Exodu0s II file called `input-file-name_afib_fibers.e
 
 
 
-
+## Output file format
+The output file will be an Exodu0s II file called `input-file-name_afib_fibers.e'.  
