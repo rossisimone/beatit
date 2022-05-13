@@ -18,7 +18,16 @@ git clone https://github.com/rossisimone/beatit.git
 ### Segmentation of images
 Making sure that there are no overlapping structures. 
 
-###
+### Input file format, boundary sets and landmark points
+The method requires the definition of common boundary sets (endocardium, epicardium, mitral valve ring, pulmonary veins) and two landmark points, one for the left atrial appendage and one for the fossa ovalis.
+
+
+In case you need to assign your sidesets and soes not have an easy way to do so, you can use the brute_force.cpp? number of stl files + one volumetric exodus file
+
+<Under construction>
+
+### Output file format
+The output file will be an exodus file format called `<input-file-name>_afib_fibers.e'.  
 
 ## Thresholds 
 
