@@ -32,6 +32,9 @@ nodeset_r = '0.02, 0.02'
 ```
 In case you want your Bachmann's Bundle to cross the septum in a higher position, you can decrease the value set for `t_bachmann`.
 
+
+ --- under construction: include input files and example mesh in the repo ----
+
 ## Thresholds 
 
 ### Video Tutorial
