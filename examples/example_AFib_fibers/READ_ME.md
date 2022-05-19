@@ -17,10 +17,13 @@ Making sure that there are no overlapping structures.
 ### Input file format, boundary sets and landmark points
 The method requires the definition of common boundary sets (endocardium, epicardium, mitral valve ring, pulmonary veins) and two landmark points, one for the left atrial appendage and one for the fossa ovalis. The landmark points should be added to the input file data.beat and is explained in the section "Input variables" below.
 
-In case you need to assign your sidesets and does not have an easy way to do so, you can use the https://github.com/rossisimone/beatit/tree/master/examples/example_remap_region/brute_force.cpp by providing exodus surfae files with the boundary set information and a volumetric mesh in exodus format. 
+To assign the sidesets, you can follow the schematic illustrated in the diagram 
+
+![alt text](https://github.com/rossisimone/beatit/tree/master/examples/example_AFib_fibers/assigning_boundary_sets.png)
+
+In case you need to assign your sidesets and does not have an easy way to do so, you can use the https://github.com/rossisimone/beatit/tree/master/examples/example_remap_region/brute_force.cpp by providing exodus surface files with the boundary set information and a volumetric mesh in exodus format. 
 
 
- --- under construction: include pictures here ----
 
 ## Input variables 
 The variable `common_left_trunk` should be set to `true` if the anatomy has one common left pulmonary vein. Say the landmark points for the LAA and FO are (-0.3, -2.94, -0.59) with radius 0.02 (chosen such that it encolses one mesh node) and (3.14, 3.61, 3.27) with radius 0.02 (chosen such that it encolses one mesh node), then this is how they should be set in the data.beat input file:
