@@ -23,7 +23,7 @@ To assign the sidesets, you can follow the schematic illustrated in the diagram
     <img src="./assigning_boundary_sets.png" />
 </p>
 
-In case you need to assign your sidesets and does not have an easy way to do so, you can use the https://github.com/rossisimone/beatit/tree/master/examples/example_remap_region/brute_force.cpp by providing exodus surface files with the boundary set information and a volumetric mesh in exodus format. 
+In case you need to assign your sidesets and does not have an easy way to do so, you can use the https://github.com/rossisimone/beatit/tree/master/examples/example_remap_region/brute_force.cpp by providing Exodus II surface files with the boundary set information and a volumetric mesh in Exodus II format. 
 
 
 
