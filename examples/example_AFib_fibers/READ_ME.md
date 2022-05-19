@@ -32,8 +32,16 @@ nodeset_r = '0.02, 0.02'
 ```
 In case you want your Bachmann's Bundle to cross the septum in a higher position, you can decrease the value set for `t_bachmann`.
 
+### Mesh example
+You can find a Mesh example here: https://osf.io/2q3up/?view_only=19abb61193ba4384a504392ca6769703
+Note, the original mesh is the 03patient from http://doi.org/doi:10.18742/RDM01-289
 
- --- under construction: include input files and example mesh in the repo ----
+The input file  `mesh`, `la_mesh` variables are set to be the input mesh names:
+```
+mesh=input_mesh.e
+la_mesh=input_mesh.e
+```
+ --- under construction: include input files  ----
 
 ## Thresholds 
 
