@@ -108,4 +108,4 @@ mpirun -n 88 ./example_afib_fibers -i data.beat
 
 
 ## Output file format
-The output file will be an Exodu0s II file called `input_mesh_afib_fibers.e'.  
+The output file will be an Exodu0s II file called `input_mesh_afib_fibers.e`.  
