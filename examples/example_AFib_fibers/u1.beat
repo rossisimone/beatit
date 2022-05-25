@@ -1,0 +1,85 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+laa_threshold = 0.505 # m3 : 0.505, m1 : 0.31
+fo_threshold = 0.448  # m3 : 0.448, m1 : 0.21
+
+
+[poisson]
+    # Output Folder
+    output_folder = LA_Output
+    rhs = 0.0
+    centerline_x = -0.423091610306789
+    centerline_y = 0.464689553934891
+    centerline_z = 0.777854168692178
+
+    epi_angle = 0.0
+    endo_angle = 0.0
+    # rhs = 'exp(-0.01*((x-94.3516)^2+(y-114.702)^2+(z-100.077)^2))'
+    rhs = 0.0
+    [./BC]
+        #list = epi,endo
+        #list = epi,endo,rv,septum
+        list = 'zero, one'
+        [./zero]
+        flag = 321
+        type = NodalDirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./one]
+        flag = 123
+        type = NodalDirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+        [./fo]
+        flag = 100
+        type = NodalDirichlet
+        mode = Full
+        component  = All
+        function = 0.5
+        [../]
+        [./endo1]
+        flag = 1300
+        type = Dirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./epi2]
+        flag = 1200
+        type = Dirichlet
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./endo2]
+        flag = 1202
+        type = Dirichlet #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = x
+        [../]
+        [./rv]
+        flag = 1101
+        type = NitscheSymmetric
+        mode = Full
+        component  = All
+        function = x
+        [../]
+        [./septum]
+        flag = 1001
+        type = NitscheUnsymmetric
+        mode = Full
+        component  = All
+        function = x
+        [../]
+    [../]
+[../]

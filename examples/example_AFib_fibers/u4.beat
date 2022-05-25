@@ -1,0 +1,46 @@
+# FILE:    "data.pot"
+# PURPOSE: Example BC
+# (C) 2016 Simone Rossi
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+[poisson]
+    # Output Folder
+    output_folder = LA_Output
+    rhs = 0.0
+
+    [./BC]
+        #list = epi,endo
+        #list = epi,endo,rv,septum
+        list = 'zero, one, half'
+        [./zero]
+        flag = '5,7,6,8'
+        type = Penalty
+        mode = Full
+        component  = All
+        function = 0.0
+        [../]
+        [./pvs]
+        flag = '7'
+        type = Penalty
+        mode = Full
+        component  = All
+        function = 0.1
+        [../]
+        [./one]
+        flag = 4
+        type = Penalty #NitscheSymmetric
+        mode = Full
+        component  = All
+        function = 1.0
+        [../]
+        [./half]
+        flag = '123,321'
+        type = NodalDirichlet
+        mode = Full
+        component  = All
+        function = 0.5
+        [../]
+    [../]
+[../]
