@@ -41,12 +41,20 @@ In case you want your Bachmann's Bundle to cross the septum in a higher position
 You can find a Mesh example here: https://osf.io/2q3up/?view_only=19abb61193ba4384a504392ca6769703
 Note, the original mesh is the 03patient from http://doi.org/doi:10.18742/RDM01-289
 
-The input file  `mesh`, `la_mesh` variables are set to be the input mesh names:
+In the input file `data.beat`, the input variables  `mesh`, `la_mesh` are set to be the input mesh names:
 ```
 mesh=input_mesh.e
 la_mesh=input_mesh.e
 ```
- --- under construction: include input files  ----
+
+To run the simulation you can do:
+```
+./example_afib_fibers -i data.beat
+```
+This will create the fibers and run the monodomain model with variables set in `data_ep.beat`. Note: you can run the code in parallel. For example running it with `mpirun` using 88 cores:
+```
+mpirun -n 88 ./example_afib_fibers -i data.beat
+```
 
 ## Thresholds 
 
