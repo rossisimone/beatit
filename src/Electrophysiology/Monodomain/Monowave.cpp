@@ -647,7 +647,7 @@ void Monowave::assemble_cg_matrices(double dt)
 
     // Get a reference to the LinearImplicitSystem we are solving
     ElectroSystem &monodomain_system = M_equationSystems.get_system < ElectroSystem > (M_model);
-    IonicModelSystem &ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
+    //IonicModelSystem &ionic_model_system = M_equationSystems.get_system < IonicModelSystem > ("ionic_model");
 
     monodomain_system.get_matrix("mass").zero();
     monodomain_system.get_matrix("lumped_mass").zero();
