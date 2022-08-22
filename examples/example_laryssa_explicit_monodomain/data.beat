@@ -1,0 +1,117 @@
+# FILE:    "data.beat"
+# PURPOSE: Example Laryssa
+#
+# License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY
+#####################################################################
+
+
+
+mesh = NONE
+# if mesh = NONE create a cube (BlockID = 0)
+# number of elements
+nelx  = 50
+nely  = 25
+nelz  = 0
+# Cube dimensions
+minx = 0.
+miny = 0.
+minz = 0.
+maxx = 1.0
+maxy = 0.5
+maxz = 0.0
+# scale geometry
+scale = 1.0
+
+[time] # milli seconds
+    dt = 0.03125      # Default: 1.0
+    init_time = 0.0 # Default: 0.0
+    final_time = 30  # Default: 1.0
+    max_iter =  20000000   # Default: 99999999
+    save_iter = 32   # Default: 1 
+[../]
+
+# Models available 
+# bidomainbath, bidomain, monodomain, monowave
+model = monowave 
+section= monowave 
+
+[monowave]
+     output_folder = Output  # Default: Output
+     time_integrator_order = 1 
+     # If BlockID = 0, then comment tissue_blockIDs value 
+     # tissue_blockIDs = '0'
+     ground_ve = false
+     symmetric_operator = true
+     ionic_models_list = 'Courtemanche'
+     ionic_models_IDs_list = '0'
+
+     # Initial Condition
+     #ic = 'x+3*t' # Default: NOIC
+     #ic = '1.0*(z>0.078)*( (x-0.5)*(x-0.5)+(y-0.5)*(y-0.5)<=1e-3)'
+     #ic = '1.0*(x<=0.1)'
+
+     #Anisotropy: 
+     # isotropic: it uses only Dff
+     # transverse: it uses Dff, Dss 
+     # orthotropic: it uses Dff, Dss and Dnn
+     #anisotropy = transverse # Default: orthotropic
+     anisotropy = orthotropic # Default: orthotropic
+
+    
+     # Conductivities D_i = Dffi ( f x f )  + Dssi ( s x s ) + Dnni  ( n x n)
+     # Conductivities D_e = Dffe ( f x f )  + Dsse ( s x s ) + Dnne  ( n x n)
+     # f = fibers
+     # s = sheets
+     # n = cross-fibers / sheet-normal
+     # Monodomain model uses D_i for input
+     conductivity = list
+     Dffi = '1.3342'     # Default: 1.3342   kOhm^-1 cm^-1
+     Dssi = '0.17606'     # Default: 0.17606  kOhm^-1 cm^-1
+     Dnni = '0.17606'     # Default: 0.17606  kOhm^-1 cm^-1
+     i_IDs = '0' # intracellular block IDs
+
+     # Dffe = '1.3342'     # Default: 1.3342   kOhm^-1 cm^-1
+     # Dsse = '0.17606'     # Default: 0.17606  kOhm^-1 cm^-1
+     # Dnne = '0.17606'     # Default: 0.17606  kOhm^-1 cm^-1
+     # e_IDs = '0' # extracellular block IDs
+
+
+     # Surface To Volume Ration
+     Chi = 1400.0  # Default: 1400 cm^-1
+     # Default capacitance 1.0
+     Cm = 1.0 
+
+     # Relaxation time
+     # You don't want to know
+     tau_i = 0.0     # Default: 0.0 ms
+     tau_e = 0.0     # Default: 0.0 ms
+     
+     # Fiber fields
+     # f = [fx, fy, fz]
+     fibers = '1.0, 0.0, 0.0'
+     sheets = '0.0, 1.0, 0.0'
+     xfibers = '0.0,0.0, 1.0'                   # Default: '0.0, 0.0, 1.0'
+
+     [./pacing]
+          # The pacing type depends on how we stimulate
+          # Types avaialable
+          # function: gives a function f(x,y,z,t) to specify the stimulus
+          # S1: S1 stimulation protocol
+          # S1S2: S1S2 stimulation protocol
+          type = 'function' # Default: NONE
+          function = '-100.0*(x<= 0.1)*(t>=0)*(t<=2)'          
+          # Check the pacing protocol classes for more info
+     [../]
+
+     #no Boundary conditions on the monodomain
+     #[./BC]
+     #     list = 'blood'
+     #     [./blood]
+     #      flag = 5
+     #      type = Dirichlet
+     #      mode = Full
+     #      component  = All
+     #      function = 0.0
+     #     [../]
+     #[../]
+ [../]
